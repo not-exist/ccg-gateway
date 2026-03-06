@@ -502,6 +502,12 @@ pub async fn update_cli_settings(
         .execute(db.inner())
         .await
         .map_err(|e| e.to_string())?;
+
+        // If CLI is enabled (checked via config file), sync config file immediately
+        if input.enabled.is_none() && check_cli_enabled(&cli_type) {
+            let default_config = config_trimmed.to_string();
+            sync_cli_config(&cli_type, true, &default_config).await?;
+        }
     }
 
     // Update CLI config file if enabled flag is provided
@@ -516,7 +522,7 @@ pub async fn update_cli_settings(
         .map_err(|e| e.to_string())?;
 
         let default_config = row.and_then(|r| r.default_json_config).unwrap_or_default();
-        sync_cli_config(&cli_type, enabled, &default_config, db).await?;
+        sync_cli_config(&cli_type, enabled, &default_config).await?;
     }
 
     Ok(())
@@ -738,11 +744,11 @@ fn get_mcp_config_path(cli_type: &str) -> Option<std::path::PathBuf> {
     }
 }
 
-async fn sync_cli_config(cli_type: &str, enabled: bool, default_config: &str, db: State<'_, SqlitePool>) -> Result<()> {
+async fn sync_cli_config(cli_type: &str, enabled: bool, default_config: &str) -> Result<()> {
     match cli_type {
-        "claude_code" => sync_claude_code_config(enabled, default_config, db).await,
-        "codex" => sync_codex_config(enabled, default_config, db).await,
-        "gemini" => sync_gemini_config(enabled, default_config, db).await,
+        "claude_code" => sync_claude_code_config(enabled, default_config).await,
+        "codex" => sync_codex_config(enabled, default_config).await,
+        "gemini" => sync_gemini_config(enabled, default_config).await,
         _ => Err("Invalid CLI type".to_string()),
     }
 }
@@ -805,7 +811,7 @@ fn deep_merge(base: &mut serde_json::Value, override_val: &serde_json::Value) {
 }
 
 // Sync Claude Code configuration (settings.json)
-async fn sync_claude_code_config(enabled: bool, default_config: &str, _db: State<'_, SqlitePool>) -> Result<()> {
+async fn sync_claude_code_config(enabled: bool, default_config: &str) -> Result<()> {
     let home = dirs::home_dir().ok_or_else(|| "Cannot get home directory".to_string())?;
     let config_path = home.join(".claude").join("settings.json");
 
@@ -868,7 +874,7 @@ async fn sync_claude_code_config(enabled: bool, default_config: &str, _db: State
 }
 
 // Sync Codex configuration (auth.json + config.toml)
-async fn sync_codex_config(enabled: bool, default_config: &str, _db: State<'_, SqlitePool>) -> Result<()> {
+async fn sync_codex_config(enabled: bool, default_config: &str) -> Result<()> {
     let home = dirs::home_dir().ok_or_else(|| "Cannot get home directory".to_string())?;
     let codex_dir = home.join(".codex");
     let auth_path = codex_dir.join("auth.json");
@@ -965,7 +971,7 @@ async fn sync_codex_config(enabled: bool, default_config: &str, _db: State<'_, S
 }
 
 // Sync Gemini configuration (settings.json + .env)
-async fn sync_gemini_config(enabled: bool, default_config: &str, _db: State<'_, SqlitePool>) -> Result<()> {
+async fn sync_gemini_config(enabled: bool, default_config: &str) -> Result<()> {
     let home = dirs::home_dir().ok_or_else(|| "Cannot get home directory".to_string())?;
     let gemini_dir = home.join(".gemini");
     let config_path = gemini_dir.join("settings.json");
