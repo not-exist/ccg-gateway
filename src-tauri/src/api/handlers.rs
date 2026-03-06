@@ -103,7 +103,7 @@ pub async fn proxy_handler_catchall(
         }
     };
 
-    // Store client body for logging (truncate if too large)
+    // Store client body for logging
     let client_body_str = truncate_body(&body_bytes);
 
     // Select provider based on CLI type
@@ -274,17 +274,7 @@ fn serialize_reqwest_headers(headers: &reqwest::header::HeaderMap) -> String {
 }
 
 fn truncate_body(body: &[u8]) -> String {
-    const MAX_SIZE: usize = 100 * 1024; // 100KB
-    let s = String::from_utf8_lossy(body);
-    if s.len() > MAX_SIZE {
-        let mut end = MAX_SIZE;
-        while end > 0 && !s.is_char_boundary(end) {
-            end -= 1;
-        }
-        format!("{}...[truncated]", &s[..end])
-    } else {
-        s.to_string()
-    }
+    String::from_utf8_lossy(body).into_owned()
 }
 
 /// Decompress gzip data if needed
@@ -418,7 +408,7 @@ async fn handle_streaming_request(
     // 创建channel用于通知stream结束
     let (stream_end_tx, mut stream_end_rx) = mpsc::channel::<()>(1);
 
-    // 收集完整内容的上限（10MB），用于解析token；存储时再截断到100KB
+    // 收集完整内容的上限（10MB），用于解析token
     const MAX_COLLECT_SIZE: usize = 10 * 1024 * 1024;
 
     let stream = async_stream::stream! {
@@ -436,7 +426,6 @@ async fn handle_streaming_request(
                     total_bytes += chunk_size;
                     
                     // 收集chunk用于解析token（限制10MB防止极端情况）
-                    // 存储到数据库时再截断到100KB
                     if collected_bytes < MAX_COLLECT_SIZE {
                         let mut chunks = collected_chunks_for_stream.lock().await;
                         chunks.push(chunk.clone());
