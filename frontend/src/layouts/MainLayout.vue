@@ -53,14 +53,22 @@
         <div class="header-content">
           <span class="page-title">{{ pageTitle }}</span>
           <div class="header-right">
-            <el-button 
-              type="primary" 
-              link 
-              :icon="Refresh" 
+            <el-button
+              type="primary"
+              link
+              :icon="Refresh"
               @click="handleCheckUpdate"
               :loading="checkingUpdate"
             >
               检查更新
+            </el-button>
+            <el-button
+              type="primary"
+              link
+              :icon="Link"
+              @click="openGithubRepo"
+            >
+              GitHub
             </el-button>
           </div>
         </div>
@@ -76,8 +84,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getVersion } from '@tauri-apps/api/app'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, Link } from '@element-plus/icons-vue'
 import { checkForUpdates } from '@/utils/updater'
+import { open } from '@tauri-apps/plugin-shell'
 
 const route = useRoute()
 
@@ -107,6 +116,10 @@ async function handleCheckUpdate() {
   } finally {
     checkingUpdate.value = false
   }
+}
+
+async function openGithubRepo() {
+  await open('https://github.com/mos1128/ccg-gateway')
 }
 
 onMounted(async () => {
