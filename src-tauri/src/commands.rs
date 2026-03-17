@@ -1365,6 +1365,10 @@ pub async fn clear_request_logs(log_db: State<'_, crate::LogDb>) -> Result<()> {
         .execute(&log_db.0)
         .await
         .map_err(|e| e.to_string())?;
+    sqlx::query("VACUUM")
+        .execute(&log_db.0)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1437,6 +1441,10 @@ pub async fn get_system_logs(
 #[tauri::command]
 pub async fn clear_system_logs(log_db: State<'_, crate::LogDb>) -> Result<()> {
     sqlx::query("DELETE FROM system_logs")
+        .execute(&log_db.0)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("VACUUM")
         .execute(&log_db.0)
         .await
         .map_err(|e| e.to_string())?;
