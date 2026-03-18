@@ -95,6 +95,7 @@ import { useDashboardStore } from '@/stores/dashboard'
 import { useProviderStore } from '@/stores/providers'
 import { useSettingsStore } from '@/stores/settings'
 import { statsApi } from '@/api/stats'
+import { formatTokens } from '@/utils/json'
 import type { ProviderStats, DailyStats } from '@/types/models'
 
 echarts.use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
@@ -151,12 +152,6 @@ function getCliEnabled(cliType: string): boolean {
 
 function getCliMode(cliType: string): 'proxy' | 'direct' {
   return settingsStore.settings?.cli_settings?.[cliType]?.cli_mode ?? 'proxy'
-}
-
-function formatTokens(tokens: number): string {
-  if (!tokens) return '0'
-  if (tokens < 1000) return tokens.toString()
-  return (tokens / 1000).toFixed(1) + 'K'
 }
 
 async function handleCliToggle(cliType: string, enabled: boolean) {

@@ -285,6 +285,7 @@ import { CopyDocument } from '@element-plus/icons-vue'
 import { logsApi } from '@/api/logs'
 import { providersApi } from '@/api/providers'
 import { useUiStore } from '@/stores/ui'
+import { formatJson as formatJsonUtil, formatTokens } from '@/utils/json'
 import type { RequestLogListItem, RequestLogDetail, SystemLogItem } from '@/types/models'
 
 const uiStore = useUiStore()
@@ -420,11 +421,7 @@ function formatTime(timestamp: number): string {
 
 function formatJson(str: string | null): string {
   if (!str) return ''
-  try {
-    return JSON.stringify(JSON.parse(str), null, 2)
-  } catch {
-    return str
-  }
+  return formatJsonUtil(str)
 }
 
 const eventTypeMap: Record<string, string> = {
@@ -439,12 +436,6 @@ const eventTypeMap: Record<string, string> = {
 
 function formatEventType(eventType: string): string {
   return eventTypeMap[eventType] || eventType
-}
-
-function formatTokens(tokens: number | undefined): string {
-  if (!tokens) return '0'
-  if (tokens < 1000) return tokens.toString()
-  return (tokens / 1000).toFixed(1) + 'K'
 }
 
 function getStatusCodeType(code: number | null): string {

@@ -27,3 +27,13 @@ export function formatJson(input: string): string {
     return input
   }
 }
+
+/**
+ * 格式化 Token 数量
+ * 小于 1000 显示原数字，大于等于 1000 显示为 K 单位
+ */
+export function formatTokens(tokens: number | undefined): string {
+  if (!tokens) return '0'
+  if (tokens < 1000) return tokens.toString()
+  return (tokens / 1000).toFixed(1) + 'K'
+}
