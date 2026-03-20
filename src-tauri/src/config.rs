@@ -43,30 +43,65 @@ fn default_log_db_path() -> PathBuf {
 }
 
 pub fn get_data_dir() -> PathBuf {
-    // Priority 1: Custom environment variable
     if let Ok(dir) = std::env::var("CCG_DATA_DIR") {
         return PathBuf::from(dir);
     }
-
-    // Priority 2: User home directory (cross-platform consistent)
     if let Some(home) = dirs::home_dir() {
         return home.join(".ccg-gateway");
     }
-
-    // Fallback: Current directory
     PathBuf::from(".").join(".ccg-gateway")
 }
 
-/// Get log directory (same as data directory)
 pub fn get_log_dir() -> PathBuf {
     get_data_dir().join("logs")
 }
 
-/// Check if file logging is enabled via environment variable
 pub fn is_file_log_enabled() -> bool {
     std::env::var("CCG_LOG_FILE")
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false)
+}
+
+/// 获取 CLI 默认配置目录（不涉及数据库）
+pub fn get_default_cli_config_dir(cli_type: &str) -> PathBuf {
+    let home = dirs::home_dir().unwrap_or_default();
+    match cli_type {
+        "claude_code" => home.join(".claude"),
+        "codex" => home.join(".codex"),
+        "gemini" => home.join(".gemini"),
+        _ => home,
+    }
+}
+
+/// 展开 ~ 为用户目录
+pub fn expand_home_path(path: &str) -> String {
+    if path.starts_with('~') {
+        let home = dirs::home_dir().unwrap_or_default();
+        let remaining = &path[1..];
+        let remaining = remaining.strip_prefix('/').or_else(|| remaining.strip_prefix('\\')).unwrap_or(remaining);
+        home.join(remaining).to_string_lossy().to_string()
+    } else {
+        path.to_string()
+    }
+}
+
+/// 将绝对路径收缩为 ~ 开头的相对路径
+pub fn shrink_home_path(path: &str) -> String {
+    let home = dirs::home_dir().unwrap_or_default();
+    let home_str = home.to_string_lossy();
+    let path_normalized = path.replace('\\', "/");
+    let home_normalized = home_str.replace('\\', "/");
+
+    if path_normalized.starts_with(&home_normalized) {
+        let remaining = &path_normalized[home_normalized.len()..];
+        if remaining.is_empty() {
+            "~".to_string()
+        } else {
+            format!("~{}", remaining)
+        }
+    } else {
+        path.to_string()
+    }
 }
 
 impl Default for Config {

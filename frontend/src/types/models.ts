@@ -287,3 +287,56 @@ export interface SystemLogListResponse {
   page: number
   page_size: number
 }
+
+// Plugin types
+export interface InstalledPlugin {
+  name: string
+  version: string | null
+  description: string | null
+  marketplace_name: string | null
+  is_enabled: boolean
+}
+
+export interface MarketplaceInfo {
+  name: string
+  description: string | null
+  url: string | null
+}
+
+export interface MarketplacePlugin {
+  name: string
+  version: string | null
+  description: string | null
+  marketplace_name: string
+}
+
+export interface PluginItem {
+  name: string
+  version: string | null
+  description: string | null
+  marketplace_name: string
+  is_installed: boolean
+  is_enabled: boolean | null
+  is_favorited: boolean
+}
+
+export interface PluginFavorite {
+  id: number
+  plugin_id: string
+  plugin_name: string
+  marketplace_name: string
+  marketplace_url: string | null
+  version: string | null
+  description: string | null
+  created_at: number
+  is_installed: boolean
+}
+
+export interface PluginFavoriteCreate {
+  plugin_id: string
+  plugin_name: string
+  marketplace_name: string
+  marketplace_url?: string
+  version?: string
+  description?: string
+}

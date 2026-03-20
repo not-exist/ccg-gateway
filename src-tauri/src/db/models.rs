@@ -613,3 +613,80 @@ pub struct SystemStatus {
     pub uptime: i64,
     pub version: String,
 }
+
+// ==================== Plugin 相关实体 ====================
+
+// 收藏的插件 (对应数据库表)
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct PluginFavorite {
+    pub id: i64,
+    pub plugin_id: String,
+    pub plugin_name: String,
+    pub marketplace_name: String,
+    pub marketplace_url: Option<String>,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginFavoriteCreate {
+    pub plugin_id: String,
+    pub plugin_name: String,
+    pub marketplace_name: String,
+    pub marketplace_url: Option<String>,
+    pub version: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PluginFavoriteResponse {
+    pub id: i64,
+    pub plugin_id: String,
+    pub plugin_name: String,
+    pub marketplace_name: String,
+    pub marketplace_url: Option<String>,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub created_at: i64,
+    pub is_installed: bool,
+}
+
+// 市场信息 (从 JSON 解析)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketplaceInfo {
+    pub name: String,
+    pub description: Option<String>,
+    pub url: Option<String>,
+}
+
+// 市场中的插件信息 (从 JSON 解析)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketplacePlugin {
+    pub name: String,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub marketplace_name: String,
+}
+
+// 已安装插件信息 (从 CLI 解析)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstalledPlugin {
+    pub name: String,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub marketplace_name: Option<String>,
+    pub is_enabled: bool,
+}
+
+// 合并后的插件展示项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginItem {
+    pub name: String,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub marketplace_name: String,
+    pub is_installed: bool,
+    pub is_enabled: Option<bool>,
+    pub is_favorited: bool,
+}

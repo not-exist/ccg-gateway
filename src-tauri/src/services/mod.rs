@@ -1,3 +1,4 @@
+pub mod plugin;
 pub mod provider;
 pub mod proxy;
 pub mod routing;

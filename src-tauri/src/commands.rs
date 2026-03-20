@@ -1,4 +1,4 @@
-use crate::config::get_data_dir;
+use crate::config::{get_data_dir, get_default_cli_config_dir, expand_home_path, shrink_home_path};
 use crate::db::models::{
     Provider, ProviderCreate, ProviderResponse, ProviderUpdate,
     GatewaySettings, TimeoutSettings, TimeoutSettingsUpdate,
@@ -14,6 +14,8 @@ use crate::db::models::{
     ProjectInfo, SessionInfo, PaginatedProjects, PaginatedSessions, SessionMessage,
     SystemStatus,
     OfficialCredential, OfficialCredentialCreate, OfficialCredentialUpdate, OfficialCredentialResponse,
+    InstalledPlugin, MarketplaceInfo, PluginItem,
+    PluginFavorite, PluginFavoriteCreate, PluginFavoriteResponse,
 };
 use crate::LogDb;
 use sqlx::SqlitePool;
@@ -532,10 +534,9 @@ pub async fn get_cli_settings(db: State<'_, SqlitePool>, cli_type: String) -> Re
     .await
     .map_err(|e| e.to_string())?;
 
-    // 从数据库获取 config_dir（可能为用户自定义值）
-    let config_dir = get_cli_config_dir(db.inner(), &cli_type).await;
-    // 默认 config_dir 始终是系统路径（硬编码）
-    let default_config_dir = get_default_config_dir(&cli_type);
+    // 获取配置目录
+    let config_dir = get_cli_config_dir_path(db.inner(), &cli_type).await.to_string_lossy().to_string();
+    let default_config_dir = get_default_cli_config_dir(&cli_type).to_string_lossy().to_string();
 
     if let Some(row) = row {
         let enabled = check_cli_enabled(db.inner(), &cli_type).await;
@@ -702,20 +703,12 @@ fn normalize_text(text: &str) -> String {
 
 // Check if MCP config exists in the CLI config file - 异步版本，支持自定义配置目录
 async fn mcp_enabled_in_file_async(db: &SqlitePool, cli_type: &str, mcp_name: &str) -> bool {
+    let config_dir = get_cli_config_dir_path(db, cli_type).await;
+
     let config_path = match cli_type {
-        "claude_code" => {
-            // Claude Code MCP 配置在 .claude.json（父目录）
-            let config_dir = get_cli_config_dir_path(db, cli_type).await;
-            config_dir.parent().map(|p| p.join(".claude.json"))
-        }
-        "gemini" => {
-            let config_dir = get_cli_config_dir_path(db, cli_type).await;
-            Some(config_dir.join("settings.json"))
-        }
-        "codex" => {
-            let config_dir = get_cli_config_dir_path(db, cli_type).await;
-            Some(config_dir.join("config.toml"))
-        }
+        "claude_code" => config_dir.parent().map(|p| p.join(".claude.json")),
+        "gemini" => Some(config_dir.join("settings.json")),
+        "codex" => Some(config_dir.join("config.toml")),
         _ => None,
     };
 
@@ -786,59 +779,13 @@ async fn prompt_enabled_in_file_async(db: &SqlitePool, cli_type: &str, prompt_co
 }
 
 // ============================================================================
-// 统一的配置目录获取方法
+// CLI 配置目录获取（统一入口）
 // ============================================================================
 
-/// 获取CLI默认配置目录
-pub fn get_default_config_dir(cli_type: &str) -> String {
-    let home = dirs::home_dir().unwrap_or_default();
-    match cli_type {
-        "claude_code" => home.join(".claude").to_string_lossy().to_string(),
-        "codex" => home.join(".codex").to_string_lossy().to_string(),
-        "gemini" => home.join(".gemini").to_string_lossy().to_string(),
-        _ => home.to_string_lossy().to_string(),
-    }
-}
-
-/// 展开 ~ 为用户目录
-/// 例如: ~/.claude -> C:\Users\mos\.claude
-pub fn expand_home_path(path: &str) -> String {
-    if path.starts_with('~') {
-        let home = dirs::home_dir().unwrap_or_default();
-        let remaining = &path[1..]; // 去掉 ~
-        // 处理 ~/ 或 ~ 两种情况
-        let remaining = remaining.strip_prefix('/').or_else(|| remaining.strip_prefix('\\')).unwrap_or(remaining);
-        home.join(remaining).to_string_lossy().to_string()
-    } else {
-        path.to_string()
-    }
-}
-
-/// 将绝对路径收缩为 ~ 开头的相对路径
-/// 例如: C:\Users\mos\.claude -> ~/.claude
-pub fn shrink_home_path(path: &str) -> String {
-    let home = dirs::home_dir().unwrap_or_default();
-    let home_str = home.to_string_lossy();
-
-    // 标准化路径分隔符进行比较
-    let path_normalized = path.replace('\\', "/");
-    let home_normalized = home_str.replace('\\', "/");
-
-    if path_normalized.starts_with(&home_normalized) {
-        let remaining = &path_normalized[home_normalized.len()..];
-        if remaining.is_empty() {
-            "~".to_string()
-        } else {
-            format!("~{}", remaining)
-        }
-    } else {
-        path.to_string()
-    }
-}
-
-/// 从数据库获取CLI配置目录（异步版本）
-/// 如果数据库中没有设置，返回默认配置目录
-pub async fn get_cli_config_dir(db: &SqlitePool, cli_type: &str) -> String {
+/// 获取 CLI 配置目录
+/// 优先级：数据库配置 > 默认路径
+pub async fn get_cli_config_dir_path(db: &SqlitePool, cli_type: &str) -> std::path::PathBuf {
+    // 1. 查询数据库
     let result: Option<(Option<String>,)> = sqlx::query_as(
         "SELECT config_dir FROM cli_settings WHERE cli_type = ?",
     )
@@ -848,25 +795,16 @@ pub async fn get_cli_config_dir(db: &SqlitePool, cli_type: &str) -> String {
     .ok()
     .flatten();
 
-    result
-        .and_then(|r| r.0)
-        .map(|p| expand_home_path(&p)) // 展开路径中的 ~
-        .unwrap_or_else(|| get_default_config_dir(cli_type))
-}
-
-/// 获取CLI配置目录的PathBuf版本（异步）
-pub async fn get_cli_config_dir_path(db: &SqlitePool, cli_type: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from(get_cli_config_dir(db, cli_type).await)
+    // 2. 有配置则展开路径，否则使用默认
+    match result.and_then(|r| r.0) {
+        Some(path) => std::path::PathBuf::from(expand_home_path(&path)),
+        None => get_default_cli_config_dir(cli_type),
+    }
 }
 
 // ============================================================================
-// 以下是旧的函数，保留用于向后兼容，内部调用新的统一方法
+// 内部辅助函数
 // ============================================================================
-
-// 从数据库获取配置目录，如果没有则返回默认值
-async fn get_config_dir_from_db(db: &SqlitePool, cli_type: &str) -> String {
-    get_cli_config_dir(db, cli_type).await
-}
 
 async fn check_cli_enabled(db: &SqlitePool, cli_type: &str) -> bool {
     match cli_type {
@@ -878,8 +816,8 @@ async fn check_cli_enabled(db: &SqlitePool, cli_type: &str) -> bool {
 }
 
 async fn check_claude_uses_gateway(db: &SqlitePool, cli_type: &str) -> bool {
-    let config_dir = get_config_dir_from_db(db, cli_type).await;
-    let config_path = std::path::PathBuf::from(config_dir).join("settings.json");
+    let config_dir = get_cli_config_dir_path(db, cli_type).await;
+    let config_path = config_dir.join("settings.json");
 
     if !config_path.exists() {
         return false;
@@ -909,8 +847,8 @@ async fn check_claude_uses_gateway(db: &SqlitePool, cli_type: &str) -> bool {
 }
 
 async fn check_codex_uses_gateway(db: &SqlitePool, cli_type: &str) -> bool {
-    let config_dir = get_config_dir_from_db(db, cli_type).await;
-    let config_path = std::path::PathBuf::from(config_dir).join("config.toml");
+    let config_dir = get_cli_config_dir_path(db, cli_type).await;
+    let config_path = config_dir.join("config.toml");
 
     if !config_path.exists() {
         return false;
@@ -940,8 +878,8 @@ async fn check_codex_uses_gateway(db: &SqlitePool, cli_type: &str) -> bool {
 }
 
 async fn check_gemini_uses_gateway(db: &SqlitePool, cli_type: &str) -> bool {
-    let config_dir = get_config_dir_from_db(db, cli_type).await;
-    let env_path = std::path::PathBuf::from(config_dir).join(".env");
+    let config_dir = get_cli_config_dir_path(db, cli_type).await;
+    let env_path = config_dir.join(".env");
 
     if !env_path.exists() {
         return false;
@@ -964,15 +902,14 @@ async fn check_gemini_uses_gateway(db: &SqlitePool, cli_type: &str) -> bool {
 
 // Get the config file path for MCP/prompts sync (different for Codex)
 async fn get_mcp_config_path(db: &SqlitePool, cli_type: &str) -> Option<std::path::PathBuf> {
-    let config_dir = get_config_dir_from_db(db, cli_type).await;
-    let base_path = std::path::PathBuf::from(config_dir);
-    
+    let base_path = get_cli_config_dir_path(db, cli_type).await;
+
     match cli_type {
         "claude_code" => {
             // Claude Code MCP goes to ~/.claude.json (parent of config_dir)
             base_path.parent().map(|p| p.join(".claude.json"))
         },
-        "codex" => Some(base_path.join("config.toml")),  // Codex MCP goes to config.toml
+        "codex" => Some(base_path.join("config.toml")),
         "gemini" => Some(base_path.join("settings.json")),
         _ => None,
     }
@@ -2035,9 +1972,8 @@ async fn sync_prompt_configs_to_cli(_db: State<'_, SqlitePool>) -> Result<()> {
 }
 
 async fn get_prompt_file_path(db: &SqlitePool, cli_type: &str) -> Option<std::path::PathBuf> {
-    let config_dir = get_config_dir_from_db(db, cli_type).await;
-    let base_path = std::path::PathBuf::from(config_dir);
-    
+    let base_path = get_cli_config_dir_path(db, cli_type).await;
+
     match cli_type {
         "claude_code" => Some(base_path.join("CLAUDE.md")),
         "codex" => Some(base_path.join("AGENTS.md")),
@@ -5524,4 +5460,178 @@ pub async fn set_cli_mode(
     }
 
     Ok(())
+}
+
+// ==================== 插件管理命令 ====================
+
+#[tauri::command]
+pub async fn get_installed_plugins() -> Result<Vec<InstalledPlugin>> {
+    crate::services::plugin::get_installed_plugins_impl().await
+}
+
+#[tauri::command]
+pub async fn get_all_plugins(db: State<'_, SqlitePool>) -> Result<Vec<PluginItem>> {
+    let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
+    let mut plugins = crate::services::plugin::get_all_plugins_impl(&config_dir)?;
+
+    // 获取收藏列表，标记 is_favorited
+    let favorites: Vec<(String,)> = sqlx::query_as("SELECT plugin_id FROM plugin_favorites")
+        .fetch_all(db.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let favorite_ids: std::collections::HashSet<String> = favorites.into_iter().map(|f| f.0).collect();
+
+    for plugin in &mut plugins {
+        let plugin_id = format!("{}@{}", plugin.name, plugin.marketplace_name);
+        plugin.is_favorited = favorite_ids.contains(&plugin_id);
+    }
+
+    Ok(plugins)
+}
+
+#[tauri::command]
+pub async fn install_plugin(plugin_id: String) -> Result<()> {
+    crate::services::plugin::install_plugin_impl(plugin_id).await
+}
+
+#[tauri::command]
+pub async fn uninstall_plugin(plugin_id: String) -> Result<()> {
+    crate::services::plugin::uninstall_plugin_impl(plugin_id).await
+}
+
+#[tauri::command]
+pub async fn enable_plugin(plugin_id: String) -> Result<()> {
+    crate::services::plugin::enable_plugin_impl(plugin_id).await
+}
+
+#[tauri::command]
+pub async fn disable_plugin(plugin_id: String) -> Result<()> {
+    crate::services::plugin::disable_plugin_impl(plugin_id).await
+}
+
+#[tauri::command]
+pub async fn update_plugin(plugin_id: String) -> Result<()> {
+    crate::services::plugin::update_plugin_impl(plugin_id).await
+}
+
+// ==================== 市场管理命令 ====================
+
+#[tauri::command]
+pub async fn get_installed_marketplaces(db: State<'_, SqlitePool>) -> Result<Vec<MarketplaceInfo>> {
+    let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
+    crate::services::plugin::get_installed_marketplaces_impl(&config_dir)
+}
+
+#[tauri::command]
+pub async fn add_marketplace(url: String) -> Result<MarketplaceInfo> {
+    crate::services::plugin::add_marketplace_impl(url).await
+}
+
+#[tauri::command]
+pub async fn remove_marketplace(name: String) -> Result<()> {
+    crate::services::plugin::remove_marketplace_impl(name).await
+}
+
+#[tauri::command]
+pub async fn update_marketplace(name: String) -> Result<()> {
+    crate::services::plugin::update_marketplace_impl(name).await
+}
+
+#[tauri::command]
+pub async fn check_marketplace_exists(db: State<'_, SqlitePool>, name: String) -> Result<bool> {
+    let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
+    crate::services::plugin::check_marketplace_exists_impl(&name, &config_dir)
+}
+
+// ==================== 收藏管理命令 ====================
+
+#[tauri::command]
+pub async fn get_plugin_favorites(db: State<'_, SqlitePool>) -> Result<Vec<PluginFavoriteResponse>> {
+    let favorites: Vec<PluginFavorite> = sqlx::query_as("SELECT * FROM plugin_favorites ORDER BY created_at DESC")
+        .fetch_all(db.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 获取已安装插件列表
+    let installed = crate::services::plugin::get_installed_plugins_impl().await.unwrap_or_default();
+    let installed_ids: std::collections::HashSet<String> = installed
+        .iter()
+        .filter_map(|p| {
+            p.marketplace_name.as_ref().map(|m| format!("{}@{}", p.name, m))
+        })
+        .collect();
+
+    Ok(favorites.into_iter().map(|f| PluginFavoriteResponse {
+        id: f.id,
+        plugin_id: f.plugin_id.clone(),
+        plugin_name: f.plugin_name,
+        marketplace_name: f.marketplace_name,
+        marketplace_url: f.marketplace_url,
+        version: f.version,
+        description: f.description,
+        created_at: f.created_at,
+        is_installed: installed_ids.contains(&f.plugin_id),
+    }).collect())
+}
+
+#[tauri::command]
+pub async fn add_plugin_favorite(db: State<'_, SqlitePool>, input: PluginFavoriteCreate) -> Result<()> {
+    let now = chrono::Utc::now().timestamp();
+
+    sqlx::query(
+        "INSERT OR REPLACE INTO plugin_favorites (plugin_id, plugin_name, marketplace_name, marketplace_url, version, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    )
+    .bind(&input.plugin_id)
+    .bind(&input.plugin_name)
+    .bind(&input.marketplace_name)
+    .bind(&input.marketplace_url)
+    .bind(&input.version)
+    .bind(&input.description)
+    .bind(now)
+    .execute(db.inner())
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn remove_plugin_favorite(db: State<'_, SqlitePool>, plugin_id: String) -> Result<()> {
+    sqlx::query("DELETE FROM plugin_favorites WHERE plugin_id = ?")
+        .bind(&plugin_id)
+        .execute(db.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn install_from_favorite(db: State<'_, SqlitePool>, plugin_id: String) -> Result<()> {
+    let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
+
+    // 获取收藏信息
+    let favorite: Option<PluginFavorite> = sqlx::query_as("SELECT * FROM plugin_favorites WHERE plugin_id = ?")
+        .bind(&plugin_id)
+        .fetch_optional(db.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let favorite = favorite.ok_or("收藏记录不存在")?;
+
+    // 检查市场是否存在
+    let market_exists = crate::services::plugin::check_marketplace_exists_impl(&favorite.marketplace_name, &config_dir)?;
+
+    // 如果市场不存在且有 URL，先安装市场
+    if !market_exists {
+        if let Some(ref url) = favorite.marketplace_url {
+            crate::services::plugin::add_marketplace_impl(url.clone()).await?;
+        } else {
+            return Err(format!("市场 {} 不存在且未提供市场 URL", favorite.marketplace_name));
+        }
+    }
+
+    // 安装插件
+    crate::services::plugin::install_plugin_impl(favorite.plugin_id.clone()).await
 }

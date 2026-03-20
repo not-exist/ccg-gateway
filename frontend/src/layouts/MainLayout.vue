@@ -43,6 +43,10 @@
           <el-icon><MagicStick /></el-icon>
           <span>Skill 管理</span>
         </el-menu-item>
+        <el-menu-item index="/plugins">
+          <el-icon><Grid /></el-icon>
+          <span>插件管理</span>
+        </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
         <span class="version">v{{ appVersion }}</span>
@@ -84,7 +88,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getVersion } from '@tauri-apps/api/app'
-import { Refresh, Link } from '@element-plus/icons-vue'
+import { Refresh, Link, Grid } from '@element-plus/icons-vue'
 import { checkForUpdates } from '@/utils/updater'
 import { open } from '@tauri-apps/plugin-shell'
 
@@ -104,7 +108,8 @@ const pageTitle = computed(() => {
     '/config': '全局配置',
     '/mcp': 'MCP 管理',
     '/prompts': '提示词管理',
-    '/skills': 'Skill 管理'
+    '/skills': 'Skill 管理',
+    '/plugins': '插件管理'
   }
   return titles[route.path] || 'CCG Gateway'
 })
