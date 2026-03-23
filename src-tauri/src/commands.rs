@@ -5488,21 +5488,16 @@ async fn get_favorites_raw(db: &SqlitePool) -> Result<Vec<(String, String, Strin
 
 #[tauri::command]
 pub async fn get_plugin_favorites(db: State<'_, SqlitePool>) -> Result<Vec<PluginFavoriteItem>> {
-    let favorites = get_favorites_raw(db.inner()).await?;
-    crate::services::plugin::get_favorites(favorites)
-}
-
-#[tauri::command]
-pub async fn check_marketplace_exists(db: State<'_, SqlitePool>, marketplace_name: String) -> Result<bool> {
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
-    Ok(crate::services::plugin::check_marketplace_exists_cmd(&config_dir, &marketplace_name))
+    let favorites = get_favorites_raw(db.inner()).await?;
+    crate::services::plugin::get_favorites(&config_dir, favorites).await
 }
 
 #[tauri::command]
 pub async fn get_all_plugins(db: State<'_, SqlitePool>) -> Result<Vec<PluginItem>> {
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
     let favorite_ids = get_favorite_ids(db.inner()).await?;
-    crate::services::plugin::get_plugins(&config_dir, favorite_ids)
+    crate::services::plugin::get_plugins(&config_dir, favorite_ids).await
 }
 
 #[tauri::command]
@@ -5515,7 +5510,7 @@ pub async fn get_marketplaces(db: State<'_, SqlitePool>) -> Result<Vec<Marketpla
 pub async fn refresh_plugins(db: State<'_, SqlitePool>) -> Result<Vec<PluginItem>> {
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
     let favorite_ids = get_favorite_ids(db.inner()).await?;
-    crate::services::plugin::refresh_plugins(&config_dir, favorite_ids)
+    crate::services::plugin::refresh_plugins(&config_dir, favorite_ids).await
 }
 
 #[tauri::command]
@@ -5526,7 +5521,7 @@ pub async fn plugin_action(
 ) -> Result<PluginActionResult> {
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
     let favorite_ids = get_favorite_ids(db.inner()).await?;
-    crate::services::plugin::plugin_action(&action, &plugin_id, &config_dir, favorite_ids)
+    crate::services::plugin::plugin_action(&action, &plugin_id, &config_dir, favorite_ids).await
 }
 
 #[tauri::command]
@@ -5535,7 +5530,7 @@ pub async fn add_plugin_favorite(
     plugin_id: String,
     plugin_name: String,
     marketplace_name: String,
-) -> Result<PluginActionResult> {
+) -> Result<String> {
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
     let marketplace_source = crate::services::plugin::get_marketplace_source_info(&config_dir, &marketplace_name);
     let source_type = crate::services::plugin::get_marketplace_source_type(&config_dir, &marketplace_name);
@@ -5554,33 +5549,34 @@ pub async fn add_plugin_favorite(
     .await
     .map_err(|e| e.to_string())?;
 
-    // 获取更新后的收藏ID列表并更新缓存
+    // 更新缓存中的收藏状态
     let favorite_ids = get_favorite_ids(db.inner()).await?;
-    let mut result = crate::services::plugin::favorite_action(&config_dir, favorite_ids)?;
+    crate::services::plugin::update_cache_favorite_status(&config_dir, &favorite_ids).await?;
 
-    // 添加警告信息（如果是本地市场）
     if source_type.as_deref() == Some("directory") {
-        result.cli_output = "该插件来自本地市场，可能不支持跨设备恢复".to_string();
+        Ok("该插件来自本地市场，可能不支持跨设备恢复".to_string())
+    } else {
+        Ok(String::new())
     }
-
-    Ok(result)
 }
 
 #[tauri::command]
 pub async fn remove_plugin_favorite(
     db: State<'_, SqlitePool>,
     plugin_id: String,
-) -> Result<PluginActionResult> {
+) -> Result<()> {
     sqlx::query("DELETE FROM plugin_favorites WHERE plugin_id = ?")
         .bind(&plugin_id)
         .execute(db.inner())
         .await
         .map_err(|e| e.to_string())?;
 
-    // 获取更新后的收藏ID列表并更新缓存
+    // 更新缓存中的收藏状态
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
     let favorite_ids = get_favorite_ids(db.inner()).await?;
-    crate::services::plugin::favorite_action(&config_dir, favorite_ids)
+    crate::services::plugin::update_cache_favorite_status(&config_dir, &favorite_ids).await?;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -5591,5 +5587,23 @@ pub async fn marketplace_action(
 ) -> Result<MarketplaceActionResult> {
     let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
     let favorite_ids = get_favorite_ids(db.inner()).await?;
-    crate::services::plugin::marketplace_action(&action, &param, &config_dir, favorite_ids)
+    crate::services::plugin::marketplace_action(&action, &param, &config_dir, favorite_ids).await
+}
+
+#[tauri::command]
+pub async fn install_favorite_plugin(
+    db: State<'_, SqlitePool>,
+    plugin_id: String,
+    marketplace_name: String,
+    marketplace_source: Option<String>,
+) -> Result<crate::services::plugin::FavoriteInstallResult> {
+    let config_dir = get_cli_config_dir_path(db.inner(), "claude_code").await;
+    let favorite_ids = get_favorite_ids(db.inner()).await?;
+    crate::services::plugin::install_favorite_plugin(
+        &plugin_id,
+        &marketplace_name,
+        marketplace_source.as_deref(),
+        &config_dir,
+        favorite_ids,
+    ).await
 }

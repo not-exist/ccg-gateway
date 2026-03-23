@@ -431,11 +431,10 @@ async function handleAddFavorite(plugin: PluginItem) {
   operatingPlugin.value = plugin.name
   operatingType.value = 'favorite'
   try {
-    const result = await pluginsApi.addFavorite(pluginId, plugin.name, plugin.marketplace_name)
-    allPlugins.value = result.plugins
+    const msg = await pluginsApi.addFavorite(pluginId, plugin.name, plugin.marketplace_name)
     favoriteList.value = await pluginsApi.getFavorites()
-    if (result.cli_output) {
-      showCliOutput(result.cli_output)
+    if (msg) {
+      showCliOutput(msg)
     } else {
       showCliOutput('已收藏')
     }
@@ -453,8 +452,7 @@ async function handleRemoveFavorite(plugin: PluginItem) {
   operatingPlugin.value = plugin.name
   operatingType.value = 'unfavorite'
   try {
-    const result = await pluginsApi.removeFavorite(pluginId)
-    allPlugins.value = result.plugins
+    await pluginsApi.removeFavorite(pluginId)
     favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput('已取消收藏')
   } catch (error: any) {
@@ -470,34 +468,13 @@ async function handleInstallFavorite(favorite: PluginFavoriteItem) {
   operatingPlugin.value = favorite.plugin_id
   operatingType.value = 'install'
   try {
-    // 检查市场是否存在
-    const exists = await pluginsApi.checkMarketplaceExists(favorite.marketplace_name)
-    if (!exists) {
-      // 检查是否有保存的市场来源
-      if (!favorite.marketplace_source) {
-        showCliOutput('市场不存在且无法获取来源信息，请手动安装市场后再试', true)
-        return
-      }
-      // 判断是否为本地路径（包含 :/ 或 \ 或以字母盘开头）
-      const isLocalPath = /^[A-Za-z]:[\\\/]/.test(favorite.marketplace_source) ||
-                          favorite.marketplace_source.includes('\\') ||
-                          !favorite.marketplace_source.includes('/')
-      if (isLocalPath) {
-        showCliOutput('该插件来自本地市场，无法自动恢复', true)
-        return
-      }
-
-      showCliOutput('市场不存在，正在安装市场...')
-      // 使用保存的市场来源安装市场
-      const marketResult = await pluginsApi.addMarketplace(favorite.marketplace_source)
-      allPlugins.value = marketResult.plugins
-      marketplaceList.value = marketResult.marketplaces
-      showCliOutput(marketResult.cli_output || '市场安装成功，正在安装插件...')
-    }
-
-    // 安装插件
-    const result = await pluginsApi.install(favorite.plugin_id)
+    const result = await pluginsApi.installFavorite(
+      favorite.plugin_id,
+      favorite.marketplace_name,
+      favorite.marketplace_source ?? undefined
+    )
     allPlugins.value = result.plugins
+    marketplaceList.value = result.marketplaces
     favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
   } catch (error: any) {
@@ -513,8 +490,7 @@ async function handleRemoveFavoriteById(favorite: PluginFavoriteItem) {
   operatingPlugin.value = favorite.plugin_id
   operatingType.value = 'unfavorite'
   try {
-    const result = await pluginsApi.removeFavorite(favorite.plugin_id)
-    allPlugins.value = result.plugins
+    await pluginsApi.removeFavorite(favorite.plugin_id)
     favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput('已移除')
   } catch (error: any) {

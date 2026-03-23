@@ -231,8 +231,8 @@ pub fn run() {
             commands::get_plugin_favorites,
             commands::add_plugin_favorite,
             commands::remove_plugin_favorite,
-            commands::check_marketplace_exists,
             commands::marketplace_action,
+            commands::install_favorite_plugin,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

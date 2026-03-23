@@ -7,6 +7,12 @@ import type {
   MarketplaceActionResult
 } from '@/types/models'
 
+export interface FavoriteInstallResult {
+  cli_output: string
+  plugins: PluginItem[]
+  marketplaces: MarketplaceInfo[]
+}
+
 export const pluginsApi = {
   // 获取插件列表
   getAll: async (): Promise<PluginItem[]> => {
@@ -33,19 +39,27 @@ export const pluginsApi = {
     return await invoke<PluginFavoriteItem[]>('get_plugin_favorites')
   },
 
-  // 添加收藏（返回更新后的插件列表）
-  addFavorite: async (pluginId: string, pluginName: string, marketplaceName: string): Promise<PluginActionResult> => {
-    return await invoke<PluginActionResult>('add_plugin_favorite', { pluginId, pluginName, marketplaceName })
+  // 添加收藏（返回提示消息，如本地市场警告）
+  addFavorite: async (pluginId: string, pluginName: string, marketplaceName: string): Promise<string> => {
+    return await invoke<string>('add_plugin_favorite', { pluginId, pluginName, marketplaceName })
   },
 
-  // 移除收藏（返回更新后的插件列表）
-  removeFavorite: async (pluginId: string): Promise<PluginActionResult> => {
-    return await invoke<PluginActionResult>('remove_plugin_favorite', { pluginId })
+  // 移除收藏
+  removeFavorite: async (pluginId: string): Promise<void> => {
+    await invoke('remove_plugin_favorite', { pluginId })
   },
 
-  // 检查市场是否存在
-  checkMarketplaceExists: async (marketplaceName: string): Promise<boolean> => {
-    return await invoke<boolean>('check_marketplace_exists', { marketplaceName })
+  // 安装收藏的插件（包含市场检查和安装）
+  installFavorite: async (
+    pluginId: string,
+    marketplaceName: string,
+    marketplaceSource?: string
+  ): Promise<FavoriteInstallResult> => {
+    return await invoke<FavoriteInstallResult>('install_favorite_plugin', {
+      pluginId,
+      marketplaceName,
+      marketplaceSource
+    })
   },
 
   // 市场操作
