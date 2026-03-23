@@ -138,11 +138,15 @@
               <el-button
                 size="small"
                 type="primary"
+                :loading="operatingMarket === row.name && operatingMarketType === 'update'"
+                :disabled="!!operatingMarket"
                 @click="handleUpdateMarketplace(row)"
               >更新</el-button>
               <el-button
                 size="small"
                 type="danger"
+                :loading="operatingMarket === row.name && operatingMarketType === 'remove'"
+                :disabled="!!operatingMarket"
                 @click="handleRemoveMarketplace(row)"
               >删除</el-button>
             </template>
@@ -249,6 +253,10 @@ const savingMarket = ref(false)
 const operatingPlugin = ref<string | null>(null)
 const operatingType = ref<string | null>(null)
 
+// 市场操作状态
+const operatingMarket = ref<string | null>(null)
+const operatingMarketType = ref<string | null>(null)
+
 // 已安装排顶部的排序列表
 const sortedPlugins = computed(() => {
   const installed = allPlugins.value.filter(p => p.is_installed)
@@ -281,10 +289,11 @@ function showCliOutput(output: string, isError: boolean = false) {
   if (!output) return
   ElNotification({
     title: isError ? '操作失败' : '操作结果',
-    message: output,
+    message: output.replace(/\n/g, '<br/>'),
     type: isError ? 'error' : 'success',
     duration: 5000,
-    position: 'top-right'
+    position: 'top-right',
+    dangerouslyUseHTMLString: true
   })
 }
 
@@ -497,6 +506,8 @@ async function handleAddMarketplace() {
 async function handleRemoveMarketplace(market: MarketplaceInfo) {
   try {
     await ElMessageBox.confirm(`确定删除市场 "${market.name}"?`, '确认')
+    operatingMarket.value = market.name
+    operatingMarketType.value = 'remove'
     const result = await pluginsApi.removeMarketplace(market.name)
     allPlugins.value = result.plugins
     marketplaceList.value = result.marketplaces
@@ -505,11 +516,16 @@ async function handleRemoveMarketplace(market: MarketplaceInfo) {
     if (error !== 'cancel') {
       showCliOutput(error?.message || '删除失败', true)
     }
+  } finally {
+    operatingMarket.value = null
+    operatingMarketType.value = null
   }
 }
 
 // 更新市场
 async function handleUpdateMarketplace(market: MarketplaceInfo) {
+  operatingMarket.value = market.name
+  operatingMarketType.value = 'update'
   try {
     const result = await pluginsApi.updateMarketplace(market.name)
     allPlugins.value = result.plugins
@@ -517,6 +533,9 @@ async function handleUpdateMarketplace(market: MarketplaceInfo) {
     showCliOutput(result.cli_output)
   } catch (error: any) {
     showCliOutput(error?.message || '更新失败', true)
+  } finally {
+    operatingMarket.value = null
+    operatingMarketType.value = null
   }
 }
 

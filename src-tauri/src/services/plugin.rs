@@ -411,9 +411,9 @@ pub fn marketplace_action(
 ) -> Result<MarketplaceActionResult> {
     // 执行 CLI 命令
     let cli_output = match action {
-        "add" => run_claude(&["marketplace", "add", param]),
-        "remove" => run_claude(&["marketplace", "remove", param]),
-        "update" => run_claude(&["marketplace", "update", param]),
+        "add" => run_claude(&["plugin", "marketplace", "add", param]),
+        "remove" => run_claude(&["plugin", "marketplace", "remove", param]),
+        "update" => run_claude(&["plugin", "marketplace", "update", param]),
         _ => return Err(format!("未知操作: {}", action)),
     }?;
 
