@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type {
   MarketplaceInfo,
   PluginItem,
+  PluginFavoriteItem,
   PluginActionResult,
   MarketplaceActionResult
 } from '@/types/models'
@@ -27,25 +28,24 @@ export const pluginsApi = {
     return await invoke<PluginActionResult>('plugin_action', { action, pluginId })
   },
 
-  // 收藏操作
-  addFavorite: async (
-    pluginId: string,
-    pluginName: string,
-    marketplaceName: string,
-    version?: string,
-    description?: string
-  ): Promise<PluginActionResult> => {
-    return await invoke<PluginActionResult>('add_plugin_favorite', {
-      pluginId,
-      pluginName,
-      marketplaceName,
-      version,
-      description
-    })
+  // 获取收藏列表
+  getFavorites: async (): Promise<PluginFavoriteItem[]> => {
+    return await invoke<PluginFavoriteItem[]>('get_plugin_favorites')
   },
 
+  // 添加收藏（返回更新后的插件列表）
+  addFavorite: async (pluginId: string, pluginName: string, marketplaceName: string): Promise<PluginActionResult> => {
+    return await invoke<PluginActionResult>('add_plugin_favorite', { pluginId, pluginName, marketplaceName })
+  },
+
+  // 移除收藏（返回更新后的插件列表）
   removeFavorite: async (pluginId: string): Promise<PluginActionResult> => {
     return await invoke<PluginActionResult>('remove_plugin_favorite', { pluginId })
+  },
+
+  // 检查市场是否存在
+  checkMarketplaceExists: async (marketplaceName: string): Promise<boolean> => {
+    return await invoke<boolean>('check_marketplace_exists', { marketplaceName })
   },
 
   // 市场操作

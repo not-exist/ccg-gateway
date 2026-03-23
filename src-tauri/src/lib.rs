@@ -228,8 +228,10 @@ pub fn run() {
             commands::get_marketplaces,
             commands::refresh_plugins,
             commands::plugin_action,
+            commands::get_plugin_favorites,
             commands::add_plugin_favorite,
             commands::remove_plugin_favorite,
+            commands::check_marketplace_exists,
             commands::marketplace_action,
         ])
         .run(tauri::generate_context!())

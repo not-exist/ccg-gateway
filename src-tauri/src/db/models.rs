@@ -628,7 +628,7 @@ pub struct PluginFavorite {
     pub created_at: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PluginFavoriteCreate {
     pub plugin_id: String,
     pub plugin_name: String,
@@ -637,23 +637,21 @@ pub struct PluginFavoriteCreate {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct PluginFavoriteResponse {
-    pub id: i64,
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct PluginFavoriteItem {
     pub plugin_id: String,
     pub plugin_name: String,
     pub marketplace_name: String,
-    pub version: Option<String>,
-    pub description: Option<String>,
-    pub created_at: i64,
     pub is_installed: bool,
+    pub marketplace_source: Option<String>,
 }
 
 // 市场信息 (从 JSON 解析)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketplaceInfo {
     pub name: String,
-    pub description: Option<String>,
+    #[serde(default)]
+    pub marketplace_source: Option<String>,
 }
 
 // 市场中的插件信息 (从 JSON 解析)

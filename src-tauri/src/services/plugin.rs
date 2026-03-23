@@ -1,5 +1,5 @@
 use crate::config::get_data_dir;
-use crate::db::models::{MarketplaceInfo, MarketplacePlugin, PluginItem};
+use crate::db::models::{MarketplaceInfo, MarketplacePlugin, PluginFavoriteItem, PluginItem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -104,11 +104,6 @@ fn parse_plugin_id(id: &str) -> (String, Option<String>) {
     }
 }
 
-/// 获取市场目录
-fn get_marketplaces_dir(config_dir: &std::path::Path) -> PathBuf {
-    config_dir.join("plugins").join("marketplaces")
-}
-
 /// 获取已安装插件列表（同步版本，内部使用）
 fn get_installed_plugins_sync() -> Result<std::collections::HashMap<String, (Option<String>, bool)>> {
     let stdout = run_claude(&["plugin", "list", "--json"])?;
@@ -135,45 +130,150 @@ fn get_installed_plugins_sync() -> Result<std::collections::HashMap<String, (Opt
     }).collect())
 }
 
-/// 获取已安装市场列表
-fn get_marketplaces_sync(config_dir: &std::path::Path) -> Result<Vec<MarketplaceInfo>> {
-    let marketplaces_dir = get_marketplaces_dir(config_dir);
+/// 从 known_marketplaces.json 读取市场列表
+fn get_marketplaces_from_known_json(config_dir: &std::path::Path) -> Result<Vec<MarketplaceInfo>> {
+    let known_path = config_dir.join("plugins").join("known_marketplaces.json");
 
-    if !marketplaces_dir.exists() {
+    if !known_path.exists() {
         return Ok(vec![]);
     }
 
+    let content = std::fs::read_to_string(&known_path)
+        .map_err(|e| format!("读取 known_marketplaces.json 失败: {}", e))?;
+
+    #[derive(Deserialize)]
+    struct MarketplaceSource {
+        #[serde(default)]
+        url: Option<String>,
+        #[serde(default)]
+        repo: Option<String>,
+        #[serde(default)]
+        path: Option<String>,
+    }
+
+    #[derive(Deserialize)]
+    struct MarketplaceEntry {
+        source: MarketplaceSource,
+    }
+
+    let known: std::collections::HashMap<String, MarketplaceEntry> = serde_json::from_str(&content)
+        .map_err(|e| format!("解析 known_marketplaces.json 失败: {}", e))?;
+
     let mut marketplaces = Vec::new();
 
-    let entries = std::fs::read_dir(&marketplaces_dir)
-        .map_err(|e| format!("读取市场目录失败: {}", e))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-
-        if path.is_dir() {
-            let config_path = path.join(".claude-plugin").join("marketplace.json");
-            if config_path.exists() {
-                if let Ok(content) = std::fs::read_to_string(&config_path) {
-                    if let Ok(mut info) = serde_json::from_str::<MarketplaceInfo>(&content) {
-                        if info.name.is_empty() {
-                            info.name = entry.file_name().to_string_lossy().to_string();
-                        }
-                        marketplaces.push(info);
-                    }
-                }
-            }
-        }
+    for (name, entry) in known {
+        // 优先级：url > repo > path
+        let marketplace_source = entry.source.url.or(entry.source.repo).or(entry.source.path);
+        marketplaces.push(MarketplaceInfo {
+            name,
+            marketplace_source,
+        });
     }
 
     Ok(marketplaces)
 }
 
+/// 获取市场的安装路径
+fn get_marketplace_install_path(config_dir: &std::path::Path, marketplace_name: &str) -> Option<String> {
+    let known_path = config_dir.join("plugins").join("known_marketplaces.json");
+
+    if !known_path.exists() {
+        return None;
+    }
+
+    if let Ok(content) = std::fs::read_to_string(&known_path) {
+        #[derive(Deserialize)]
+        struct MarketplaceEntry {
+            #[serde(default)]
+            #[serde(rename = "installLocation")]
+            install_location: Option<String>,
+        }
+
+        if let Ok(known) = serde_json::from_str::<std::collections::HashMap<String, MarketplaceEntry>>(&content) {
+            if let Some(entry) = known.get(marketplace_name) {
+                return entry.install_location.clone();
+            }
+        }
+    }
+
+    None
+}
+
+/// 获取市场的来源信息（url、repo 或 path）
+pub fn get_marketplace_source_info(config_dir: &std::path::Path, marketplace_name: &str) -> Option<String> {
+    let known_path = config_dir.join("plugins").join("known_marketplaces.json");
+
+    if !known_path.exists() {
+        return None;
+    }
+
+    if let Ok(content) = std::fs::read_to_string(&known_path) {
+        #[derive(Deserialize)]
+        struct MarketplaceSource {
+            #[serde(default)]
+            url: Option<String>,
+            #[serde(default)]
+            repo: Option<String>,
+            #[serde(default)]
+            path: Option<String>,
+        }
+
+        #[derive(Deserialize)]
+        struct MarketplaceEntry {
+            source: MarketplaceSource,
+        }
+
+        if let Ok(known) = serde_json::from_str::<std::collections::HashMap<String, MarketplaceEntry>>(&content) {
+            if let Some(entry) = known.get(marketplace_name) {
+                // 优先级：url > repo > path
+                return entry.source.url.clone()
+                    .or(entry.source.repo.clone())
+                    .or(entry.source.path.clone());
+            }
+        }
+    }
+
+    None
+}
+
+/// 获取市场的来源类型（github/git/directory）
+pub fn get_marketplace_source_type(config_dir: &std::path::Path, marketplace_name: &str) -> Option<String> {
+    let known_path = config_dir.join("plugins").join("known_marketplaces.json");
+
+    if !known_path.exists() {
+        return None;
+    }
+
+    if let Ok(content) = std::fs::read_to_string(&known_path) {
+        #[derive(Deserialize)]
+        struct MarketplaceSource {
+            source: Option<String>,
+        }
+
+        #[derive(Deserialize)]
+        struct MarketplaceEntry {
+            source: MarketplaceSource,
+        }
+
+        if let Ok(known) = serde_json::from_str::<std::collections::HashMap<String, MarketplaceEntry>>(&content) {
+            if let Some(entry) = known.get(marketplace_name) {
+                return entry.source.source.clone();
+            }
+        }
+    }
+
+    None
+}
+
 /// 读取市场中的插件列表
 fn read_marketplace_plugins(marketplace_name: &str, config_dir: &std::path::Path) -> Result<Vec<MarketplacePlugin>> {
-    let marketplaces_dir = get_marketplaces_dir(config_dir);
-    let config_path = marketplaces_dir.join(marketplace_name).join(".claude-plugin").join("marketplace.json");
+    // 优先从 known_marketplaces.json 获取安装路径
+    let config_path = if let Some(install_path) = get_marketplace_install_path(config_dir, marketplace_name) {
+        std::path::Path::new(&install_path).join(".claude-plugin").join("marketplace.json")
+    } else {
+        // 回退到默认路径
+        config_dir.join("plugins").join("marketplaces").join(marketplace_name).join(".claude-plugin").join("marketplace.json")
+    };
 
     if !config_path.exists() {
         return Err(format!("市场配置文件不存在: {}", config_path.display()));
@@ -205,17 +305,23 @@ fn read_marketplace_plugins(marketplace_name: &str, config_dir: &std::path::Path
 }
 
 /// 检查市场是否存在
-pub fn check_marketplace_exists(name: &str, config_dir: &std::path::Path) -> Result<bool> {
-    let marketplaces = get_marketplaces_sync(config_dir)?;
-    Ok(marketplaces.iter().any(|m| m.name == name))
+pub fn check_marketplace_exists(config_dir: &std::path::Path, marketplace_name: &str) -> bool {
+    let marketplaces = match get_marketplaces_from_known_json(config_dir) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+    marketplaces.iter().any(|m| m.name == marketplace_name)
 }
 
 // ==================== 缓存生成与更新 ====================
 
 /// 生成完整插件缓存
-fn generate_cache(config_dir: &std::path::Path, favorite_ids: &HashSet<String>) -> Result<PluginsCache> {
+fn generate_cache(
+    config_dir: &std::path::Path,
+    favorite_ids: &HashSet<String>,
+) -> Result<PluginsCache> {
     let installed_map = get_installed_plugins_sync()?;
-    let marketplaces = get_marketplaces_sync(config_dir)?;
+    let marketplaces = get_marketplaces_from_known_json(config_dir)?;
 
     let mut installed_plugins = Vec::new();
     let mut not_installed_plugins = Vec::new();
@@ -304,7 +410,73 @@ fn update_favorite_status(cache: &mut PluginsCache, favorite_ids: &HashSet<Strin
     cache.generated_at = chrono::Utc::now().timestamp();
 }
 
+/// 更新缓存中指定插件的启用状态（快速响应）
+fn update_enabled_status(cache: &mut PluginsCache, plugin_id: &str, enabled: bool) {
+    let (name, marketplace) = parse_plugin_id(plugin_id);
+    let key = format!("{}@{}", name, marketplace.unwrap_or_default());
+
+    for plugin in &mut cache.plugins {
+        let plugin_key = format!("{}@{}", plugin.name, plugin.marketplace_name);
+        if plugin_key == key {
+            plugin.is_enabled = Some(enabled);
+            break;
+        }
+    }
+    cache.generated_at = chrono::Utc::now().timestamp();
+}
+
 // ==================== 公开接口 ====================
+
+/// 获取收藏列表（优先从缓存读取安装状态）
+pub fn get_favorites(
+    favorites: Vec<(String, String, String, Option<String>)>,
+    config_dir: &std::path::Path,
+) -> Result<Vec<PluginFavoriteItem>> {
+    // 优先从缓存读取安装状态
+    if let Some(cache) = read_cache() {
+        let installed_keys: HashSet<String> = cache.plugins
+            .iter()
+            .filter(|p| p.is_installed)
+            .map(|p| format!("{}@{}", p.name, p.marketplace_name))
+            .collect();
+
+        return Ok(favorites
+            .into_iter()
+            .map(|(plugin_id, plugin_name, marketplace_name, marketplace_source)| {
+                let is_installed = installed_keys.contains(&plugin_id);
+                PluginFavoriteItem {
+                    plugin_id,
+                    plugin_name,
+                    marketplace_name,
+                    is_installed,
+                    marketplace_source,
+                }
+            })
+            .collect());
+    }
+
+    // 缓存不存在，调用 CLI 查询
+    let installed_map = get_installed_plugins_sync()?;
+
+    Ok(favorites
+        .into_iter()
+        .map(|(plugin_id, plugin_name, marketplace_name, marketplace_source)| {
+            let is_installed = installed_map.contains_key(&plugin_id);
+            PluginFavoriteItem {
+                plugin_id,
+                plugin_name,
+                marketplace_name,
+                is_installed,
+                marketplace_source,
+            }
+        })
+        .collect())
+}
+
+/// 检查市场是否存在
+pub fn check_marketplace_exists_cmd(config_dir: &std::path::Path, marketplace_name: &str) -> bool {
+    check_marketplace_exists(config_dir, marketplace_name)
+}
 
 /// 获取插件列表（读缓存或生成）
 pub fn get_plugins(config_dir: &std::path::Path, favorite_ids: HashSet<String>) -> Result<Vec<PluginItem>> {
@@ -324,13 +496,8 @@ pub fn get_plugins(config_dir: &std::path::Path, favorite_ids: HashSet<String>) 
 
 /// 获取市场列表
 pub fn get_marketplaces(config_dir: &std::path::Path) -> Result<Vec<MarketplaceInfo>> {
-    // 尝试从缓存读取
-    if let Some(cache) = read_cache() {
-        return Ok(cache.marketplaces);
-    }
-
-    // 缓存不存在，直接查询
-    get_marketplaces_sync(config_dir)
+    // 直接从 known_marketplaces.json 查询（确保 source_type 始终是最新的）
+    get_marketplaces_from_known_json(config_dir)
 }
 
 /// 刷新插件缓存
@@ -364,8 +531,19 @@ pub fn plugin_action(
         None => generate_cache(config_dir, &favorite_ids)?,
     };
 
-    // 更新安装状态
-    update_installed_status(&mut cache)?;
+    // 根据操作类型更新缓存
+    match action {
+        "enable" => {
+            update_enabled_status(&mut cache, plugin_id, true);
+        }
+        "disable" => {
+            update_enabled_status(&mut cache, plugin_id, false);
+        }
+        _ => {
+            // install/uninstall/update 需要重建安装状态
+            update_installed_status(&mut cache)?;
+        }
+    }
     update_favorite_status(&mut cache, &favorite_ids);
 
     // 保存缓存

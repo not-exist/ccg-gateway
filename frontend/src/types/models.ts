@@ -299,7 +299,7 @@ export interface InstalledPlugin {
 
 export interface MarketplaceInfo {
   name: string
-  description: string | null
+  marketplace_source: string | null
 }
 
 export interface MarketplacePlugin {
@@ -319,23 +319,12 @@ export interface PluginItem {
   is_favorited: boolean
 }
 
-export interface PluginFavorite {
-  id: number
+export interface PluginFavoriteItem {
   plugin_id: string
   plugin_name: string
   marketplace_name: string
-  version: string | null
-  description: string | null
-  created_at: number
   is_installed: boolean
-}
-
-export interface PluginFavoriteCreate {
-  plugin_id: string
-  plugin_name: string
-  marketplace_name: string
-  version?: string
-  description?: string
+  marketplace_source: string | null
 }
 
 // 插件操作返回结果

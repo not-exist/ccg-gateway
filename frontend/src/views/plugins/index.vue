@@ -95,7 +95,7 @@
                   >安装</el-button>
                 </template>
                 <el-button
-                  v-if="!row.is_favorited"
+                  v-if="!favoriteIds.has(getPluginId(row))"
                   size="small"
                   :icon="Star"
                   :loading="operatingPlugin === row.name && operatingType === 'favorite'"
@@ -128,9 +128,10 @@
         </div>
         <el-table :data="marketplaceList" stripe style="width: 100%" v-loading="loadingMarketplaces">
           <el-table-column prop="name" label="名称" min-width="150" />
-          <el-table-column prop="description" label="描述" min-width="200">
+          <el-table-column label="市场地址" min-width="250">
             <template #default="{ row }">
-              {{ row.description || '-' }}
+              <span v-if="row.marketplace_source">{{ row.marketplace_source }}</span>
+              <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="160">
@@ -158,28 +159,20 @@
       <el-tab-pane label="收藏" name="favorites">
         <div class="favorites-tip">收藏的插件会跟随备份跨设备同步</div>
         <el-table :data="favoriteList" stripe style="width: 100%">
-          <el-table-column label="名称" min-width="150">
+          <el-table-column label="插件名称" min-width="150">
             <template #default="{ row }">
-              <div class="plugin-name-cell">
-                <span>{{ row.name }}</span>
-                <span v-if="row.version" class="plugin-meta">v{{ row.version }}</span>
-                <span class="plugin-meta">@{{ row.marketplace_name }}</span>
-              </div>
+              {{ row.plugin_name }}
             </template>
           </el-table-column>
-          <el-table-column prop="description" label="描述" min-width="200">
+          <el-table-column label="市场名称" min-width="150">
             <template #default="{ row }">
-              <el-tooltip
-                v-if="row.description"
-                :content="row.description"
-                placement="top"
-                :show-after="300"
-                :hide-after="0"
-                popper-class="plugin-desc-tooltip"
-              >
-                <div class="plugin-desc">{{ row.description }}</div>
-              </el-tooltip>
-              <span v-else>-</span>
+              {{ row.marketplace_name }}
+            </template>
+          </el-table-column>
+          <el-table-column label="市场地址" min-width="200">
+            <template #default="{ row }">
+              <span v-if="row.marketplace_source">{{ row.marketplace_source }}</span>
+              <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="100">
@@ -195,15 +188,15 @@
                 <el-button
                   size="small"
                   type="primary"
-                  :loading="operatingPlugin === row.name && operatingType === 'install'"
+                  :loading="operatingPlugin === row.plugin_id && operatingType === 'install'"
                   :disabled="!!operatingPlugin"
-                  @click="handleInstall(row)"
+                  @click="handleInstallFavorite(row)"
                 >安装</el-button>
               </template>
               <el-button
                 size="small"
                 type="danger"
-                :loading="operatingPlugin === row.name && operatingType === 'unfavorite'"
+                :loading="operatingPlugin === row.plugin_id && operatingType === 'unfavorite'"
                 :disabled="!!operatingPlugin"
                 @click="handleRemoveFavoriteById(row)"
               >移除</el-button>
@@ -233,7 +226,7 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { Plus, Search, Star, StarFilled } from '@element-plus/icons-vue'
 import { pluginsApi } from '@/api/plugins'
-import type { MarketplaceInfo, PluginItem } from '@/types/models'
+import type { MarketplaceInfo, PluginItem, PluginFavoriteItem } from '@/types/models'
 
 const activeTab = ref('plugins')
 
@@ -248,6 +241,9 @@ const loadingMarketplaces = ref(false)
 const showAddMarketDialog = ref(false)
 const marketForm = ref({ url: '' })
 const savingMarket = ref(false)
+
+// 收藏列表（独立数据）
+const favoriteList = ref<PluginFavoriteItem[]>([])
 
 // 操作状态
 const operatingPlugin = ref<string | null>(null)
@@ -274,9 +270,9 @@ const filteredPlugins = computed(() => {
   )
 })
 
-// 收藏列表（从插件列表过滤）
-const favoriteList = computed(() => {
-  return allPlugins.value.filter(p => p.is_favorited)
+// 收藏 ID 集合（用于插件列表显示收藏状态）
+const favoriteIds = computed(() => {
+  return new Set(favoriteList.value.map(f => f.plugin_id))
 })
 
 // 获取 plugin_id
@@ -302,12 +298,14 @@ async function loadAll() {
   loading.value = true
   loadingMarketplaces.value = true
   try {
-    const [plugins, marketplaces] = await Promise.all([
+    const [plugins, marketplaces, favorites] = await Promise.all([
       pluginsApi.getAll(),
-      pluginsApi.getMarketplaces()
+      pluginsApi.getMarketplaces(),
+      pluginsApi.getFavorites()
     ])
     allPlugins.value = plugins
     marketplaceList.value = marketplaces
+    favoriteList.value = favorites
   } catch (error: any) {
     const msg = error?.message || String(error) || '加载失败'
     ElNotification({
@@ -328,6 +326,7 @@ async function handleRefresh() {
   loading.value = true
   try {
     allPlugins.value = await pluginsApi.refresh()
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput('刷新成功')
   } catch (error: any) {
     showCliOutput(error?.message || '刷新失败', true)
@@ -344,6 +343,7 @@ async function handleInstall(plugin: PluginItem) {
   try {
     const result = await pluginsApi.install(pluginId)
     allPlugins.value = result.plugins
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
   } catch (error: any) {
     showCliOutput(error?.message || '安装失败', true)
@@ -362,6 +362,7 @@ async function handleUninstall(plugin: PluginItem) {
     operatingType.value = 'uninstall'
     const result = await pluginsApi.uninstall(pluginId)
     allPlugins.value = result.plugins
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -430,15 +431,14 @@ async function handleAddFavorite(plugin: PluginItem) {
   operatingPlugin.value = plugin.name
   operatingType.value = 'favorite'
   try {
-    const result = await pluginsApi.addFavorite(
-      pluginId,
-      plugin.name,
-      plugin.marketplace_name,
-      plugin.version || undefined,
-      plugin.description || undefined
-    )
+    const result = await pluginsApi.addFavorite(pluginId, plugin.name, plugin.marketplace_name)
     allPlugins.value = result.plugins
-    showCliOutput('已收藏')
+    favoriteList.value = await pluginsApi.getFavorites()
+    if (result.cli_output) {
+      showCliOutput(result.cli_output)
+    } else {
+      showCliOutput('已收藏')
+    }
   } catch (error: any) {
     showCliOutput(error?.message || '操作失败', true)
   } finally {
@@ -455,6 +455,7 @@ async function handleRemoveFavorite(plugin: PluginItem) {
   try {
     const result = await pluginsApi.removeFavorite(pluginId)
     allPlugins.value = result.plugins
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput('已取消收藏')
   } catch (error: any) {
     showCliOutput(error?.message || '操作失败', true)
@@ -464,14 +465,57 @@ async function handleRemoveFavorite(plugin: PluginItem) {
   }
 }
 
-// 从收藏中移除（收藏列表页）
-async function handleRemoveFavoriteById(plugin: PluginItem) {
-  const pluginId = getPluginId(plugin)
-  operatingPlugin.value = plugin.name
+// 安装收藏中的插件
+async function handleInstallFavorite(favorite: PluginFavoriteItem) {
+  operatingPlugin.value = favorite.plugin_id
+  operatingType.value = 'install'
+  try {
+    // 检查市场是否存在
+    const exists = await pluginsApi.checkMarketplaceExists(favorite.marketplace_name)
+    if (!exists) {
+      // 检查是否有保存的市场来源
+      if (!favorite.marketplace_source) {
+        showCliOutput('市场不存在且无法获取来源信息，请手动安装市场后再试', true)
+        return
+      }
+      // 判断是否为本地路径（包含 :/ 或 \ 或以字母盘开头）
+      const isLocalPath = /^[A-Za-z]:[\\\/]/.test(favorite.marketplace_source) ||
+                          favorite.marketplace_source.includes('\\') ||
+                          !favorite.marketplace_source.includes('/')
+      if (isLocalPath) {
+        showCliOutput('该插件来自本地市场，无法自动恢复', true)
+        return
+      }
+
+      showCliOutput('市场不存在，正在安装市场...')
+      // 使用保存的市场来源安装市场
+      const marketResult = await pluginsApi.addMarketplace(favorite.marketplace_source)
+      allPlugins.value = marketResult.plugins
+      marketplaceList.value = marketResult.marketplaces
+      showCliOutput(marketResult.cli_output || '市场安装成功，正在安装插件...')
+    }
+
+    // 安装插件
+    const result = await pluginsApi.install(favorite.plugin_id)
+    allPlugins.value = result.plugins
+    favoriteList.value = await pluginsApi.getFavorites()
+    showCliOutput(result.cli_output)
+  } catch (error: any) {
+    showCliOutput(error?.message || '安装失败', true)
+  } finally {
+    operatingPlugin.value = null
+    operatingType.value = null
+  }
+}
+
+// 从收藏中移除
+async function handleRemoveFavoriteById(favorite: PluginFavoriteItem) {
+  operatingPlugin.value = favorite.plugin_id
   operatingType.value = 'unfavorite'
   try {
-    const result = await pluginsApi.removeFavorite(pluginId)
+    const result = await pluginsApi.removeFavorite(favorite.plugin_id)
     allPlugins.value = result.plugins
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput('已移除')
   } catch (error: any) {
     showCliOutput(error?.message || '操作失败', true)
@@ -492,6 +536,7 @@ async function handleAddMarketplace() {
     const result = await pluginsApi.addMarketplace(marketForm.value.url.trim())
     allPlugins.value = result.plugins
     marketplaceList.value = result.marketplaces
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
     showAddMarketDialog.value = false
     marketForm.value = { url: '' }
@@ -511,6 +556,7 @@ async function handleRemoveMarketplace(market: MarketplaceInfo) {
     const result = await pluginsApi.removeMarketplace(market.name)
     allPlugins.value = result.plugins
     marketplaceList.value = result.marketplaces
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -530,6 +576,7 @@ async function handleUpdateMarketplace(market: MarketplaceInfo) {
     const result = await pluginsApi.updateMarketplace(market.name)
     allPlugins.value = result.plugins
     marketplaceList.value = result.marketplaces
+    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
   } catch (error: any) {
     showCliOutput(error?.message || '更新失败', true)
