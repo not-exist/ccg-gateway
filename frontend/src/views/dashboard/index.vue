@@ -27,37 +27,58 @@
     <div style="display: flex; gap: 24px; margin-bottom: 24px;">
       <div class="b-card kpi-card">
         <div class="kpi-title">请求总数</div>
-        <div class="kpi-value text-blue">{{ kpiData.requests }}</div>
+        <div class="kpi-value mono text-blue">{{ kpiData.requests }}</div>
       </div>
       <div class="b-card kpi-card">
         <div class="kpi-title">全局成功率</div>
-        <div class="kpi-value text-green">{{ kpiData.successRate }}</div>
+        <div class="kpi-value mono text-green">{{ kpiData.successRate }}</div>
       </div>
       <div class="b-card kpi-card">
         <div class="kpi-title">Token消耗</div>
-        <div class="kpi-value">{{ kpiData.tokens }}</div>
+        <div class="kpi-value mono">{{ kpiData.tokens }}</div>
       </div>
       <div class="b-card kpi-card">
         <div class="kpi-title">活跃服务商</div>
-        <div class="kpi-value">{{ kpiData.providers }}</div>
+        <div class="kpi-value mono">{{ kpiData.providers }}</div>
       </div>
     </div>
 
     <!-- 底部图表与日志 -->
-    <div style="display: flex; gap: 24px;">
-      <!-- 图表区 flex: 2 -->
-      <div class="b-card" style="flex: 2; margin-bottom: 0;">
-        <div class="b-card-title">请求统计与成功率趋势</div>
-        <div style="height: 300px; width: 100%;">
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <!-- 图表区 -->
+      <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; min-width: 450px;">
+        <div class="b-card-title">请求统计趋势</div>
+        <div style="height: 240px; width: 100%;">
           <v-chart class="chart" :option="chartOption" autoresize />
         </div>
       </div>
       
-      <!-- 日志列表 flex: 1 -->
-      <div class="b-card" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column;">
-        <div class="b-card-title">最近失败记录</div>
-        <div style="flex: 1; border: 1px dashed #cbd5e1; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #f8fafc; min-height: 200px;">
-           <span style="color: #94a3b8; font-size: 14px;">暂无失败记录</span>
+      <!-- 服务商统计 -->
+      <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column; min-width: 400px; padding: 24px;">
+        <div class="b-card-title" style="margin-bottom: 16px;">服务商统计</div>
+        <div style="flex: 1; overflow-y: auto;">
+          <el-table :data="providerStats" style="width: 100%" :max-height="240">
+            <el-table-column prop="provider_name" label="服务商" min-width="120" show-overflow-tooltip>
+              <template #default="scope">
+                <span style="color: #475569; font-size: 14px; font-weight: 500;">{{ scope.row.provider_name }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="total_requests" label="请求" width="90" align="right">
+              <template #default="scope">
+                <span class="mono" style="color: #64748b; font-size: 14px;">{{ scope.row.total_requests }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="成功率" width="100" align="right">
+              <template #default="scope">
+                <span class="mono" style="color: #64748b; font-size: 14px;">{{ scope.row.success_rate.toFixed(1) }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Token" width="110" align="right">
+              <template #default="scope">
+                <span class="mono" style="color: #64748b; font-size: 14px; font-weight: 500;">{{ formatTokens(scope.row.total_tokens) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
       </div>
     </div>
@@ -153,7 +174,7 @@ async function handleCliToggle(cliType: string, enabled: boolean) {
   if (enabled && getCliMode(cliType) === 'direct') {
     try {
       await ElMessageBox.confirm('当前是官方模式，是否切换至中转模式并启用代理？', '提示', {
-        confirmButtonText: '切换并启用', cancelButtonText: '取消', type: 'warning'
+        confirmButtonText: '切换并启用', cancelButtonText: '取消'
       })
       cliLoading[cliType] = true
       try {
@@ -214,10 +235,7 @@ const chartOption = computed(() => {
   })
 
   const reqData = dates.map(d => dateMap.get(d)!.reqs)
-  const successRateData = dates.map(d => {
-    const node = dateMap.get(d)!
-    return node.reqs > 0 ? ((node.success / node.reqs) * 100).toFixed(1) : 0
-  })
+  const successData = dates.map(d => dateMap.get(d)!.success)
 
   return {
     tooltip: { trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.9)', borderColor: '#e2e8f0', textStyle: { color: '#0f172a' } },
@@ -231,24 +249,15 @@ const chartOption = computed(() => {
       axisTick: { show: false },
       axisLabel: { color: '#94a3b8', margin: 12 }
     },
-    yAxis: [
-      {
-        type: 'value',
-        name: '',
-        splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
-        axisLabel: { color: '#94a3b8' }
-      },
-      {
-        type: 'value',
-        name: '',
-        max: 100,
-        splitLine: { show: false },
-        axisLabel: { color: '#94a3b8', formatter: '{value} %' }
-      }
-    ],
+    yAxis: {
+      type: 'value',
+      name: '',
+      splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
+      axisLabel: { color: '#94a3b8' }
+    },
     series: [
       {
-        name: '请求数',
+        name: '总请求数',
         type: 'line',
         smooth: true,
         symbol: 'none',
@@ -262,13 +271,18 @@ const chartOption = computed(() => {
         data: reqData
       },
       {
-        name: '成功率',
+        name: '成功请求数',
         type: 'line',
-        yAxisIndex: 1,
         smooth: true,
         symbol: 'none',
-        lineStyle: { width: 2, color: '#10b981' },
-        data: successRateData
+        lineStyle: { width: 3, color: '#10b981' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
+            { offset: 1, color: 'rgba(16, 185, 129, 0.0)' }
+          ])
+        },
+        data: successData
       }
     ]
   }
@@ -289,8 +303,8 @@ onMounted(async () => {
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
 .page-title { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
 
-.b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: transform 0.2s, box-shadow 0.2s; }
-.b-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
+.b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: border-color 0.2s; border: 1px solid transparent; }
+.b-card:hover { border-color: #e2e8f0; }
 .b-card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; color: #0f172a; }
 
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
@@ -298,11 +312,11 @@ onMounted(async () => {
 
 .b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
 .b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; font-weight: 500; transition: all 0.2s ease; opacity: 0.7; cursor: pointer; }
-.b-seg-btn.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 1; pointer-events: none; }
+.b-seg-btn.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 1; pointer-events: none; }
 
 .kpi-card { flex: 1; padding: 24px 20px !important; margin-bottom: 0 !important; text-align: center; display: flex; flex-direction: column; justify-content: center; }
 .kpi-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 12px; }
-.kpi-value { font-size: 32px; font-weight: 700; font-family: monospace; letter-spacing: -1px; }
+.kpi-value { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
 
 .text-blue { color: #0ea5e9; }
 .text-green { color: #10b981; }

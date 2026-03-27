@@ -360,9 +360,9 @@ pub struct PromptUpdate {
 // Skill Repo (仓库配置 - 对应数据库表)
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct SkillRepo {
-    pub owner: String,
     pub name: String,
-    pub branch: String,
+    pub source: String,
+    pub branch: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -535,9 +535,7 @@ pub type DailyStats = UsageDaily;
 // Provider Stats (从 request_logs 聚合)
 #[derive(Debug, Serialize, FromRow)]
 pub struct ProviderStatsRow {
-    pub cli_type: String,
     pub provider_name: String,
-    pub model_id: String,
     pub total_requests: i64,
     pub total_success: i64,
     pub total_tokens: i64,
@@ -546,9 +544,7 @@ pub struct ProviderStatsRow {
 
 #[derive(Debug, Serialize)]
 pub struct ProviderStatsResponse {
-    pub cli_type: String,
     pub provider_name: String,
-    pub model_id: String,
     pub total_requests: i64,
     pub total_success: i64,
     pub total_tokens: i64,

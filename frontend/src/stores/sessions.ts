@@ -18,7 +18,7 @@ export const useSessionStore = defineStore('sessions', () => {
   const projectTotal = ref(0)
   const sessionPage = ref(1)
   const sessionTotal = ref(0)
-  const pageSize = ref(20)
+  const pageSize = ref(1000)
 
   async function fetchProjects(page?: number, cliType?: CliType) {
     loading.value = true

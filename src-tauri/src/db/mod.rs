@@ -169,11 +169,15 @@ async fn init_default_data(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         .execute(pool)
         .await?;
 
+    // 针对旧数据没有 source 的情况，进行修复
+    let _ = sqlx::query("UPDATE skill_repos SET source = 'anthropics/skills' WHERE name = 'skills' AND (source IS NULL OR source = '')").execute(pool).await;
+    let _ = sqlx::query("UPDATE skill_repos SET source = 'ComposioHQ/awesome-claude-skills' WHERE name = 'awesome-claude-skills' AND (source IS NULL OR source = '')").execute(pool).await;
+
     // skill_repos (默认仓库)
-    sqlx::query("INSERT OR IGNORE INTO skill_repos (owner, name, branch) VALUES ('anthropics', 'skills', 'main')")
+    sqlx::query("INSERT OR IGNORE INTO skill_repos (name, source, branch) VALUES ('skills', 'anthropics/skills', 'main')")
         .execute(pool)
         .await?;
-    sqlx::query("INSERT OR IGNORE INTO skill_repos (owner, name, branch) VALUES ('ComposioHQ', 'awesome-claude-skills', 'master')")
+    sqlx::query("INSERT OR IGNORE INTO skill_repos (name, source, branch) VALUES ('awesome-claude-skills', 'ComposioHQ/awesome-claude-skills', 'master')")
         .execute(pool)
         .await?;
 

@@ -23,7 +23,7 @@
 
     <!-- Top Level Tabs -->
     <div class="top-tabs">
-      <div :class="['tab-item', { active: activeTab === 'request' }]" @click="activeTab = 'request'">日志记录</div>
+      <div :class="['tab-item', { active: activeTab === 'request' }]" @click="activeTab = 'request'">请求日志</div>
       <div :class="['tab-item', { active: activeTab === 'system' }]" @click="activeTab = 'system'">系统日志</div>
     </div>
 
@@ -32,12 +32,12 @@
       <!-- Filters & Actions -->
       <div class="filters-row">
         <div class="filter-group">
-          <span class="filter-label">CLI</span>
+          <span class="filter-label">终端</span>
           <div class="custom-select" :class="{ open: cliSelectOpen }" @click.stop="toggleSelect('cli')">
             <div class="custom-select-trigger">{{ getCliLabel(requestFilters.cli_type) }}</div>
             <svg class="chevron" width="16" height="16"><use href="#icon-chevron"/></svg>
             <div class="custom-select-options">
-              <div class="custom-option" :class="{ selected: !requestFilters.cli_type }" @click.stop="requestFilters.cli_type = ''; cliSelectOpen = false; fetchRequestLogs()">全部终端接入<span v-if="!requestFilters.cli_type" class="check">✓</span></div>
+              <div class="custom-option" :class="{ selected: !requestFilters.cli_type }" @click.stop="requestFilters.cli_type = ''; cliSelectOpen = false; fetchRequestLogs()">全部终端<span v-if="!requestFilters.cli_type" class="check">✓</span></div>
               <div class="custom-option" :class="{ selected: requestFilters.cli_type === 'claude_code' }" @click.stop="requestFilters.cli_type = 'claude_code'; cliSelectOpen = false; fetchRequestLogs()">ClaudeCode<span v-if="requestFilters.cli_type === 'claude_code'" class="check">✓</span></div>
               <div class="custom-option" :class="{ selected: requestFilters.cli_type === 'codex' }" @click.stop="requestFilters.cli_type = 'codex'; cliSelectOpen = false; fetchRequestLogs()">Codex<span v-if="requestFilters.cli_type === 'codex'" class="check">✓</span></div>
               <div class="custom-option" :class="{ selected: requestFilters.cli_type === 'gemini' }" @click.stop="requestFilters.cli_type = 'gemini'; cliSelectOpen = false; fetchRequestLogs()">Gemini<span v-if="requestFilters.cli_type === 'gemini'" class="check">✓</span></div>
@@ -46,12 +46,12 @@
         </div>
 
         <div class="filter-group">
-          <span class="filter-label">路由节点</span>
+          <span class="filter-label">服务商</span>
           <div class="custom-select" style="width: 170px;" :class="{ open: providerSelectOpen }" @click.stop="toggleSelect('provider')">
-            <div class="custom-select-trigger">{{ requestFilters.provider_name || '全局任意服务商' }}</div>
+            <div class="custom-select-trigger">{{ requestFilters.provider_name || '全部服务商' }}</div>
             <svg class="chevron" width="16" height="16"><use href="#icon-chevron"/></svg>
             <div class="custom-select-options" style="width: 220px;">
-              <div class="custom-option" :class="{ selected: !requestFilters.provider_name }" @click.stop="requestFilters.provider_name = ''; providerSelectOpen = false; fetchRequestLogs()">全局任意服务商<span v-if="!requestFilters.provider_name" class="check">✓</span></div>
+              <div class="custom-option" :class="{ selected: !requestFilters.provider_name }" @click.stop="requestFilters.provider_name = ''; providerSelectOpen = false; fetchRequestLogs()">全部服务商<span v-if="!requestFilters.provider_name" class="check">✓</span></div>
               <div v-for="p in providerOptions" :key="p" class="custom-option" :class="{ selected: requestFilters.provider_name === p }" @click.stop="requestFilters.provider_name = p; providerSelectOpen = false; fetchRequestLogs()">
                 {{ p }}<span v-if="requestFilters.provider_name === p" class="check">✓</span>
               </div>
@@ -76,18 +76,16 @@
               <th style="width: 130px;">服务商</th>
               <th style="width: 70px;">状态</th>
               <th style="width: 80px;">耗时</th>
-              <th style="width: 160px;">原模型</th>
-              <th style="width: 160px;">映射模型</th>
               <th style="width: 120px;">Tokens</th>
               <th style="width: 60px; text-align: right;">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in requestLogs" :key="row.id">
-              <td>{{ row.id }}</td>
+              <td class="mono">{{ row.id }}</td>
               <td class="mono">{{ formatTime(row.created_at) }}</td>
-              <td>{{ row.cli_type }}</td>
-              <td>{{ row.provider_name }}</td>
+              <td class="mono">{{ row.cli_type }}</td>
+              <td class="mono">{{ row.provider_name }}</td>
               <td>
                 <span v-if="row.status_code" :class="['pill', getStatusCodePill(row.status_code)]">{{ row.status_code }}</span>
                 <span v-else>-</span>
@@ -95,8 +93,6 @@
               <td class="mono" :class="{'text-danger': row.status_code && row.status_code >= 500}">
                 {{ row.elapsed_ms }}ms
               </td>
-              <td>{{ row.source_model || '-' }}</td>
-              <td>{{ row.target_model || '-' }}</td>
               <td class="mono">
                 <span v-if="row.input_tokens || row.output_tokens">{{ formatTokens(row.input_tokens) }} / {{ formatTokens(row.output_tokens) }}</span>
                 <span v-else>-</span>
@@ -104,7 +100,7 @@
               <td style="text-align: right;"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
             </tr>
             <tr v-if="requestLogs.length === 0">
-              <td colspan="10" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无日志记录</td>
+              <td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无日志记录</td>
             </tr>
           </tbody>
         </table>
@@ -162,7 +158,7 @@
           </thead>
           <tbody>
             <tr v-for="row in systemLogs" :key="row.id">
-              <td>{{ row.id }}</td>
+              <td class="mono">{{ row.id }}</td>
               <td class="mono">{{ formatTime(row.created_at) }}</td>
               <td>{{ formatEventType(row.event_type) }}</td>
               <td>{{ row.message }}</td>
@@ -190,9 +186,15 @@
 
 
     <!-- Request Detail Dialog (Kept structure for data explorer) -->
-    <el-dialog v-model="requestDetailVisible" title="请求审查" width="900px" destroy-on-close>
-      <div v-if="requestDetail" class="detail-content">
-        <!-- Summary -->
+    <div class="modal-overlay" :class="{ active: requestDetailVisible }" @click.self="requestDetailVisible = false">
+      <div class="modal-content" style="width: 900px;">
+        <div class="modal-header">
+          <div class="modal-title">请求详情</div>
+          <div class="modal-close" @click="requestDetailVisible = false">×</div>
+        </div>
+        <div class="modal-body">
+          <div v-if="requestDetail" class="detail-content">
+            <!-- Summary -->
         <el-descriptions :column="3" border size="small">
           <el-descriptions-item label="ID">{{ requestDetail.id }}</el-descriptions-item>
           <el-descriptions-item label="时间">{{ formatTime(requestDetail.created_at) }}</el-descriptions-item>
@@ -203,11 +205,6 @@
           <el-descriptions-item label="映射模型">{{ requestDetail.target_model || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Input Tokens">{{ formatTokens(requestDetail.input_tokens) }}</el-descriptions-item>
           <el-descriptions-item label="Output Tokens">{{ formatTokens(requestDetail.output_tokens) }}</el-descriptions-item>
-          <el-descriptions-item label="状态码">
-            <el-tag :type="getStatusCodeType(requestDetail.status_code)" size="small">
-              {{ requestDetail.status_code || '-' }}
-            </el-tag>
-          </el-descriptions-item>
         </el-descriptions>
 
         <!-- Error Message -->
@@ -271,7 +268,9 @@
           </el-card>
         </div>
       </div>
-    </el-dialog>
+        </div>
+      </div>
+    </div>
 
   </div>
 </template>
@@ -371,7 +370,7 @@ async function updateLogSettings() {
   try {
     // using the toggled value
     await logsApi.updateSettings({ debug_log: logEnabled.value })
-    notify('日志设置已同步至核心引擎')
+    notify('日志设置已更新')
   } catch {}
 }
 
@@ -401,7 +400,7 @@ function resetRequestFilters() {
 
 async function clearRequestLogs() {
   try {
-    await ElMessageBox.confirm('确定要清空所有请求日志吗？', '清理确认', { type: 'warning' })
+    await ElMessageBox.confirm('确定要清空所有请求日志吗？', '清理确认')
     await logsApi.clearRequestLogs()
     notify('请求日志已清空')
     fetchRequestLogs()
@@ -441,7 +440,7 @@ function resetSystemFilters() {
 
 async function clearSystemLogs() {
   try {
-    await ElMessageBox.confirm('确定要清空所有系统日志吗？', '清理确认', { type: 'warning' })
+    await ElMessageBox.confirm('确定要清空所有系统日志吗？', '清理确认')
     await logsApi.clearSystemLogs()
     notify('系统日志已清空')
     fetchSystemLogs()
@@ -480,7 +479,7 @@ function formatEventType(eventType: string): string {
 }
 
 function getCliLabel(type: string): string {
-  if (!type) return '全部终端接入'
+  if (!type) return '全部终端'
   if (type === 'claude_code') return 'ClaudeCode'
   if (type === 'codex') return 'Codex'
   if (type === 'gemini') return 'Gemini'
@@ -530,7 +529,6 @@ watch(activeTab, (tab) => {
 <style scoped>
 /* Scoped overrides for flat ethereal UI */
 .logs-page {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
 }
 
@@ -553,10 +551,10 @@ watch(activeTab, (tab) => {
 .filter-label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
 
 /* Buttons & Inputs */
-.b-button { background: #0ea5e9; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25); display: inline-flex; align-items: center; gap: 6px; }
-.b-button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3); }
-.b-button-outline { background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s;}
-.b-button-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
+.b-button { background: #0ea5e9; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.b-button:hover { background: #0284c7; }
+.b-button-outline { background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: background 0.2s;}
+.b-button-outline:hover { background: #f8fafc; }
 .b-button-danger { background: white; color: #ef4444; border: 1px solid #fee2e2; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
 .b-button-danger:hover { background: #fef2f2; }
 
@@ -605,6 +603,18 @@ watch(activeTab, (tab) => {
 .custom-option:hover { background: #f1f5f9; color: #0f172a; }
 .custom-option.selected { font-weight: 600; color: #0ea5e9; background: #f0f9ff; }
 .check { color:#0ea5e9; font-weight: bold; font-size:14px; margin-left:8px; }
+
+/* Modal Styling */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-content { background: #ffffff; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; overflow: hidden; max-height: 90vh; }
+.modal-header { padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+.modal-title { font-size: 20px; font-weight: 600; color: #0f172a; }
+.modal-close { font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1; }
+.modal-body { padding: 32px; overflow-y: auto; }
 
 /* Keep el-dialog styles clean to match ethereal frost inside detail view */
 .detail-content { max-height: 70vh; overflow-y: auto; padding-right: 12px; }

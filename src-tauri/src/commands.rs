@@ -2079,9 +2079,7 @@ pub async fn get_provider_stats(
 
     let mut query = r#"
         SELECT
-            cli_type,
             provider_name,
-            model_id,
             COUNT(*) as total_requests,
             SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END) as total_success,
             SUM(input_tokens + output_tokens) as total_tokens,
@@ -2102,7 +2100,7 @@ pub async fn get_provider_stats(
     if provider_name.is_some() {
         query.push_str(" AND provider_name = ?");
     }
-    query.push_str(" GROUP BY cli_type, provider_name, model_id ORDER BY total_requests DESC");
+    query.push_str(" GROUP BY provider_name ORDER BY total_requests DESC");
 
     let mut q = sqlx::query_as::<_, ProviderStatsRow>(&query);
     if let Some(ref sd) = start_date {
@@ -2121,9 +2119,7 @@ pub async fn get_provider_stats(
     let rows = q.fetch_all(pool).await.map_err(|e| e.to_string())?;
 
     let results = rows.into_iter().map(|row| ProviderStatsResponse {
-        cli_type: row.cli_type,
         provider_name: row.provider_name,
-        model_id: row.model_id,
         total_requests: row.total_requests,
         total_success: row.total_success,
         total_tokens: row.total_tokens,
@@ -2279,7 +2275,7 @@ fn extract_codex_cwd(file_path: &std::path::Path) -> Option<String> {
     let file = std::fs::File::open(file_path).ok()?;
     let reader = BufReader::new(file);
     
-    for line in reader.lines().flatten() {
+    for line in reader.lines().flatten().take(50) {
         if let Ok(data) = serde_json::from_str::<serde_json::Value>(&line) {
             if data.get("type").and_then(|t| t.as_str()) == Some("session_meta") {
                 if let Some(cwd) = data.get("payload")
@@ -2520,18 +2516,19 @@ fn get_gemini_projects(tmp_dir: std::path::PathBuf, page: i64, page_size: i64) -
                 .unwrap_or("")
                 .to_string();
             
-            // Check if it's a valid 64-char hex hash
-            if name.len() == 64 && name.chars().all(|c| c.is_ascii_hexdigit()) {
-                let chats_dir = path.join("chats");
-                if chats_dir.exists() {
-                    if let Ok(meta) = path.metadata() {
-                        if let Ok(mtime) = meta.modified() {
-                            let secs = mtime.duration_since(std::time::UNIX_EPOCH)
-                                .map(|d| d.as_secs_f64())
-                                .unwrap_or(0.0);
+            let chats_dir = path.join("chats");
+            if chats_dir.exists() {
+                if let Ok(meta) = path.metadata() {
+                    if let Ok(mtime) = meta.modified() {
+                        let secs = mtime.duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_secs_f64())
+                            .unwrap_or(0.0);
+                        
+                        // Check if it's a valid 64-char hex hash
+                        if name.len() == 64 && name.chars().all(|c| c.is_ascii_hexdigit()) {
                             all_hashes.insert(name.clone());
-                            project_dirs.push((path, secs));
                         }
+                        project_dirs.push((path, secs));
                     }
                 }
             }
@@ -2586,16 +2583,22 @@ fn get_gemini_projects(tmp_dir: std::path::PathBuf, page: i64, page_size: i64) -
         }
         
         if session_count > 0 {
+            let is_hash = hash_name.len() == 64 && hash_name.chars().all(|c| c.is_ascii_hexdigit());
+            
             // Try to get project path from rainbow table
-            let (display_name, full_path) = if let Some(real_path) = path_mapping.get(hash_name) {
-                let name = std::path::Path::new(real_path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(&format!("Project {}", &hash_name[..8]))
-                    .to_string();
-                (name, real_path.clone())
+            let (display_name, full_path) = if is_hash {
+                if let Some(real_path) = path_mapping.get(hash_name) {
+                    let name = std::path::Path::new(real_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(&format!("Project {}", &hash_name[..8]))
+                        .to_string();
+                    (name, real_path.clone())
+                } else {
+                    (format!("Project {}", &hash_name[..8]), hash_name.to_string())
+                }
             } else {
-                (format!("Project {}", &hash_name[..8]), hash_name.to_string())
+                (hash_name.to_string(), hash_name.to_string())
             };
             
             projects.push(ProjectInfo {
@@ -2694,7 +2697,7 @@ async fn get_codex_sessions_async(db: &SqlitePool, project_name: &str, page: i64
         let mut first_message = String::new();
         if let Ok(file) = std::fs::File::open(&path) {
             let reader = BufReader::new(file);
-            for line in reader.lines().flatten() {
+            for line in reader.lines().flatten().take(200) {
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(&line) {
                     if data.get("type").and_then(|t| t.as_str()) == Some("event_msg") {
                         if let Some(payload) = data.get("payload") {
@@ -2702,6 +2705,18 @@ async fn get_codex_sessions_async(db: &SqlitePool, project_name: &str, page: i64
                                 if let Some(msg) = payload.get("message").and_then(|m| m.as_str()) {
                                     first_message = msg.chars().take(200).collect();
                                     break;
+                                } else if let Some(arr) = payload.get("message").and_then(|m| m.as_array()) {
+                                    let mut text_parts = Vec::new();
+                                    for item in arr {
+                                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                            text_parts.push(text);
+                                        }
+                                    }
+                                    let joined = text_parts.join("\n");
+                                    if !joined.is_empty() {
+                                        first_message = joined.chars().take(200).collect();
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -2798,9 +2813,21 @@ async fn get_gemini_sessions_async(db: &SqlitePool, project_name: &str, page: i6
                 if let Some(messages) = json.get("messages").and_then(|m| m.as_array()) {
                     for msg in messages {
                         if msg.get("type").and_then(|t| t.as_str()) == Some("user") {
-                            if let Some(text) = msg.get("content").and_then(|c| c.as_str()) {
-                                first_message = text.chars().take(200).collect();
-                                break;
+                            if let Some(content_val) = msg.get("content") {
+                                if let Some(text) = content_val.as_str() {
+                                    first_message = text.chars().take(200).collect();
+                                    break;
+                                } else if let Some(arr) = content_val.as_array() {
+                                    for item in arr {
+                                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                            first_message = text.chars().take(200).collect();
+                                            break;
+                                        }
+                                    }
+                                    if !first_message.is_empty() {
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
@@ -3329,15 +3356,20 @@ pub async fn get_session_messages(
             
             if msg_type == "user" {
                 // User message
-                let content = if let Some(content_val) = msg.get("content") {
+                let mut text_parts = Vec::new();
+                if let Some(content_val) = msg.get("content") {
                     if let Some(text) = content_val.as_str() {
-                        text.to_string()
-                    } else {
-                        continue;
+                        text_parts.push(text.to_string());
+                    } else if let Some(arr) = content_val.as_array() {
+                        for item in arr {
+                            if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                text_parts.push(text.to_string());
+                            }
+                        }
                     }
-                } else {
-                    continue;
-                };
+                }
+                
+                let content = text_parts.join("\n\n");
                 
                 if !content.is_empty() {
                     messages.push(SessionMessage {
@@ -4056,7 +4088,7 @@ fn parse_github_url(url: &str) -> Result<(String, String)> {
 
 #[tauri::command]
 pub async fn get_skill_repos(db: State<'_, SqlitePool>) -> Result<Vec<SkillRepo>> {
-    let repos = sqlx::query_as::<_, SkillRepo>("SELECT * FROM skill_repos ORDER BY owner, name")
+    let repos = sqlx::query_as::<_, SkillRepo>("SELECT * FROM skill_repos ORDER BY name")
         .fetch_all(db.inner())
         .await
         .map_err(|e| e.to_string())?;
@@ -4065,13 +4097,38 @@ pub async fn get_skill_repos(db: State<'_, SqlitePool>) -> Result<Vec<SkillRepo>
 
 #[tauri::command]
 pub async fn add_skill_repo(db: State<'_, SqlitePool>, input: SkillRepoCreate) -> Result<SkillRepo> {
-    // 解析 URL 获取 owner/name
-    let (owner, name) = parse_github_url(&input.url)?;
+    let url = input.url.trim();
+    
+    // 1. 尝试解析为本地目录
+    let path = std::path::Path::new(url);
+    if (path.is_absolute() || url.contains(":\\") || url.starts_with('/')) && path.exists() && path.is_dir() {
+        let name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("local_repo")
+            .to_string();
+        
+        sqlx::query("INSERT OR REPLACE INTO skill_repos (name, source, branch) VALUES (?, ?, ?)")
+            .bind(&name)
+            .bind(url)
+            .bind(None::<String>)
+            .execute(db.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+            
+        return Ok(SkillRepo {
+            name,
+            source: url.to_string(),
+            branch: None,
+        });
+    }
+
+    // 2. 尝试解析为 GitHub 仓库
+    let (owner, repo_name) = parse_github_url(url)?;
     let user_branch = input.branch.unwrap_or_else(|| "main".to_string());
     
     // 检测实际分支
     let client = reqwest::Client::new();
-    let actual_branch = detect_repo_branch(&client, &owner, &name, &user_branch).await?;
+    let actual_branch = detect_repo_branch(&client, &owner, &repo_name, &user_branch).await?;
     
     // 如果用户指定的分支不存在，返回错误提示
     if actual_branch != user_branch {
@@ -4081,17 +4138,20 @@ pub async fn add_skill_repo(db: State<'_, SqlitePool>, input: SkillRepoCreate) -
         ));
     }
     
-    sqlx::query("INSERT OR REPLACE INTO skill_repos (owner, name, branch) VALUES (?, ?, ?)")
-        .bind(&owner)
-        .bind(&name)
+    let source = format!("{}/{}", owner, repo_name);
+    
+    sqlx::query("INSERT OR REPLACE INTO skill_repos (name, source, branch) VALUES (?, ?, ?)")
+        .bind(&repo_name)
+        .bind(&source)
         .bind(&actual_branch)
         .execute(db.inner())
         .await
         .map_err(|e| e.to_string())?;
+
     Ok(SkillRepo {
-        owner,
-        name,
-        branch: actual_branch,
+        name: repo_name,
+        source,
+        branch: Some(actual_branch),
     })
 }
 
@@ -4122,35 +4182,78 @@ async fn detect_repo_branch(
 }
 
 #[tauri::command]
-pub async fn remove_skill_repo(db: State<'_, SqlitePool>, owner: String, name: String) -> Result<()> {
-    sqlx::query("DELETE FROM skill_repos WHERE owner = ? AND name = ?")
-        .bind(&owner)
+pub async fn remove_skill_repo(db: State<'_, SqlitePool>, name: String) -> Result<()> {
+    // 获取 repo 信息以决定是否删除 ZIP 缓存
+    let repo = sqlx::query_as::<_, SkillRepo>("SELECT * FROM skill_repos WHERE name = ?")
         .bind(&name)
-        .execute(db.inner())
+        .fetch_optional(db.inner())
         .await
         .map_err(|e| e.to_string())?;
-    
-    // 删除缓存的仓库 ZIP
-    delete_cached_repo_zip(&owner, &name);
-    
+
+    if let Some(repo) = repo {
+        sqlx::query("DELETE FROM skill_repos WHERE name = ?")
+            .bind(&name)
+            .execute(db.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+
+        // 如果是 GitHub 仓库，尝试删除缓存的 ZIP (格式为 owner/repo)
+        if repo.source.contains('/') && !repo.source.contains(":\\") && !repo.source.starts_with('/') {
+            let parts: Vec<&str> = repo.source.split('/').collect();
+            if parts.len() == 2 {
+                delete_cached_repo_zip(parts[0], parts[1]);
+            }
+        }
+    }
+
     Ok(())
 }
-
 #[tauri::command]
 pub async fn update_skill_repo(
     db: State<'_, SqlitePool>,
-    old_owner: String,
     old_name: String,
     new_url: String,
     new_branch: String,
 ) -> Result<SkillRepo> {
-    // 解析新 URL
-    let (new_owner, new_name) = parse_github_url(&new_url)?;
+    // 1. 尝试解析为本地目录
+    let path = std::path::Path::new(&new_url);
+    if (path.is_absolute() || new_url.contains(":\\") || new_url.starts_with('/')) && path.exists() && path.is_dir() {
+        let name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("local_repo")
+            .to_string();
+        
+        // 删除旧记录 (如果 name 改变了)
+        if name != old_name {
+            sqlx::query("DELETE FROM skill_repos WHERE name = ?")
+                .bind(&old_name)
+                .execute(db.inner())
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        
+        sqlx::query("INSERT OR REPLACE INTO skill_repos (name, source, branch) VALUES (?, ?, ?)")
+            .bind(&name)
+            .bind(&new_url)
+            .bind(None::<String>)
+            .execute(db.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+            
+        return Ok(SkillRepo {
+            name,
+            source: new_url.to_string(),
+            branch: None,
+        });
+    }
+
+    // 2. 尝试解析为 GitHub 仓库
+    let (new_owner, new_repo_name) = parse_github_url(&new_url)?;
     let user_branch = if new_branch.is_empty() { "main".to_string() } else { new_branch };
     
     // 检测实际分支
     let client = reqwest::Client::new();
-    let actual_branch = detect_repo_branch(&client, &new_owner, &new_name, &user_branch).await?;
+    let actual_branch = detect_repo_branch(&client, &new_owner, &new_repo_name, &user_branch).await?;
     
     // 如果用户指定的分支不存在，返回错误提示
     if actual_branch != user_branch {
@@ -4160,84 +4263,154 @@ pub async fn update_skill_repo(
         ));
     }
     
-    // 检查旧记录是否存在
-    let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM skill_repos WHERE owner = ? AND name = ?")
-        .bind(&old_owner)
-        .bind(&old_name)
-        .fetch_one(db.inner())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if exists == 0 {
-        return Err("Repo not found".to_string());
+    // 删除旧记录 (如果 name 改变了)
+    if new_repo_name != old_name {
+        sqlx::query("DELETE FROM skill_repos WHERE name = ?")
+            .bind(&old_name)
+            .execute(db.inner())
+            .await
+            .map_err(|e| e.to_string())?;
     }
-
-    // 删除旧记录
-    sqlx::query("DELETE FROM skill_repos WHERE owner = ? AND name = ?")
-        .bind(&old_owner)
-        .bind(&old_name)
-        .execute(db.inner())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // 插入新记录
-    sqlx::query("INSERT OR REPLACE INTO skill_repos (owner, name, branch) VALUES (?, ?, ?)")
-        .bind(&new_owner)
-        .bind(&new_name)
+    
+    let source = format!("{}/{}", new_owner, new_repo_name);
+    
+    sqlx::query("INSERT OR REPLACE INTO skill_repos (name, source, branch) VALUES (?, ?, ?)")
+        .bind(&new_repo_name)
+        .bind(&source)
         .bind(&actual_branch)
         .execute(db.inner())
         .await
         .map_err(|e| e.to_string())?;
 
     Ok(SkillRepo {
-        owner: new_owner,
-        name: new_name,
-        branch: actual_branch,
+        name: new_repo_name,
+        source,
+        branch: Some(actual_branch),
     })
 }
 
 // ==================== Skill 发现命令 ====================
 
 #[tauri::command]
-pub async fn discover_repo_skills(owner: String, name: String, branch: String) -> Result<Vec<DiscoverableSkill>> {
-    let branch_to_use = if branch.is_empty() { "main" } else { &branch };
-    
+pub async fn discover_repo_skills(db: State<'_, SqlitePool>, name: String) -> Result<Vec<DiscoverableSkill>> {
+    let repo = sqlx::query_as::<_, SkillRepo>("SELECT * FROM skill_repos WHERE name = ?")
+        .bind(&name)
+        .fetch_one(db.inner())
+        .await
+        .map_err(|e| format!("未找到仓库 '{}': {}", name, e))?;
+
+    // 1. 如果是本地目录
+    let path = std::path::Path::new(&repo.source);
+    if path.is_absolute() || repo.source.contains(":\\") || repo.source.starts_with('/') {
+        return scan_local_repo_skills(&repo.name, &repo.source).await;
+    }
+
+    // 2. 如果是 GitHub 仓库
+    let parts: Vec<&str> = repo.source.split('/').collect();
+    if parts.len() != 2 {
+        return Err("GitHub 仓库格式应为 owner/repo".to_string());
+    }
+    let owner = parts[0];
+    let repo_name = parts[1];
+    let branch_to_use = repo.branch.as_deref().unwrap_or("main");
+
     // 优先使用缓存
-    if let Some(bytes) = read_cached_zip(&owner, &name, branch_to_use) {
-        tracing::info!("Using cached ZIP for {}/{}", owner, name);
-        let mut skills = scan_zip_for_skills(&bytes, &owner, &name, branch_to_use)?;
+    if let Some(bytes) = read_cached_zip(owner, repo_name, branch_to_use) {
+        tracing::info!("Using cached ZIP for {}/{}", owner, repo_name);
+        let mut skills = scan_zip_for_skills(&bytes, owner, repo_name, branch_to_use)?;
         skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         return Ok(skills);
     }
-    
+
     // 没有缓存则下载
     let client = reqwest::Client::new();
-    let bytes = download_repo_zip(&client, &owner, &name, branch_to_use).await?;
+    let bytes = download_repo_zip(&client, owner, repo_name, branch_to_use).await?;
     
     // 保存到缓存
-    let _ = save_zip_to_cache(&owner, &name, branch_to_use, &bytes);
+    let _ = save_zip_to_cache(owner, repo_name, branch_to_use, &bytes);
     
-    let mut skills = scan_zip_for_skills(&bytes, &owner, &name, branch_to_use)?;
+    let mut skills = scan_zip_for_skills(&bytes, owner, repo_name, branch_to_use)?;
     skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(skills)
 }
 
 // 强制刷新仓库 skills（删除缓存后重新下载）
 #[tauri::command]
-pub async fn refresh_repo_skills(owner: String, name: String, branch: String) -> Result<Vec<DiscoverableSkill>> {
-    let branch_to_use = if branch.is_empty() { "main" } else { &branch };
-    
+pub async fn refresh_repo_skills(db: State<'_, SqlitePool>, name: String) -> Result<Vec<DiscoverableSkill>> {
+    let repo = sqlx::query_as::<_, SkillRepo>("SELECT * FROM skill_repos WHERE name = ?")
+        .bind(&name)
+        .fetch_one(db.inner())
+        .await
+        .map_err(|e| format!("未找到仓库 '{}': {}", name, e))?;
+
+    // 1. 如果是本地目录
+    let path = std::path::Path::new(&repo.source);
+    if path.is_absolute() || repo.source.contains(":\\") || repo.source.starts_with('/') {
+        return scan_local_repo_skills(&repo.name, &repo.source).await;
+    }
+
+    // 2. 如果是 GitHub 仓库
+    let parts: Vec<&str> = repo.source.split('/').collect();
+    if parts.len() != 2 {
+        return Err("GitHub 仓库格式应为 owner/repo".to_string());
+    }
+    let owner = parts[0];
+    let repo_name = parts[1];
+    let _branch_to_use = repo.branch.as_deref().unwrap_or("main");
+
     // 删除旧缓存
-    delete_cached_repo_zip(&owner, &name);
+    delete_cached_repo_zip(owner, repo_name);
+
+    // 重新发现
+    discover_repo_skills(db, name).await
+}
+
+async fn scan_local_repo_skills(name: &str, path: &str) -> Result<Vec<DiscoverableSkill>> {
+    let mut skills = Vec::new();
+    let root_path = std::path::Path::new(path);
     
-    // 重新下载
-    let client = reqwest::Client::new();
-    let bytes = download_repo_zip(&client, &owner, &name, branch_to_use).await?;
+    if !root_path.exists() || !root_path.is_dir() {
+        return Err(format!("本地目录 {} 不存在", path));
+    }
+
+    // 使用 walkdir 查找 SKILL.md
+    for entry in walkdir::WalkDir::new(root_path)
+        .max_depth(5)
+        .into_iter()
+        .filter_map(|e| e.ok()) {
+        if entry.file_name() == "SKILL.md" {
+            let file_path = entry.path();
+            let parent_dir = file_path.parent().unwrap_or(root_path);
+            
+            // 获取相对路径
+            let relative_path = parent_dir.strip_prefix(root_path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            
+            let content = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
+            let (skill_name, description) = parse_skill_metadata(&content);
+            
+            let directory_name = if relative_path.is_empty() {
+                name.to_string()
+            } else {
+                parent_dir.file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| relative_path.clone())
+            };
+
+            skills.push(DiscoverableSkill {
+                key: format!("local/{}:{}", name, relative_path),
+                name: skill_name.unwrap_or_else(|| directory_name.clone()),
+                description: description.unwrap_or_default(),
+                directory: if relative_path.is_empty() { ".".to_string() } else { relative_path },
+                readme_url: None,
+                repo_owner: "local".to_string(),
+                repo_name: name.to_string(),
+                repo_branch: "local".to_string(),
+            });
+        }
+    }
     
-    // 保存到缓存
-    let _ = save_zip_to_cache(&owner, &name, branch_to_use, &bytes);
-    
-    let mut skills = scan_zip_for_skills(&bytes, &owner, &name, branch_to_use)?;
     skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(skills)
 }
@@ -4377,22 +4550,45 @@ pub async fn install_skill(db: State<'_, SqlitePool>, skill: DiscoverableSkill, 
         }
     }
 
-    // 优先使用缓存的 ZIP
-    let branch_to_use = if skill.repo_branch.is_empty() { "main" } else { &skill.repo_branch };
-    let bytes = if let Some(cached) = read_cached_zip(&skill.repo_owner, &skill.repo_name, branch_to_use) {
-        tracing::info!("Using cached ZIP for install: {}/{}", skill.repo_owner, skill.repo_name);
-        cached
+    // 根据类型进行安装
+    if skill.repo_owner == "local" {
+        // 本地安装
+        let repo = sqlx::query_as::<_, SkillRepo>("SELECT * FROM skill_repos WHERE name = ?")
+            .bind(&skill.repo_name)
+            .fetch_one(db.inner())
+            .await
+            .map_err(|e| format!("未找到本地仓库 {}: {}", skill.repo_name, e))?;
+            
+        let source_path = std::path::Path::new(&repo.source);
+        // 如果 directory 是 "."，则直接拷贝 source_path
+        let skill_source_path = if skill.directory == "." {
+            source_path.to_path_buf()
+        } else {
+            source_path.join(&skill.directory)
+        };
+        
+        let dest_path = ssot_dir.join(&directory_name);
+        
+        // 拷贝目录
+        copy_dir_recursive(&skill_source_path, &dest_path)?;
     } else {
-        // 没有缓存则下载
-        let client = reqwest::Client::new();
-        let downloaded = download_repo_zip(&client, &skill.repo_owner, &skill.repo_name, branch_to_use).await?;
-        // 保存到缓存
-        let _ = save_zip_to_cache(&skill.repo_owner, &skill.repo_name, branch_to_use, &downloaded);
-        downloaded
-    };
+        // GitHub 远程安装
+        let branch_to_use = if skill.repo_branch.is_empty() { "main" } else { &skill.repo_branch };
+        let bytes = if let Some(cached) = read_cached_zip(&skill.repo_owner, &skill.repo_name, branch_to_use) {
+            tracing::info!("Using cached ZIP for install: {}/{}", skill.repo_owner, skill.repo_name);
+            cached
+        } else {
+            // 没有缓存则下载
+            let client = reqwest::Client::new();
+            let downloaded = download_repo_zip(&client, &skill.repo_owner, &skill.repo_name, branch_to_use).await?;
+            // 保存到缓存
+            let _ = save_zip_to_cache(&skill.repo_owner, &skill.repo_name, branch_to_use, &downloaded);
+            downloaded
+        };
 
-    // 提取 skill 到 SSOT
-    extract_skill_from_zip(&bytes, &skill.directory, &ssot_dir, &directory_name)?;
+        // 提取 skill 到 SSOT
+        extract_skill_from_zip(&bytes, &skill.directory, &ssot_dir, &directory_name)?;
+    }
 
     // 保存到数据库（如果是重装则更新）
     let now = chrono::Utc::now().timestamp();

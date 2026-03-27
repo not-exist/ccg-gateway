@@ -78,7 +78,6 @@ export async function checkForUpdates(silent: boolean = true): Promise<void> {
         {
           confirmButtonText: '前往下载',
           cancelButtonText: '稍后再说',
-          type: 'info',
           dangerouslyUseHTMLString: false
         }
       ).then(() => {
@@ -98,8 +97,7 @@ export async function checkForUpdates(silent: boolean = true): Promise<void> {
         '检查更新',
         {
           confirmButtonText: '前往发布页面',
-          cancelButtonText: '取消',
-          type: 'warning'
+          cancelButtonText: '取消'
         }
       ).then(() => {
         open(`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`)

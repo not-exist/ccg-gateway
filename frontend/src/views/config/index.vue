@@ -1,130 +1,173 @@
 <template>
   <div class="config-page">
-    <div class="page-header">
-      <h1 class="page-title">全局设置</h1>
-    </div>
+    <!-- Icon Symbols -->
+    <svg style="display:none">
+      <defs>
+        <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
+        </symbol>
+        <symbol id="icon-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.5 19a5.5 5.5 0 0 0 2.5-10.5 8.5 8.5 0 1 0-14 10h11.5Z"/>
+        </symbol>
+        <symbol id="icon-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+        </symbol>
+        <symbol id="icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </symbol>
+        <symbol id="icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </symbol>
+        <symbol id="icon-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </symbol>
+      </defs>
+    </svg>
 
-    <div style="display: flex; gap: 24px; align-items: flex-start;">
-      <!-- Left Column -->
-      <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+    <div class="config-layout">
+      <!-- Left Column: Core & Backup -->
+      <div class="config-column">
         
-        <!-- 基础配置 -->
-        <div class="b-card" style="margin-bottom: 0;">
-          <div class="b-card-title">基础配置</div>
-          <div style="margin-bottom: 16px; display: flex; align-items: center;">
-            <div style="width: 120px; font-size: 14px; color: #475569; font-weight: 500;">流式首字节超时</div>
-            <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-              <input type="number" v-model.number="timeoutForm.stream_first_byte_timeout" class="c-input" style="flex: 1;">
-              <span style="color: #94a3b8; font-size: 14px;">秒</span>
-            </div>
+        <!-- Timeout Card -->
+        <div class="frost-card">
+          <div class="card-header-simple">
+            <svg width="20" height="20" class="header-icon"><use href="#icon-activity"/></svg>
+            <span class="card-label">基础配置</span>
           </div>
-          <div style="margin-bottom: 16px; display: flex; align-items: center;">
-            <div style="width: 120px; font-size: 14px; color: #475569; font-weight: 500;">流式空闲超时</div>
-            <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-              <input type="number" v-model.number="timeoutForm.stream_idle_timeout" class="c-input" style="flex: 1;">
-              <span style="color: #94a3b8; font-size: 14px;">秒</span>
+          <div class="card-body">
+            <div class="input-item">
+              <label class="item-label">流式首字节超时</label>
+              <div class="input-with-unit">
+                <input type="number" v-model.number="timeoutForm.stream_first_byte_timeout" class="f-input">
+                <span class="unit">秒</span>
+              </div>
             </div>
-          </div>
-          <div style="margin-bottom: 16px; display: flex; align-items: center;">
-            <div style="width: 120px; font-size: 14px; color: #475569; font-weight: 500;">非流式超时</div>
-            <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-              <input type="number" v-model.number="timeoutForm.non_stream_timeout" class="c-input" style="flex: 1;">
-              <span style="color: #94a3b8; font-size: 14px;">秒</span>
+            <div class="input-item">
+              <label class="item-label">流式空闲超时</label>
+              <div class="input-with-unit">
+                <input type="number" v-model.number="timeoutForm.stream_idle_timeout" class="f-input">
+                <span class="unit">秒</span>
+              </div>
             </div>
-          </div>
-          <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
-            <button class="b-button" @click="saveTimeouts">保存</button>
+            <div class="input-item">
+              <label class="item-label">非流式超时</label>
+              <div class="input-with-unit">
+                <input type="number" v-model.number="timeoutForm.non_stream_timeout" class="f-input">
+                <span class="unit">秒</span>
+              </div>
+            </div>
+            <div class="card-footer-right">
+              <button class="f-button" @click="saveTimeouts">
+                <svg width="14" height="14" style="margin-right: 6px;"><use href="#icon-save"/></svg>
+                保存配置
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- 备份与恢复 -->
-        <div class="b-card" style="margin-bottom: 0;">
-          <div class="b-card-title">备份与恢复</div>
-          <div class="b-segmented" style="width: 100%; margin-bottom: 20px;">
-            <div class="b-seg-btn" :class="{ active: activeBackupTab === 'local' }" @click="activeBackupTab = 'local'" style="flex: 1;">本地备份</div>
-            <div class="b-seg-btn" :class="{ active: activeBackupTab === 'webdav' }" @click="activeBackupTab = 'webdav'" style="flex: 1;">WebDAV</div>
+        <!-- Backup Card -->
+        <div class="frost-card">
+          <div class="card-header-simple">
+            <svg width="20" height="20" class="header-icon"><use href="#icon-cloud"/></svg>
+            <span class="card-label">备份与同步</span>
           </div>
+          <div class="card-body">
+            <div class="frost-segmented">
+              <div class="seg-item" :class="{ active: activeBackupTab === 'local' }" @click="activeBackupTab = 'local'">本地备份</div>
+              <div class="seg-item" :class="{ active: activeBackupTab === 'webdav' }" @click="activeBackupTab = 'webdav'">WebDAV 备份</div>
+            </div>
 
-          <div v-if="activeBackupTab === 'local'">
-            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.5;">
-              将数据库文件导出到本地，或从本地文件恢复
-            </p>
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-              <button class="b-button" style="background:#10b981; box-shadow: 0 2px 4px rgba(16,185,129,0.2);" @click="handleExportLocal" :disabled="exportingLocal">
-                {{ exportingLocal ? '导出中...' : '导出' }}
-              </button>
-              <el-upload :show-file-list="false" :before-upload="handleImportLocal" accept=".db" style="display: inline-block;">
-                 <button class="b-button" :disabled="importingLocal" style="background:#f59e0b; box-shadow: 0 2px 4px rgba(245,158,11,0.2);">
-                   {{ importingLocal ? '导入中...' : '导入' }}
-                 </button>
-              </el-upload>
+            <div v-if="activeBackupTab === 'local'" class="tab-content">
+              <p class="desc-text">定期导出数据库以保护您的服务商、MCP、提示词等配置数据不丢失。</p>
+              <div class="action-row-end">
+                <button class="f-button ghost" @click="handleExportLocal" :disabled="exportingLocal">
+                  <svg width="14" height="14" style="margin-right: 6px;"><use href="#icon-download"/></svg>
+                  导出
+                </button>
+                <el-upload :show-file-list="false" :before-upload="handleImportLocal" accept=".db">
+                   <button class="f-button secondary" :disabled="importingLocal">
+                     <svg width="14" height="14" style="margin-right: 6px;"><use href="#icon-upload"/></svg>
+                     导入
+                   </button>
+                </el-upload>
+              </div>
             </div>
-          </div>
 
-          <div v-if="activeBackupTab === 'webdav'">
-            <div style="margin-bottom: 12px; display: flex; align-items: center;">
-              <div style="width: 80px; font-size: 14px; color: #475569; font-weight: 500;">服务器</div>
-              <input type="text" v-model="webdavForm.url" placeholder="https://dav.example.com" class="c-input" style="flex: 1;">
-            </div>
-            <div style="margin-bottom: 12px; display: flex; align-items: center;">
-              <div style="width: 80px; font-size: 14px; color: #475569; font-weight: 500;">用户名</div>
-              <input type="text" v-model="webdavForm.username" class="c-input" style="flex: 1;">
-            </div>
-            <div style="margin-bottom: 24px; display: flex; align-items: center;">
-              <div style="width: 80px; font-size: 14px; color: #475569; font-weight: 500;">密码</div>
-              <input type="password" v-model="webdavForm.password" class="c-input" style="flex: 1;">
-            </div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
-              <button class="b-button-outline" @click="handleTestWebdav" :disabled="testingWebdav">
-                {{ testingWebdav ? '测试中...' : '测试链接' }}
-              </button>
-              <button class="b-button-outline" @click="handleSaveWebdav" :disabled="savingWebdav">保存配置</button>
-              <button class="b-button" style="background:#10b981; box-shadow: 0 2px 4px rgba(16,185,129,0.2);" @click="handleExportWebdav" :disabled="exportingWebdav">
-                {{ exportingWebdav ? '导出中...' : '导出' }}
-              </button>
-              <button class="b-button" style="background:#f59e0b; box-shadow: 0 2px 4px rgba(245,158,11,0.2);" @click="handleShowWebdavList" :disabled="loadingWebdavList">
-                {{ loadingWebdavList ? '加载中...' : '导入' }}
-              </button>
+            <div v-if="activeBackupTab === 'webdav'" class="tab-content">
+              <div class="input-item">
+                <label class="item-label">服务器地址</label>
+                <input type="text" v-model="webdavForm.url" placeholder="https://dav.jianguoyun.com/dav/" class="f-input">
+              </div>
+              <div class="input-row">
+                <div class="input-item" style="flex: 1;">
+                  <label class="item-label">用户名</label>
+                  <input type="text" v-model="webdavForm.username" class="f-input">
+                </div>
+                <div class="input-item" style="flex: 1;">
+                  <label class="item-label">应用密码</label>
+                  <input type="password" v-model="webdavForm.password" class="f-input">
+                </div>
+              </div>
+              <div class="action-row-end" style="margin-top: 12px; gap: 8px;">
+                <button class="f-button ghost-plain" @click="handleTestWebdav" :disabled="testingWebdav">测试链接</button>
+                <button class="f-button ghost-plain" @click="handleSaveWebdav">保存账号</button>
+                <button class="f-button ghost" @click="handleExportWebdav" :disabled="exportingWebdav">
+                  <svg width="14" height="14" style="margin-right: 6px;"><use href="#icon-download"/></svg>
+                  导出
+                </button>
+                <button class="f-button secondary" @click="handleShowWebdavList">
+                  <svg width="14" height="14" style="margin-right: 6px;"><use href="#icon-upload"/></svg>
+                  导入
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Right Column -->
-      <div style="flex: 1; display: flex; flex-direction: column;">
-        <div class="b-card" style="flex: 1; margin-bottom: 0;">
-          <div class="b-card-title">CLI全局配置</div>
-          
-          <div class="b-segmented" style="width: 100%; margin-bottom: 24px;">
-            <div class="b-seg-btn" :class="{ active: activeCliTab === 'claude_code' }" @click="activeCliTab = 'claude_code'" style="flex: 1;">ClaudeCode</div>
-            <div class="b-seg-btn" :class="{ active: activeCliTab === 'codex' }" @click="activeCliTab = 'codex'" style="flex: 1;">Codex</div>
-            <div class="b-seg-btn" :class="{ active: activeCliTab === 'gemini' }" @click="activeCliTab = 'gemini'" style="flex: 1;">Gemini</div>
+      <!-- Right Column: CLI Settings -->
+      <div class="config-column">
+        <div class="frost-card cli-settings-card">
+          <div class="card-header-simple">
+            <svg width="20" height="20" class="header-icon"><use href="#icon-terminal"/></svg>
+            <span class="card-label">CLI 运行环境配置</span>
           </div>
+          <div class="card-body" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="frost-segmented" style="margin-bottom: 24px;">
+              <div class="seg-item" :class="{ active: activeCliTab === 'claude_code' }" @click="activeCliTab = 'claude_code'">Claude Code</div>
+              <div class="seg-item" :class="{ active: activeCliTab === 'codex' }" @click="activeCliTab = 'codex'">Codex</div>
+              <div class="seg-item" :class="{ active: activeCliTab === 'gemini' }" @click="activeCliTab = 'gemini'">Gemini</div>
+            </div>
 
-          <div v-if="activeCliTab === 'claude_code'">
-             <CliSettingsForm cli-type="claude_code" :settings="settingsStore.settings?.cli_settings?.claude_code" @save="saveCli" />
-          </div>
-          <div v-if="activeCliTab === 'codex'">
-             <CliSettingsForm cli-type="codex" :settings="settingsStore.settings?.cli_settings?.codex" @save="saveCli" />
-          </div>
-          <div v-if="activeCliTab === 'gemini'">
-             <CliSettingsForm cli-type="gemini" :settings="settingsStore.settings?.cli_settings?.gemini" @save="saveCli" />
+            <div class="cli-form-container">
+              <CliSettingsForm 
+                :key="activeCliTab"
+                :cli-type="activeCliTab" 
+                :settings="settingsStore.settings?.cli_settings?.[activeCliTab]" 
+                @save="saveCli" 
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- WebDAV Backup List Dialog remains using Element Plus dialog as it works perfectly for data grids -->
-    <el-dialog v-model="webdavListVisible" title="选择备份文件" width="700px">
+    <!-- WebDAV Backup List Dialog -->
+    <el-dialog v-model="webdavListVisible" title="管理 WebDAV 备份" width="720px" class="frost-dialog">
       <el-table :data="webdavBackups" v-loading="loadingWebdavList">
-        <el-table-column prop="filename" label="文件名" min-width="280" />
+        <el-table-column prop="filename" label="文件名" min-width="240" />
         <el-table-column prop="size" label="大小" width="100">
           <template #default="{ row }">{{ formatSize(row.size) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="160" align="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleImportWebdav(row.filename)" :loading="importingWebdav">导入</el-button>
-            <el-button type="danger" size="small" @click="handleDeleteWebdav(row.filename)" :loading="deletingWebdav">删除</el-button>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <el-button type="primary" link @click="handleImportWebdav(row.filename)" :loading="importingWebdav">恢复</el-button>
+              <el-button type="danger" link @click="handleDeleteWebdav(row.filename)" :loading="deletingWebdav">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -208,7 +251,7 @@ async function handleExportLocal() {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    notify('导出成功（默认保存至下载文件夹）')
+    notify('导出成功')
   } catch (error: any) {
     notify(error?.message || '导出失败', 'error')
   } finally {
@@ -217,12 +260,12 @@ async function handleExportLocal() {
 }
 
 async function handleImportLocal(file: File) {
-  await ElMessageBox.confirm('导入将覆盖当前所有数据，确定继续？', '警告', { type: 'warning' })
-  importingLocal.value = true
   try {
+    await ElMessageBox.confirm('导入将覆盖当前所有数据，确定继续？', '警告')
+    importingLocal.value = true
     await backupApi.importFromLocal(file)
     notify('导入成功，应用将自动退出，请重新打开应用')
-  } finally {
+  } catch (e) {} finally {
     importingLocal.value = false
   }
   return false
@@ -245,14 +288,11 @@ async function handleTestWebdav() {
 }
 
 async function handleSaveWebdav() {
-  savingWebdav.value = true
   try {
     await backupApi.updateWebdavSettings(webdavForm.value)
     notify('WebDAV 配置已保存')
   } catch (error: any) {
     notify(error?.message || '保存失败', 'error')
-  } finally {
-    savingWebdav.value = false
   }
 }
 
@@ -260,9 +300,9 @@ async function handleExportWebdav() {
   exportingWebdav.value = true
   try {
     const { data } = await backupApi.exportToWebdav()
-    notify(`导出成功: ${data.filename}`)
+    notify(`同步成功: ${data.filename}`)
   } catch (error: any) {
-    notify(error?.message || '导出失败', 'error')
+    notify(error?.message || '同步失败', 'error')
   } finally {
     exportingWebdav.value = false
   }
@@ -280,28 +320,28 @@ async function handleShowWebdavList() {
 }
 
 async function handleImportWebdav(filename: string) {
-  await ElMessageBox.confirm('导入将覆盖当前所有数据，确定继续？', '警告', { type: 'warning' })
-  importingWebdav.value = true
   try {
+    await ElMessageBox.confirm('导入将覆盖当前所有数据，确定继续？', '警告')
+    importingWebdav.value = true
     await backupApi.importFromWebdav(filename)
     notify('导入成功，应用将自动退出，请重新打开应用')
     webdavListVisible.value = false
   } catch (error: any) {
-    notify(error?.message || '导入失败', 'error')
+    if (error !== 'cancel') notify(error?.message || '导入失败', 'error')
   } finally {
     importingWebdav.value = false
   }
 }
 
 async function handleDeleteWebdav(filename: string) {
-  await ElMessageBox.confirm(`确定要删除远程备份 ${filename} 吗？`, '警告', { type: 'warning' })
-  deletingWebdav.value = true
   try {
+    await ElMessageBox.confirm(`确定要删除远程备份 ${filename} 吗？`, '警告')
+    deletingWebdav.value = true
     await backupApi.deleteWebdavBackup(filename)
-    notify('删除成功')
+    notify('已删除')
     await handleShowWebdavList()
   } catch (error: any) {
-    notify(error?.message || '删除失败', 'error')
+    if (error !== 'cancel') notify(error?.message || '删除失败', 'error')
   } finally {
     deletingWebdav.value = false
   }
@@ -320,26 +360,79 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-.page-title { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
+.config-page {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
 
-.b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: transform 0.2s, box-shadow 0.2s; }
-.b-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
-.b-card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+/* Header */
+.page-header { margin-bottom: 32px; }
+.page-title { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0; letter-spacing: -0.8px; }
+.page-subtitle { font-size: 14px; color: #64748b; margin: 0; }
 
-.b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
-.b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s ease; }
-.b-seg-btn.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.b-seg-btn:not(.active):hover { color: #0f172a; }
+/* Layout */
+.config-layout { display: flex; gap: 32px; align-items: flex-start; }
+.config-column { flex: 1; display: flex; flex-direction: column; gap: 32px; min-width: 0; }
 
-.b-button { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; outline: none; }
-.b-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(14, 165, 233, 0.3); }
-.b-button:disabled { opacity: 0.6; cursor: not-allowed; }
+/* Frost Card */
+.frost-card { 
+  background: #ffffff; border-radius: 20px; border: 1px solid rgba(226, 232, 240, 0.8); 
+  padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s; 
+  display: flex; flex-direction: column;
+}
+.frost-card:hover { border-color: #0ea5e9; box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); }
 
-.b-button-outline { background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; outline: none; }
-.b-button-outline:hover:not(:disabled) { background: #f8fafc; }
-.b-button-outline:disabled { opacity: 0.6; cursor: not-allowed; }
+.card-header-simple { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; color: #0f172a; }
+.header-icon { color: #64748b; opacity: 0.8; }
+.card-label { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
 
-.c-input { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-.c-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+/* Form Items */
+.input-item { margin-bottom: 20px; }
+.input-row { display: flex; gap: 16px; }
+.item-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+
+.f-input { 
+  width: 100%; padding: 10px 14px; background: #ffffff; border: 1px solid #e2e8f0; 
+  border-radius: 10px; font-size: 14px; color: #0f172a; outline: none; transition: all 0.2s; 
+}
+.f-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+
+.input-with-unit { display: flex; align-items: center; gap: 12px; }
+.unit { font-size: 13px; color: #94a3b8; font-weight: 500; }
+
+/* Segmented Control */
+.frost-segmented { 
+  display: flex; background: rgba(148, 163, 184, 0.08); padding: 4px; border-radius: 12px; margin-bottom: 20px;
+}
+.seg-item { 
+  flex: 1; text-align: center; padding: 8px 12px; font-size: 13px; font-weight: 600; 
+  color: #64748b; cursor: pointer; border-radius: 9px; transition: all 0.2s; 
+}
+.seg-item.active { background: #ffffff; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+
+/* Buttons */
+.f-button { 
+  background: #0ea5e9; color: #ffffff; border: none; padding: 10px 18px; border-radius: 10px; 
+  font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; 
+  transition: background 0.2s; 
+}
+.f-button:hover:not(:disabled) { background: #0284c7; }
+.f-button:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; opacity: 0.7; }
+
+.f-button.secondary { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; box-shadow: none; }
+.f-button.secondary:hover:not(:disabled) { background: #f1f5f9; color: #0f172a; }
+
+.f-button.ghost { background: #f0f9ff; color: #0369a1; box-shadow: none; border: 1px solid #bae6fd; }
+.f-button.ghost:hover:not(:disabled) { background: #e0f2fe; }
+
+.f-button.ghost-plain { background: transparent; color: #64748b; box-shadow: none; border: 1px solid transparent; padding: 6px 12px; font-size: 13px; font-weight: 500; }
+.f-button.ghost-plain:hover { color: #0f172a; background: #f8fafc; }
+
+.action-row-end { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+.card-footer-right { margin-top: 8px; display: flex; justify-content: flex-end; }
+
+.desc-text { font-size: 13px; color: #94a3b8; line-height: 1.6; margin: 0 0 20px 0; }
+
+/* CLI Column adjustment */
+.cli-settings-card { flex: 1; }
+.cli-form-container { flex: 1; min-height: 400px; display: flex; flex-direction: column; }
 </style>

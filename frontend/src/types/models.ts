@@ -180,12 +180,13 @@ export interface PromptUpdate {
   cli_flags?: CliFlags
 }
 
-// Skill types
+// Skill Repo (仓库配置)
 export interface SkillRepo {
-  owner: string
   name: string
-  branch: string
+  source: string
+  branch?: string
 }
+
 
 export interface SkillRepoCreate {
   url: string      // GitHub 仓库 URL

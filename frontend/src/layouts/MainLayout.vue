@@ -6,36 +6,44 @@
       <div class="nav-group">
         <div class="nav-group-title">总览</div>
         <div class="nav-item" :class="{ active: route.path === '/' }" @click="router.push('/')">仪表盘</div>
-        <div class="nav-item" :class="{ active: route.path === '/sessions' }" @click="router.push('/sessions')">会话记录</div>
+        <div class="nav-item" :class="{ active: route.path === '/config' }" @click="router.push('/config')">全局设置</div>
         <div class="nav-item" :class="{ active: route.path === '/logs' }" @click="router.push('/logs')">日志记录</div>
+        <div class="nav-item" :class="{ active: route.path === '/sessions' }" @click="router.push('/sessions')">会话记录</div>
       </div>
       
       <div class="nav-group">
         <div class="nav-group-title">核心资源</div>
         <!-- Note: Made the original menu paths consistent with old code, keeping '服务商管理' instead of '服务商' to match perfectly if desired, but spec says '服务商'. I'll stick to simple '服务商' -->
         <div class="nav-item" :class="{ active: route.path === '/providers' }" @click="router.push('/providers')">服务商</div>
-        <div class="nav-item" :class="{ active: route.path === '/mcp' }" @click="router.push('/mcp')">MCP 工具</div>
+        <div class="nav-item" :class="{ active: route.path === '/mcp' }" @click="router.push('/mcp')">MCP</div>
         <div class="nav-item" :class="{ active: route.path === '/prompts' }" @click="router.push('/prompts')">提示词</div>
-        <div class="nav-item" :class="{ active: route.path === '/skills' }" @click="router.push('/skills')">扩展技能</div>
-        <div class="nav-item" :class="{ active: route.path === '/plugins' }" @click="router.push('/plugins')">插件应用</div>
+        <div class="nav-item" :class="{ active: route.path === '/skills' }" @click="router.push('/skills')">Skill</div>
+        <div class="nav-item" :class="{ active: route.path === '/plugins' }" @click="router.push('/plugins')">Plugin</div>
       </div>
       
-      <div class="nav-group">
-        <div class="nav-group-title">系统管理</div>
-        <div class="nav-item" :class="{ active: route.path === '/config' }" @click="router.push('/config')">全局设置</div>
-      </div>
-
       <div class="sidebar-footer">
-        <div class="version">v{{ appVersion }}</div>
-        <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: center;">
-          <el-button size="small" :icon="Refresh" @click="handleCheckUpdate" :loading="checkingUpdate" circle />
-          <el-button size="small" :icon="Link" @click="openGithubRepo" circle />
+        <div class="footer-actions">
+          <button class="footer-btn" @click="handleCheckUpdate" :disabled="checkingUpdate" title="检查更新">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spin': checkingUpdate }">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+            </svg>
+          </button>
+          <button class="footer-btn" @click="openGithubRepo" title="GitHub 仓库">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+            </svg>
+          </button>
+        </div>
+        <div class="version-tag">
+          <span class="ver-prefix">v</span>{{ appVersion }}
         </div>
       </div>
     </div>
 
     <div class="view-container">
-      <router-view />
+      <div class="view-content">
+        <router-view />
+      </div>
     </div>
   </div>
 </template>
@@ -175,10 +183,9 @@ body {
 }
 
 /* Sidebar Navigation */
-.sidebar { 
-  width: 220px; 
-  padding-top: 12px; 
-  display: flex; 
+.sidebar {
+  width: 160px;
+  padding-top: 12px;  display: flex; 
   flex-direction: column;
   position: relative;
 }
@@ -208,13 +215,53 @@ body {
 /* Footer stats */
 .sidebar-footer {
   margin-top: auto;
-  text-align: center;
-  padding-bottom: 12px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
-.version {
-  font-size: 13px;
+
+.footer-actions {
+  display: flex;
+  gap: 8px;
+  background: rgba(148, 163, 184, 0.05);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.footer-btn {
+  background: transparent;
+  border: none;
   color: #94a3b8;
-  font-family: monospace;
+  padding: 6px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.footer-btn:hover {
+  background: #ffffff;
+  color: #0ea5e9;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.footer-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.version-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+  letter-spacing: 0.5px;
+  font-family: "JetBrains Mono", monospace;
+}
+.ver-prefix { opacity: 0.6; margin-right: 1px; }
+
+.spin { animation: fa-spin 2s infinite linear; }
+@keyframes fa-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(359deg); }
 }
 
 /* View container */
@@ -223,8 +270,38 @@ body {
   background: #f4f7fe; 
   border-radius: 24px; 
   box-shadow: inset 0 0 0 1px #e2e8f0; 
-  padding: 40px; 
+  padding: 40px 0; 
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-content {
+  flex: 1;
   overflow-y: auto;
+  padding: 0 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-content::-webkit-scrollbar {
+  width: 20px;
+  height: 20px;
+}
+
+.view-content::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+  border: 6px solid transparent;
+  background-clip: padding-box;
+}
+
+.view-content::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+.view-content::-webkit-scrollbar-track {
+  background-color: transparent;
+  margin: 0;
 }
 </style>

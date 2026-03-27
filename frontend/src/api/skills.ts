@@ -31,21 +31,21 @@ export const skillsApi = {
     return await invoke<SkillRepo>('add_skill_repo', { input })
   },
 
-  removeRepo: async (owner: string, name: string): Promise<void> => {
-    await invoke('remove_skill_repo', { owner, name })
+  removeRepo: async (name: string): Promise<void> => {
+    await invoke('remove_skill_repo', { name })
   },
 
-  updateRepo: async (oldOwner: string, oldName: string, newUrl: string, newBranch: string): Promise<SkillRepo> => {
-    return await invoke<SkillRepo>('update_skill_repo', { oldOwner, oldName, newUrl, newBranch })
+  updateRepo: async (oldName: string, newUrl: string, newBranch: string): Promise<SkillRepo> => {
+    return await invoke<SkillRepo>('update_skill_repo', { oldName, newUrl, newBranch })
   },
 
   // ==================== Skill 发现 ====================
-  discoverRepoSkills: async (owner: string, name: string, branch: string): Promise<DiscoverableSkill[]> => {
-    return await invoke<DiscoverableSkill[]>('discover_repo_skills', { owner, name, branch })
+  discoverRepoSkills: async (name: string): Promise<DiscoverableSkill[]> => {
+    return await invoke<DiscoverableSkill[]>('discover_repo_skills', { name })
   },
 
-  refreshRepoSkills: async (owner: string, name: string, branch: string): Promise<DiscoverableSkill[]> => {
-    return await invoke<DiscoverableSkill[]>('refresh_repo_skills', { owner, name, branch })
+  refreshRepoSkills: async (name: string): Promise<DiscoverableSkill[]> => {
+    return await invoke<DiscoverableSkill[]>('refresh_repo_skills', { name })
   },
 
   // ==================== Skill 安装/卸载 ====================

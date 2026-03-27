@@ -73,7 +73,7 @@ impl DatabaseSchema {
     /// 获取当前主数据库 Schema
     pub fn current() -> Self {
         Self {
-            version: 16,
+            version: 18,
             tables: Self::define_main_tables(),
         }
     }
@@ -516,25 +516,25 @@ impl DatabaseSchema {
                 name: "skill_repos".to_string(),
                 columns: vec![
                     ColumnDefinition {
-                        name: "owner".to_string(),
-                        data_type: "TEXT".to_string(),
-                        nullable: false,
-                        default_value: None,
-                    },
-                    ColumnDefinition {
                         name: "name".to_string(),
                         data_type: "TEXT".to_string(),
                         nullable: false,
                         default_value: None,
                     },
                     ColumnDefinition {
+                        name: "source".to_string(),
+                        data_type: "TEXT".to_string(),
+                        nullable: true,
+                        default_value: None,
+                    },
+                    ColumnDefinition {
                         name: "branch".to_string(),
                         data_type: "TEXT".to_string(),
-                        nullable: false,
+                        nullable: true,
                         default_value: Some("'main'".to_string()),
                     },
                 ],
-                primary_key: vec!["owner".to_string(), "name".to_string()],
+                primary_key: vec!["name".to_string()],
                 unique_constraints: vec![],
             },
         );

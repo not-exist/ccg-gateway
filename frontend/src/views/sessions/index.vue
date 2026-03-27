@@ -42,22 +42,14 @@
     </div>
 
     <!-- Project List View -->
-    <div v-if="!currentProject" class="project-list">
-      <div class="page-header">
-        <h2 class="page-title">项目列表</h2>
-        <div class="search-box">
-          <svg class="search-icon" width="16" height="16"><use href="#icon-search"/></svg>
-          <input type="text" v-model="searchQuery" class="c-input" placeholder="搜索项目...">
-        </div>
-      </div>
-
+    <div v-if="!currentProject" class="project-list" style="margin-top: 16px;">
       <div v-loading="sessionStore.loading">
-        <template v-if="filteredProjects.length === 0">
+        <template v-if="sessionStore.projects.length === 0">
           <el-empty description="暂无项目" />
         </template>
         <div v-else class="project-grid">
           <div
-            v-for="project in filteredProjects"
+            v-for="project in sessionStore.projects"
             :key="project.name"
             class="project-card"
             @click="handleProjectClick(project)"
@@ -69,24 +61,14 @@
               <div class="project-name">{{ project.display_name }}</div>
               <div class="project-path">{{ project.full_path }}</div>
               <div class="project-meta">
-                <div class="pill pill-grey">{{ project.session_count }} 个会话</div>
-                <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">{{ formatSize(project.total_size) }}</span>
+                <div class="mono" style="font-size: 11px; color: #94a3b8;">{{ project.session_count }} 个会话</div>
+                <span class="mono" style="font-size: 11px; color: #94a3b8;">{{ formatSize(project.total_size) }}</span>
               </div>
             </div>
             <div class="ghost-delete" @click.stop="handleDeleteProject(project)">
               <svg width="16" height="16"><use href="#icon-trash"/></svg>
             </div>
           </div>
-        </div>
-        
-        <div v-if="sessionStore.projectTotal > sessionStore.pageSize" style="display: flex; justify-content: center; margin-top: 24px;">
-          <el-pagination
-            v-model:current-page="sessionStore.projectPage"
-            :page-size="sessionStore.pageSize"
-            :total="sessionStore.projectTotal"
-            layout="prev, pager, next"
-            @current-change="handleProjectPageChange"
-          />
         </div>
       </div>
     </div>
@@ -98,12 +80,14 @@
           <button class="b-button-outline" style="border: none; background: transparent; box-shadow: none; padding: 6px; color: #64748b;" @click="handleBackToProjects">
             <svg width="20" height="20"><use href="#icon-back"/></svg>
           </button>
-          <h2 class="page-title" style="font-size: 20px;">{{ sessionStore.currentProjectInfo?.display_name }}</h2>
-          <div class="pill pill-grey">{{ sessionStore.sessionTotal }} 个会话</div>
+          <div>
+            <h2 class="page-title" style="font-size: 20px; margin-bottom: 2px;">{{ sessionStore.currentProjectInfo?.display_name }}</h2>
+            <div style="font-size: 13px; color: #94a3b8;">{{ sessionStore.sessionTotal }} 个会话</div>
+          </div>
         </div>
-        <div class="search-box" style="width: 260px;">
-          <svg class="search-icon" width="16" height="16"><use href="#icon-search"/></svg>
-          <input type="text" v-model="sessionSearchQuery" class="c-input" placeholder="搜索会话...">
+        <div class="search-box" style="width: 260px; position: relative;">
+          <svg class="search-icon" width="16" height="16" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; z-index: 1;"><use href="#icon-search"/></svg>
+          <input type="text" v-model="sessionSearchQuery" class="c-input" placeholder="搜索..." style="height: 38px; padding: 0 12px 0 36px; margin: 0; box-shadow: none;">
         </div>
       </div>
 
@@ -124,8 +108,8 @@
             
             <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;">
               <div style="display: flex; align-items: center; gap: 12px; margin-top: 2px;">
-                <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 14px; color: #0f172a;">{{ session.session_id }}</span>
-                <div v-if="session.git_branch" class="pill pill-blue">
+                <span class="mono" style="font-weight: 600; font-size: 14px; color: #0f172a;">{{ session.session_id }}</span>
+                <div v-if="session.git_branch" class="pill pill-blue mono">
                   <svg width="12" height="12"><use href="#icon-branch"/></svg> {{ session.git_branch }}
                 </div>
               </div>
@@ -134,7 +118,7 @@
                 "{{ truncateText(session.first_message, 200) }}"
               </div>
 
-              <div style="display: flex; gap: 20px; font-size: 12px; color: #94a3b8; font-family: monospace;">
+              <div class="mono" style="display: flex; gap: 20px; font-size: 12px; color: #94a3b8;">
                 <span>{{ formatTime(session.mtime) }}</span>
                 <span>{{ formatSize(session.size) }}</span>
               </div>
@@ -145,16 +129,6 @@
             </div>
           </div>
         </div>
-        
-        <div v-if="sessionStore.sessionTotal > sessionStore.pageSize" style="display: flex; justify-content: center; margin-top: 24px;">
-          <el-pagination
-            v-model:current-page="sessionStore.sessionPage"
-            :page-size="sessionStore.pageSize"
-            :total="sessionStore.sessionTotal"
-            layout="prev, pager, next"
-            @current-change="handleSessionPageChange"
-          />
-        </div>
       </div>
     </div>
 
@@ -163,7 +137,7 @@
     <div :class="['drawer', { active: showSessionDrawer }]">
       <div class="drawer-header">
         <div>
-          <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px;">会话审查</div>
+          <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px;">会话详情</div>
           <div style="font-size: 18px; font-weight: 700; color: #0f172a; font-family: 'JetBrains Mono', monospace;">{{ currentSessionId }}</div>
         </div>
         <div class="drawer-close" @click="closeDrawer">
@@ -182,9 +156,9 @@
           >
             <div class="bubble-role">
               {{ msg.role === 'user' ? 'USER' : 'ASSISTANT' }}
-              <svg class="copy-btn" width="12" height="12" @click="handleCopyMessage(msg.content)"><use href="#icon-copy"/></svg>
             </div>
             <div class="bubble-content">
+              <svg class="copy-btn" width="24" height="24" @click="handleCopyMessage(msg.content)"><use href="#icon-copy"/></svg>
               {{ getDisplayContent(msg.content, index) }}
               <div v-if="isLongMessage(msg.content)" class="expand-btn" @click="toggleExpand(index)">
                 {{ expandedMessages.has(index) ? '收起' : '展开全部' }}
@@ -216,7 +190,6 @@ const activeCliType = computed({
 })
 
 const currentProject = computed(() => sessionStore.currentProject)
-const searchQuery = ref('')
 const sessionSearchQuery = ref('')
 const showSessionDrawer = ref(false)
 const currentSessionId = ref('')
@@ -227,15 +200,6 @@ function handleCliChange(name: string) {
   sessionStore.clearSessions()
   sessionStore.fetchProjects(1)
 }
-
-const filteredProjects = computed(() => {
-  if (!searchQuery.value) return sessionStore.projects
-  const query = searchQuery.value.toLowerCase()
-  return sessionStore.projects.filter(p =>
-    p.display_name.toLowerCase().includes(query) ||
-    p.full_path.toLowerCase().includes(query)
-  )
-})
 
 const filteredSessions = computed(() => {
   if (!sessionSearchQuery.value) return sessionStore.sessions
@@ -266,20 +230,11 @@ function closeDrawer() {
   showSessionDrawer.value = false
 }
 
-function handleProjectPageChange(page: number) {
-  sessionStore.fetchProjects(page)
-}
-
-function handleSessionPageChange(page: number) {
-  sessionStore.fetchSessions(sessionStore.currentProject, page)
-}
-
 async function handleDeleteProject(project: ProjectInfo) {
   try {
     await ElMessageBox.confirm(
       `确定删除项目 "${project.display_name}" 及其所有会话吗？此操作不可恢复！`,
-      '确认删除',
-      { type: 'warning' }
+      '确认删除'
     )
     await sessionStore.deleteProject(project.name)
     notify('项目已删除')
@@ -295,8 +250,7 @@ async function handleDeleteSession(session: SessionInfo) {
   try {
     await ElMessageBox.confirm(
       `确定删除会话 "${session.session_id.substring(0, 8)}..." 吗？此操作不可恢复！`,
-      '确认删除',
-      { type: 'warning' }
+      '确认删除'
     )
     await sessionStore.deleteSession(sessionStore.currentProject, session.session_id)
     notify('会话已删除')
@@ -411,51 +365,59 @@ onMounted(() => {
 
 /* Grid & Cards */
 .project-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-.project-card { display: flex; align-items: center; padding: 16px 20px; border: 1px solid rgba(255,255,255,0.6); border-radius: 16px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-.project-card:hover { border-color: rgba(14, 165, 233, 0.3); box-shadow: 0 12px 30px rgba(14, 165, 233, 0.08); transform: translateY(-2px); background: #ffffff; }
+.project-card { display: flex; align-items: center; padding: 16px 20px; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #ffffff; cursor: pointer; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: border-color 0.2s, background-color 0.2s; transform: none !important; }
+.project-card:hover { border-color: #0ea5e9; background: #f8fafc; transform: none !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
 
-.project-icon-box { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0284c7; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(186, 230, 253, 0.5); margin-right: 16px; flex-shrink: 0; }
+.project-icon-box { width: 48px; height: 48px; border-radius: 12px; background: #f1f5f9; color: #0284c7; display: flex; align-items: center; justify-content: center; margin-right: 16px; flex-shrink: 0; }
 .project-info { flex: 1; min-width: 0; padding-right: 28px; }
 .project-name { font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .project-path { font-size: 12px; color: #64748b; font-family: "JetBrains Mono", monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 8px; }
 .project-meta { display: flex; align-items: center; gap: 12px; }
 
-.ghost-delete { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #cbd5e1; opacity: 0; transition: all 0.2s; padding: 6px; border-radius: 6px; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.project-card:hover .ghost-delete, .session-card:hover .ghost-delete { opacity: 1; }
+.ghost-delete { position: absolute; right: 16px; top: 50%; transform: translateY(-50%) !important; color: #cbd5e1; padding: 6px; border-radius: 6px; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s, background-color 0.2s, color 0.2s; }
 .ghost-delete:hover { background: #fee2e2; color: #ef4444; }
 
 /* Sessions List Detail */
-.session-card { display: flex; align-items: flex-start; padding: 20px 24px; border-radius: 16px; background: rgba(255,255,255,0.8); cursor: pointer; transition: all 0.2s; margin-bottom: 12px; position: relative; border: 1px solid transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.02); gap: 16px; backdrop-filter: blur(10px); }
-.session-card:hover { background: #ffffff; border-color: #e0f2fe; box-shadow: 0 10px 30px rgba(14, 165, 233, 0.06); transform: scale(1.002); }
-.session-icon { width: 40px; height: 40px; border-radius: 50%; background: #f0f9ff; color: #0ea5e9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.session-card { display: flex; align-items: flex-start; padding: 20px 24px; border-radius: 16px; background: #ffffff; cursor: pointer; margin-bottom: 12px; position: relative; border: 1px solid #f1f5f9; box-shadow: 0 2px 8px rgba(0,0,0,0.02); gap: 16px; transition: border-color 0.2s, background-color 0.2s; transform: none !important; }
+.session-card:hover { border-color: #e0f2fe; background: #f8fafc; transform: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+.session-icon { width: 40px; height: 40px; border-radius: 50%; background: #f1f5f9; color: #0ea5e9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
 
 /* Custom Drawer */
-.scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.15); backdrop-filter: blur(2px); z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-.drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 680px; max-width: 100vw; background: #ffffff; z-index: 2001; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: -20px 0 50px rgba(0,0,0,0.05); display: flex; flex-direction: column; border-top-left-radius: 24px; border-bottom-left-radius: 24px; }
+.scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.1); z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 80%; max-width: 100vw; background: #ffffff; z-index: 2001; transform: translateX(100%); transition: transform 0.3s ease; box-shadow: -10px 0 30px rgba(0,0,0,0.05); display: flex; flex-direction: column; border-left: 1px solid #f1f5f9; }
 .scrim.active { opacity: 1; pointer-events: auto; }
 .drawer.active { transform: translateX(0); }
 
-.drawer-header { padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); z-index: 1; }
-.drawer-close { cursor: pointer; padding: 8px; border-radius: 50%; background: #f1f5f9; color: #64748b; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-.drawer-close:hover { background: #e2e8f0; color: #0f172a; }
-.drawer-body { flex: 1; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 24px; background: #f8fafc; }
+.drawer-header { padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #ffffff; z-index: 1; }
+.drawer-close { cursor: pointer; padding: 8px; border-radius: 50%; color: #64748b; display: flex; align-items: center; justify-content: center; }
+.drawer-close:hover { background: #f1f5f9; color: #0f172a; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 24px; background: #ffffff; }
 
 /* Chat Bubbles */
-.bubble { max-width: 85%; line-height: 1.6; font-size: 14px; position: relative; display: flex; flex-direction: column; gap: 6px; }
+.bubble { max-width: 92%; line-height: 1.6; font-size: 14px; position: relative; display: flex; flex-direction: column; gap: 6px; }
 .bubble-role { font-size: 12px; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
 .bubble-user { align-self: flex-end; }
-.bubble-user .bubble-content { background: #0ea5e9; color: white; padding: 14px 20px; border-radius: 20px; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15); word-break: break-word; white-space: pre-wrap; }
+.bubble-user .bubble-content { background: #f1f5f9; color: #0f172a; padding: 14px 20px; padding-right: 44px; border-radius: 12px; border-bottom-right-radius: 2px; word-break: break-word; white-space: pre-wrap; position: relative; }
 .bubble-user .bubble-role { justify-content: flex-end; }
 .bubble-bot { align-self: flex-start; }
-.bubble-bot .bubble-content { background: #ffffff; color: #334155; padding: 14px 20px; border-radius: 20px; border-bottom-left-radius: 4px; border: 1px solid #f1f5f9; box-shadow: 0 4px 15px rgba(0,0,0,0.03); word-break: break-word; white-space: pre-wrap; }
+.bubble-bot .bubble-content { background: #f8fafc; color: #334155; padding: 14px 20px; padding-right: 44px; border-radius: 12px; border-bottom-left-radius: 2px; border: 1px solid #f1f5f9; word-break: break-word; white-space: pre-wrap; position: relative; }
 
-.expand-btn { margin-top: 12px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 8px; color: currentcolor; opacity: 0.8; font-size: 12px; font-weight: 600; text-align: center; cursor: pointer; transition: opacity 0.2s; }
-.expand-btn:hover { opacity: 1; }
-.bubble-bot .expand-btn { border-top-color: #e2e8f0; }
+.expand-btn { margin-top: 12px; border-top: 1px dashed #e2e8f0; padding-top: 8px; color: #64748b; font-size: 12px; font-weight: 600; text-align: center; cursor: pointer; }
+.expand-btn:hover { color: #0f172a; }
 
-.copy-btn { opacity: 0; transition: opacity 0.2s; color: #94a3b8; cursor: pointer; padding: 4px; border-radius: 4px; }
-.bubble:hover .copy-btn { opacity: 1; }
-.copy-btn:hover { color: #0f172a; background: #f1f5f9; }
-.bubble-user .copy-btn { color: rgba(255,255,255,0.7); }
-.bubble-user .copy-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+.copy-btn { 
+  position: absolute; 
+  top: 8px; 
+  right: 8px; 
+  opacity: 0.3; 
+  color: #0f172a; 
+  cursor: pointer; 
+  padding: 6px; 
+  z-index: 10; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bubble:hover .copy-btn { opacity: 0.8; }
+.bubble-user .copy-btn { color: #0f172a; }
 </style>
