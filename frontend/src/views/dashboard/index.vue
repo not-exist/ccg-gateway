@@ -1,105 +1,92 @@
 <template>
-  <div class="dashboard">
-    <!-- 网关状态卡片 -->
-    <el-row :gutter="16">
-      <el-col :span="8" v-for="cli in cliList" :key="cli.type">
-        <el-card class="status-card" shadow="always">
-          <div class="status-card-content">
-            <div class="status-left">
-              <span class="status-indicator" :class="getCliEnabled(cli.type) ? 'running' : 'stopped'"></span>
-              <div class="status-info">
-                <span class="status-name">{{ cli.label }}</span>
-                <div class="status-details">
-                  <span class="status-text">{{ getCliEnabled(cli.type) ? '运行中' : '已停止' }}</span>
-                  <el-tag :type="getCliMode(cli.type) === 'proxy' ? 'success' : 'info'" size="small" class="mode-tag">
-                    {{ getCliMode(cli.type) === 'proxy' ? '中转模式' : '官方模式' }}
-                  </el-tag>
-                </div>
-              </div>
+  <div class="dashboard-page">
+    <div class="page-header">
+      <h1 class="page-title">仪表盘</h1>
+    </div>
+
+    <!-- 顶部状态卡片区 -->
+    <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+      <div v-for="cli in cliList" :key="cli.type" class="b-card" style="flex: 1; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="status-dot" :class="{ running: getCliEnabled(cli.type) }"></div>
+            <div style="font-size: 16px; font-weight: 600; color: #0f172a;">
+              {{ cli.label }} 
+              <span v-if="!getCliEnabled(cli.type)" style="color: #94a3b8; font-size: 13px; font-weight: 500;">(已禁用)</span>
             </div>
-            <el-switch
-              :model-value="getCliEnabled(cli.type)"
-              @change="(val: boolean) => handleCliToggle(cli.type, val)"
-              :loading="cliLoading[cli.type]"
-            />
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+          <el-switch :model-value="getCliEnabled(cli.type)" @change="(val: boolean) => handleCliToggle(cli.type, val)" :loading="cliLoading[cli.type]" />
+        </div>
+        
+        <div class="b-segmented" style="width: 100%;">
+          <div class="b-seg-btn" :class="{ active: getCliMode(cli.type) === 'proxy' }" @click="handleModeSwitch(cli.type, 'proxy')" style="flex: 1;">中转模式</div>
+          <div class="b-seg-btn" :class="{ active: getCliMode(cli.type) === 'direct' }" @click="handleModeSwitch(cli.type, 'direct')" style="flex: 1;">官方模式</div>
+        </div>
+      </div>
+    </div>
 
-    <!-- KPI 概览区 -->
-    <el-row :gutter="16" class="kpi-row">
-      <el-col :span="6" v-for="kpi in kpiList" :key="kpi.key">
-        <el-card class="kpi-card" shadow="always">
-          <div class="kpi-value">{{ kpi.value }}</div>
-          <div class="kpi-label">{{ kpi.label }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 中部关键指标 KPI -->
+    <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+      <div class="b-card kpi-card">
+        <div class="kpi-title">请求总数</div>
+        <div class="kpi-value text-blue">{{ kpiData.requests }}</div>
+      </div>
+      <div class="b-card kpi-card">
+        <div class="kpi-title">全局成功率</div>
+        <div class="kpi-value text-green">{{ kpiData.successRate }}</div>
+      </div>
+      <div class="b-card kpi-card">
+        <div class="kpi-title">Token消耗</div>
+        <div class="kpi-value">{{ kpiData.tokens }}</div>
+      </div>
+      <div class="b-card kpi-card">
+        <div class="kpi-title">活跃服务商</div>
+        <div class="kpi-value">{{ kpiData.providers }}</div>
+      </div>
+    </div>
 
-    <!-- 服务商统计 & 请求趋势 -->
-    <el-row :gutter="16" class="main-row">
-      <el-col :span="12">
-        <el-card class="main-card" shadow="always">
-          <template #header>
-            <div class="card-header">
-              <span>服务商统计</span>
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="-"
-                start-placeholder="开始"
-                end-placeholder="结束"
-                value-format="YYYY-MM-DD"
-                size="small"
-                style="width: 200px"
-                @change="fetchStats"
-              />
-            </div>
-          </template>
-          <el-table :data="providerStats" stripe size="small" class="stats-table">
-            <el-table-column prop="cli_type" label="CLI" width="100" />
-            <el-table-column prop="provider_name" label="服务商" />
-            <el-table-column prop="total_requests" label="请求" width="80" />
-            <el-table-column label="成功率" width="80">
-              <template #default="{ row }">
-                <el-tag :type="row.success_rate >= 90 ? 'success' : row.success_rate >= 70 ? 'warning' : 'danger'" size="small">
-                  {{ row.success_rate.toFixed(1) }}%
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="Token" width="100">
-              <template #default="{ row }">{{ formatTokens(row.total_tokens) }}</template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card class="main-card" shadow="always">
-          <template #header>请求趋势</template>
-          <div ref="chartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 底部图表与日志 -->
+    <div style="display: flex; gap: 24px;">
+      <!-- 图表区 flex: 2 -->
+      <div class="b-card" style="flex: 2; margin-bottom: 0;">
+        <div class="b-card-title">请求统计与成功率趋势</div>
+        <div style="height: 300px; width: 100%;">
+          <v-chart class="chart" :option="chartOption" autoresize />
+        </div>
+      </div>
+      
+      <!-- 日志列表 flex: 1 -->
+      <div class="b-card" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="b-card-title">最近失败记录</div>
+        <div style="flex: 1; border: 1px dashed #cbd5e1; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #f8fafc; min-height: 200px;">
+           <span style="color: #94a3b8; font-size: 14px;">暂无失败记录</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, computed, nextTick } from 'vue'
+import { onMounted, ref, reactive, computed } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { notify } from '@/utils/notification'
-import * as echarts from 'echarts/core'
-import { BarChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
+
+import { use } from 'echarts/core'
+import { LineChart, BarChart } from 'echarts/charts'
+import { TooltipComponent, GridComponent, DatasetComponent, TransformComponent, LegendComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
+import * as echarts from 'echarts/core'
+
+use([LineChart, BarChart, TooltipComponent, GridComponent, DatasetComponent, TransformComponent, LegendComponent, CanvasRenderer])
+
 import { useDashboardStore } from '@/stores/dashboard'
 import { useProviderStore } from '@/stores/providers'
 import { useSettingsStore } from '@/stores/settings'
 import { statsApi } from '@/api/stats'
 import { formatTokens } from '@/utils/json'
 import type { ProviderStats, DailyStats } from '@/types/models'
-
-echarts.use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 const dashboardStore = useDashboardStore()
 const providerStore = useProviderStore()
@@ -117,13 +104,10 @@ const cliLoading = reactive<Record<string, boolean>>({
   gemini: false
 })
 
-const dateRange = ref<[string, string] | null>(null)
 const providerStats = ref<ProviderStats[]>([])
 const dailyStats = ref<DailyStats[]>([])
-const chartRef = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
 
-const kpiList = computed(() => {
+const kpiData = computed(() => {
   const stats = providerStats.value
   const totalRequests = stats.reduce((sum, s) => sum + s.total_requests, 0)
   const totalSuccess = stats.reduce((sum, s) => sum + s.total_success, 0)
@@ -131,23 +115,18 @@ const kpiList = computed(() => {
   const activeProviders = stats.filter(s => s.total_requests > 0).length
   const successRate = totalRequests > 0 ? (totalSuccess / totalRequests) * 100 : 0
 
-  return [
-    { key: 'requests', label: '总请求数', value: totalRequests.toLocaleString(), change: 0, changeType: '' },
-    { key: 'success', label: '整体成功率', value: successRate.toFixed(1) + '%', change: 0, changeType: '' },
-    { key: 'tokens', label: 'Token 消耗', value: formatTokens(totalTokens), change: 0, changeType: '' },
-    { key: 'providers', label: '活跃服务商', value: activeProviders, change: 0, changeType: '' }
-  ]
+  return {
+    requests: totalRequests.toLocaleString(),
+    successRate: totalRequests > 0 ? successRate.toFixed(1) + '%' : '0%',
+    tokens: formatTokens(totalTokens),
+    providers: activeProviders
+  }
 })
 
 function getCliEnabled(cliType: string): boolean {
   const settings = settingsStore.settings?.cli_settings?.[cliType]
   if (!settings) return false
-  
-  // enabled 是从配置文件实时读取的
-  // 官方模式下，如果配置文件中还有网关地址，也会显示为 enabled=true
-  // 但逻辑上官方模式不应该使用网关，所以这里强制显示为 false
   if (settings.cli_mode === 'direct') return false
-  
   return settings.enabled ?? false
 }
 
@@ -155,59 +134,49 @@ function getCliMode(cliType: string): 'proxy' | 'direct' {
   return settingsStore.settings?.cli_settings?.[cliType]?.cli_mode ?? 'proxy'
 }
 
+async function handleModeSwitch(cliType: string, targetMode: 'proxy' | 'direct') {
+  if (getCliMode(cliType) === targetMode) return
+  if (cliType === 'claude_code' && targetMode === 'direct') {
+    notify('Claude Code 暂不支持官方模式', 'warning')
+    return
+  }
+  cliLoading[cliType] = true
+  try {
+    await settingsStore.setCliMode(cliType, targetMode)
+    notify(`${cliType} 已切换至 ${targetMode === 'proxy' ? '中转模式' : '官方模式'}`)
+  } catch (e: any) {
+    notify(`切换失败: ${e.message}`, 'error')
+  } finally {
+    cliLoading[cliType] = false
+  }
+}
+
 async function handleCliToggle(cliType: string, enabled: boolean) {
-  // 如果要启用 CLI，但当前是官方模式，提示用户切换
   if (enabled && getCliMode(cliType) === 'direct') {
     try {
-      await ElMessageBox.confirm(
-        '当前是官方模式，网关代理不会生效。是否切换至中转模式？',
-        '提示',
-        {
-          confirmButtonText: '切换至中转模式',
-          cancelButtonText: '保持官方模式',
-          type: 'warning'
-        }
-      )
-      // 用户选择切换至中转模式
+      await ElMessageBox.confirm('当前是官方模式，是否切换至中转模式并启用代理？', '提示', {
+        confirmButtonText: '切换并启用', cancelButtonText: '取消', type: 'warning'
+      })
       cliLoading[cliType] = true
       try {
         await settingsStore.setCliMode(cliType, 'proxy')
         await settingsStore.updateCli(cliType, { enabled: true })
         notify(`${cliType} 已切换至中转模式并启用`)
-      } catch (error: any) {
-        console.error('CLI toggle error:', error)
-        const errorMsg = error?.message || error?.toString() || '操作失败'
-        notify(`操作失败: ${errorMsg}`, 'error')
-      } finally {
-        cliLoading[cliType] = false
-      }
-    } catch {
-      // 用户取消或选择保持官方模式，不做任何操作
-      notify(`${cliType} 保持官方模式`, 'info')
-    }
+      } catch (e: any) { notify(`操作失败: ${e.message}`, 'error') }
+      finally { cliLoading[cliType] = false }
+    } catch { notify('操作已取消', 'info') }
   } else {
-    // 正常的启用/禁用操作
     cliLoading[cliType] = true
     try {
       await settingsStore.updateCli(cliType, { enabled })
       notify(`${cliType} 已${enabled ? '启用' : '禁用'}`)
-    } catch (error: any) {
-      console.error('CLI toggle error:', error)
-      const errorMsg = error?.message || error?.toString() || '操作失败'
-      notify(`操作失败: ${errorMsg}`, 'error')
-    } finally {
-      cliLoading[cliType] = false
-    }
+    } catch (e: any) { notify(`操作失败: ${e.message}`, 'error') }
+    finally { cliLoading[cliType] = false }
   }
 }
 
 async function fetchStats() {
-  const params: any = {}
-  if (dateRange.value) {
-    params.start_date = dateRange.value[0]
-    params.end_date = dateRange.value[1]
-  }
-  const providerRes = await statsApi.getProviders(params)
+  const providerRes = await statsApi.getProviders({})
   providerStats.value = providerRes.data
 }
 
@@ -220,56 +189,92 @@ function formatLocalDate(d: Date): string {
 
 async function fetchChartData() {
   const today = new Date()
-  const fiveDaysAgo = new Date(today)
-  fiveDaysAgo.setDate(today.getDate() - 4)
-  const params = {
-    start_date: formatLocalDate(fiveDaysAgo),
-    end_date: formatLocalDate(today)
-  }
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(today.getDate() - 6)
+  const params = { start_date: formatLocalDate(sevenDaysAgo), end_date: formatLocalDate(today) }
   const dailyRes = await statsApi.getDaily(params)
   dailyStats.value = dailyRes.data
-  updateChart()
 }
 
-function updateChart() {
-  if (!chart) return
-
-  // 生成最近5天的日期
+const chartOption = computed(() => {
   const dates: string[] = []
-  for (let i = 4; i >= 0; i--) {
+  for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
     dates.push(formatLocalDate(d))
   }
-
-  // 汇总数据
-  const dateMap = new Map<string, { success: number; failure: number }>()
-  for (const date of dates) {
-    dateMap.set(date, { success: 0, failure: 0 })
-  }
-  for (const stat of dailyStats.value) {
-    const existing = dateMap.get(stat.usage_date)
-    if (existing) {
-      existing.success += stat.success_count
-      existing.failure += stat.failure_count
+  
+  const dateMap = new Map<string, { reqs: number; success: number }>()
+  dates.forEach(d => dateMap.set(d, { reqs: 0, success: 0 }))
+  
+  dailyStats.value.forEach(s => {
+    const ex = dateMap.get(s.usage_date)
+    if (ex) {
+      ex.reqs += s.success_count + s.failure_count
+      ex.success += s.success_count
     }
-  }
-
-  const successData = dates.map(d => dateMap.get(d)!.success)
-  const failureData = dates.map(d => dateMap.get(d)!.failure)
-
-  chart.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['成功', '失败'], top: 0 },
-    grid: { top: 30, bottom: 20, left: 40, right: 10 },
-    xAxis: { type: 'category', data: dates },
-    yAxis: { type: 'value' },
-    series: [
-      { name: '成功', type: 'bar', stack: 'total', data: successData, itemStyle: { color: '#67C23A' } },
-      { name: '失败', type: 'bar', stack: 'total', data: failureData, itemStyle: { color: '#F56C6C' } }
-    ]
   })
-}
+
+  const reqData = dates.map(d => dateMap.get(d)!.reqs)
+  const successRateData = dates.map(d => {
+    const node = dateMap.get(d)!
+    return node.reqs > 0 ? ((node.success / node.reqs) * 100).toFixed(1) : 0
+  })
+
+  return {
+    tooltip: { trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.9)', borderColor: '#e2e8f0', textStyle: { color: '#0f172a' } },
+    legend: { show: false },
+    grid: { top: 20, right: 40, bottom: 20, left: 40, containLabel: true },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: dates,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#94a3b8', margin: 12 }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '',
+        splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
+        axisLabel: { color: '#94a3b8' }
+      },
+      {
+        type: 'value',
+        name: '',
+        max: 100,
+        splitLine: { show: false },
+        axisLabel: { color: '#94a3b8', formatter: '{value} %' }
+      }
+    ],
+    series: [
+      {
+        name: '请求数',
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 3, color: '#0ea5e9' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(14, 165, 233, 0.3)' },
+            { offset: 1, color: 'rgba(14, 165, 233, 0.0)' }
+          ])
+        },
+        data: reqData
+      },
+      {
+        name: '成功率',
+        type: 'line',
+        yAxisIndex: 1,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2, color: '#10b981' },
+        data: successRateData
+      }
+    ]
+  }
+})
 
 onMounted(async () => {
   await Promise.all([
@@ -279,136 +284,30 @@ onMounted(async () => {
     fetchStats(),
     fetchChartData()
   ])
-  await nextTick()
-  if (chartRef.value && !chart) {
-    chart = echarts.init(chartRef.value)
-    updateChart()
-  }
 })
 </script>
 
 <style scoped>
-.dashboard {
-  padding: 0;
-}
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.page-title { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
 
-.status-card {
-  margin-bottom: 16px;
-}
+.b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: transform 0.2s, box-shadow 0.2s; }
+.b-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
+.b-card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; color: #0f172a; }
 
-.status-card-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+.status-dot.running { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
 
-.status-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
+.b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; font-weight: 500; transition: all 0.2s ease; opacity: 0.7; cursor: pointer; }
+.b-seg-btn.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 1; pointer-events: none; }
 
-.status-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
+.kpi-card { flex: 1; padding: 24px 20px !important; margin-bottom: 0 !important; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+.kpi-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 12px; }
+.kpi-value { font-size: 32px; font-weight: 700; font-family: monospace; letter-spacing: -1px; }
 
-.status-indicator.running {
-  background: #67C23A;
-  box-shadow: 0 0 8px rgba(103, 194, 58, 0.6);
-}
+.text-blue { color: #0ea5e9; }
+.text-green { color: #10b981; }
 
-.status-indicator.stopped {
-  background: #909399;
-}
-
-.status-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.status-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.status-details {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-text {
-  font-size: 12px;
-  color: #909399;
-}
-
-.mode-tag {
-  font-size: 11px;
-}
-
-.kpi-row {
-  margin-bottom: 16px;
-}
-
-.kpi-card :deep(.el-card__body) {
-  text-align: center;
-  padding: 20px;
-}
-
-.kpi-value {
-  font-size: 28px;
-  font-weight: 600;
-  color: #409EFF;
-}
-
-.kpi-label {
-  font-size: 14px;
-  color: #606266;
-}
-
-.main-row {
-  margin-bottom: 16px;
-}
-
-.main-card {
-  height: 320px;
-}
-
-.main-card :deep(.el-card__body) {
-  height: calc(100% - 56px);
-  padding: 16px;
-}
-
-.stats-table {
-  height: 100%;
-}
-
-.chart-container {
-  height: calc(320px - 56px - 32px);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.card-header :deep(.el-date-editor) {
-  flex-shrink: 0;
-  flex-grow: 0;
-  width: fit-content !important;
-}
-
-.card-header :deep(.el-range-input) {
-  width: 80px;
-}
-
-.main-card :deep(.el-card__header) {
-  display: block;
-}
+.chart { width: 100%; height: 100%; }
 </style>

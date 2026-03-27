@@ -8,6 +8,7 @@ The goal is to redesign the Dashboard frontend of the CCG Gateway Tauri applicat
 *   **Backgrounds:** A soft blue-grey (`#f4f7fe`) for the main app background, and pure white (`#ffffff`) for content cards with soft box shadows (`box-shadow: 0 4px 12px rgba(0,0,0,0.03)`).
 *   **Colors:** Primary/Accent Blue (`#0ea5e9`), Success Green (`#10b981`), Warning Amber (`#f59e0b`), Danger Red (`#f43f5e`). Headings (`#0f172a`), Text (`#475569`, `#94a3b8`).
 *   **Shapes:** `16px` border radii for main cards, `8px` for buttons and inputs.
+*   **Global Layout:** The application shell MUST be built with `width: 100%` and fluid heights, avoiding hardcoded `max-width: 1400px` to maintain responsivenes on wide monitors. It MUST globally inject `box-sizing: border-box` to prevent padded inputs from overflowing.
 *   **Global Sidebar Navigation:** Fully Chinese terms: "总览" (仪表盘, 会话记录, 系统日志), "核心资源" (服务商, MCP 工具, 提示词, 扩展技能), "系统管理" (全局设置).
 
 ## 3. Key View Overhaul: Dashboard (仪表盘)
@@ -15,7 +16,7 @@ The goal is to redesign the Dashboard frontend of the CCG Gateway Tauri applicat
 *   **Layout:** 3 parallel white cards (Claude Code, Codex, Gemini).
 *   **UI Elements:**
     *   No redundant text ("运行中" / "已停止"). Relies entirely on colored status dots (Green for active, Grey for disabled/off) and text opacity.
-    *   **Proxy vs Direct Mode Switch:** Integrated iOS-style segmented control inside the card (`中转模式` / `官方模式`). Uses a slightly darker grey background (`#e2e8f0`) framing pure white active pills.
+    *   **Proxy vs Direct Mode Switch:** Integrated iOS-style segmented control inside the card (`中转模式` / `官方模式`). This is not just a visual tab; it MUST invoke the API (e.g. `setCliMode`) to actively mutate the CLI's proxy routing behavior, accompanied by cursors as `pointer` and loader states.
     *   **Master Toggle:** Friendly iOS-style toggle switches (`.toggle`) in the top right to enable/disable the node.
 
 ### 3.2 KPI Overview (Middle Row)

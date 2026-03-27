@@ -6,6 +6,10 @@
 </script>
 
 <style>
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html, body, #app {
   margin: 0;
   padding: 0;

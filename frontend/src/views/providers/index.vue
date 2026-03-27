@@ -1,334 +1,352 @@
 <template>
   <div class="providers-page">
-    <el-tabs v-model="activeCliType" @tab-change="handleCliTypeChange">
-      <el-tab-pane label="Claude Code" name="claude_code" />
-      <el-tab-pane label="Codex" name="codex" />
-      <el-tab-pane label="Gemini" name="gemini" />
-    </el-tabs>
-
-    <!-- 模式切换 -->
-    <div class="mode-switch">
-      <el-radio-group :model-value="cliMode" @change="handleModeChange" size="large">
-        <el-radio-button value="proxy">中转模式</el-radio-button>
-        <el-radio-button value="direct">官方模式</el-radio-button>
-      </el-radio-group>
+    
+    <!-- Tab Headers (Top Line) -->
+    <div style="display: flex; gap: 32px; border-bottom: 1px solid #e2e8f0; margin-bottom: 32px;">
+      <div 
+        v-for="cli in [{id: 'claude_code', label: 'Claude Code'}, {id: 'codex', label: 'Codex'}, {id: 'gemini', label: 'Gemini'}]"
+        :key="cli.id"
+        @click="activeCliType = cli.id"
+        :style="activeCliType === cli.id ? 'padding-bottom: 16px; color: #0ea5e9; font-weight: 600; font-size: 16px; border-bottom: 2px solid #0ea5e9; cursor: pointer;' : 'padding-bottom: 16px; color: #64748b; font-weight: 500; font-size: 16px; cursor: pointer;'"
+      >
+        {{ cli.label }}
+      </div>
     </div>
 
-    <!-- 中转模式：服务商列表 -->
-    <div v-if="cliMode === 'proxy'">
-      <div class="page-header">
-        <el-button type="primary" @click="showAddDialog = true">
-          <el-icon><Plus /></el-icon>
-          添加服务商
-        </el-button>
+    <!-- Page Header & Segmented Control -->
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div class="b-segmented">
+        <div class="b-seg-btn" :class="{ active: viewMode === 'proxy' }" @click="viewMode = 'proxy'">中转模式</div>
+        <div class="b-seg-btn" :class="{ active: viewMode === 'direct' }" @click="handleSwitchDirect">官方模式</div>
       </div>
+      
+      <button 
+        v-if="viewMode === 'proxy'" 
+        class="b-button" 
+        style="transform: translateY(-2px); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);" 
+        @click="showAddDialog = true"
+      >
+        + 添加服务商
+      </button>
+      <button 
+        v-else 
+        class="b-button" 
+        style="transform: translateY(-2px); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);" 
+        @click="showAddCredentialDialog = true"
+      >
+        + 添加凭证
+      </button>
+    </div>
 
-      <el-card v-loading="providerStore.loading">
-        <template v-if="providerStore.providers.length === 0">
-          <el-empty description="暂无服务商" />
-        </template>
-        <draggable
-          v-else
-          v-model="providerStore.providers"
-          item-key="id"
-          handle=".drag-handle"
-          @end="handleDragEnd"
-        >
-          <template #item="{ element }">
-            <div class="provider-item">
+    <!-- PROXY MODE LIST -->
+    <div v-if="viewMode === 'proxy'" class="b-card" style="padding: 0; overflow: hidden;" v-loading="providerStore.loading">
+      <div v-if="providerStore.providers.length === 0" style="padding: 40px; text-align: center; color: #94a3b8;">
+        暂无服务商
+      </div>
+      
+      <draggable
+        v-else
+        v-model="providerStore.providers"
+        item-key="id"
+        handle=".drag-handle"
+        @end="handleDragEnd"
+      >
+        <template #item="{ element }">
+          <div :style="{
+            padding: '24px',
+            borderBottom: '1px solid #f1f5f9',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: element.is_blacklisted ? 'rgba(244, 63, 94, 0.02)' : '#ffffff'
+          }">
+            <div style="display: flex; align-items: center; gap: 16px;">
               <div class="drag-handle" aria-label="拖拽排序">
-                <el-icon><Rank /></el-icon>
+                 <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
               </div>
-              <div class="provider-info">
-                <div class="provider-name">
-                  {{ element.name }}
-                  <el-tag v-if="element.is_blacklisted" type="danger" size="small">
+              
+              <div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                  <div style="font-weight: 500; font-size: 16px;" :style="{ color: !element.enabled ? '#94a3b8' : '#0f172a' }">
+                    {{ element.name }}
+                  </div>
+                  <div v-if="element.is_blacklisted" class="tag" style="background: rgba(244, 63, 94, 0.1); color: #f43f5e;">
                     {{ getUnblacklistTime(element) }}
-                  </el-tag>
-                  <el-tag v-else-if="!element.enabled" type="info" size="small">已禁用</el-tag>
-                  <el-tag v-if="element.model_maps.length > 0" type="success" size="small">
+                  </div>
+                  <div v-else-if="!element.enabled" class="tag" style="background: #f1f5f9; color: #64748b;">
+                    已禁用
+                  </div>
+                  <div v-if="element.model_maps.length > 0" class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
                     {{ element.model_maps.length }}个模型映射
-                  </el-tag>
-                  <el-tag v-if="element.model_blacklist && element.model_blacklist.length > 0" type="warning" size="small">
-                    {{ element.model_blacklist.length }}个黑名单
-                  </el-tag>
+                  </div>
+                  <div v-if="element.model_blacklist && element.model_blacklist.length > 0" class="tag" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                    {{ element.model_blacklist.length }}个黑名单配置
+                  </div>
                 </div>
-                <div class="provider-url">{{ element.base_url }}</div>
+                <div style="color: #64748b; font-size: 13px; font-family: monospace;">{{ element.base_url }}</div>
               </div>
-              <div class="provider-stats">
-                <span>失败：{{ element.consecutive_failures }}/{{ element.failure_threshold }}</span>
-              </div>
-              <div class="provider-actions">
-                <el-switch
-                  v-model="element.enabled"
-                  @change="handleToggle(element)"
-                />
-                <el-button size="small" @click="handleEdit(element)">编辑</el-button>
-                <el-dropdown @command="handleCommand($event, element)">
-                  <el-button size="small">
-                    更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="reset">重置失败计数</el-dropdown-item>
-                      <el-dropdown-item v-if="element.is_blacklisted" command="unblacklist">解除拉黑</el-dropdown-item>
-                      <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </div>
-          </template>
-        </draggable>
-      </el-card>
-
-      <!-- Add/Edit Provider Dialog -->
-      <el-dialog
-        v-model="showDialog"
-        :title="editingProvider ? '编辑服务商' : '添加服务商'"
-        width="700px"
-      >
-        <el-form ref="providerFormRef" :model="form" :rules="providerRules" label-width="120px">
-          <el-form-item label="名称" prop="name" required>
-            <el-input v-model="form.name" placeholder="服务商名称" />
-          </el-form-item>
-          <el-form-item label="Base URL" prop="base_url" required>
-            <el-input v-model="form.base_url" :placeholder="baseUrlPlaceholder" />
-          </el-form-item>
-          <el-form-item :label="activeCliType === 'claude_code' ? 'API Token' : 'API Key'" prop="api_key" required>
-            <el-input v-model="form.api_key" :placeholder="activeCliType === 'claude_code' ? 'API Token' : 'API Key'" />
-          </el-form-item>
-          <el-form-item label="失败阈值">
-            <el-input-number v-model="form.failure_threshold" :min="1" :max="100" />
-            <span class="form-tip">连续失败次数达到此值后拉黑</span>
-          </el-form-item>
-          <el-form-item label="拉黑时长 (分钟)">
-            <el-input-number v-model="form.blacklist_minutes" :min="0" :max="1440" />
-          </el-form-item>
-          <el-form-item label="自定义 UA">
-            <el-input v-model="form.custom_useragent" placeholder="留空则使用原始 UA" clearable />
-            <span class="form-tip">替换转发请求的 User-Agent</span>
-          </el-form-item>
-
-          <el-divider>模型转发配置</el-divider>
-          <div class="model-maps-section">
-            <div class="model-maps-header">
-              <span class="model-maps-tip">将 CLI 请求的模型名映射为服务商模型名</span>
-              <el-button type="primary" size="small" @click="addModelMap">
-                <el-icon><Plus /></el-icon>添加映射
-              </el-button>
-            </div>
-            <div v-if="form.model_maps.length === 0" class="model-maps-empty">
-              暂无模型映射配置
-            </div>
-            <div v-else class="model-maps-list">
-              <div v-for="(map, index) in form.model_maps" :key="index" class="model-map-item">
-                <el-input v-model="map.source_model" placeholder="源模型 (CLI 请求)" class="model-input" />
-                <el-icon class="arrow-icon"><Right /></el-icon>
-                <el-input v-model="map.target_model" placeholder="目标模型 (服务商)" class="model-input" />
-                <el-button type="danger" size="small" circle @click="removeModelMap(index)">
-                  <el-icon><Delete /></el-icon>
-                </el-button>
-              </div>
-            </div>
-          </div>
-
-          <el-divider>模型黑名单</el-divider>
-          <div class="model-maps-section">
-            <div class="model-maps-header">
-              <span class="model-maps-tip">配置不支持请求的模型（支持通配符 * 和 ?）</span>
-              <el-button type="primary" size="small" @click="addModelBlacklist">
-                <el-icon><Plus /></el-icon>添加黑名单
-              </el-button>
-            </div>
-            <div v-if="form.model_blacklist.length === 0" class="model-maps-empty">
-              暂无黑名单配置（默认支持所有模型）
-            </div>
-            <div v-else class="model-maps-list">
-              <div v-for="(item, index) in form.model_blacklist" :key="index" class="model-map-item">
-                <el-input v-model="item.model_pattern" placeholder="模型匹配模式 (如: claude-opus-*)" class="model-input" />
-                <el-button type="danger" size="small" circle @click="removeModelBlacklist(index)">
-                  <el-icon><Delete /></el-icon>
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </el-form>
-        <template #footer>
-          <el-button @click="showDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleSave">保存</el-button>
-        </template>
-      </el-dialog>
-    </div>
-
-    <!-- 官方模式：官方凭证列表 -->
-    <div v-else>
-      <div class="page-header">
-        <el-button type="primary" @click="showAddCredentialDialog = true">
-          <el-icon><Plus /></el-icon>
-          添加凭证
-        </el-button>
-      </div>
-
-      <el-card v-loading="credentialStore.loading">
-        <template v-if="credentialStore.credentials.length === 0">
-          <el-empty description="暂无凭证" />
-        </template>
-        <draggable
-          v-else
-          v-model="credentialStore.credentials"
-          item-key="id"
-          handle=".drag-handle"
-          @end="handleCredentialDragEnd"
-        >
-          <template #item="{ element }">
-            <div class="credential-item">
-              <div class="drag-handle" aria-label="拖拽排序">
-                <el-icon><Rank /></el-icon>
-              </div>
-              <div class="credential-info">
-                <div class="credential-name">
-                  {{ element.name }}
-                  <el-tag v-if="element.is_active" type="success" size="small">激活中</el-tag>
-                </div>
-                <div class="credential-display-info">{{ element.display_info }}</div>
-              </div>
-              <div class="credential-actions">
-                <el-button size="small" @click="handleEditCredential(element)">编辑</el-button>
-                <el-button size="small" @click="handleDeleteCredential(element)">删除</el-button>
-              </div>
-            </div>
-          </template>
-        </draggable>
-      </el-card>
-
-      <!-- Add/Edit Credential Dialog -->
-      <el-dialog
-        v-model="showCredentialDialog"
-        :title="editingCredential ? '编辑凭证' : '添加凭证'"
-        width="700px"
-      >
-        <el-form ref="credentialFormRef" :model="credentialForm" :rules="credentialRules" label-width="120px">
-          <el-form-item label="名称" prop="name" required>
-            <el-input v-model="credentialForm.name" placeholder="凭证标识名" />
-          </el-form-item>
-
-          <el-divider>配置文件</el-divider>
-          <div class="credential-files-section">
-            <div class="credential-files-header">
-              <span class="credential-files-tip">配置文件路径</span>
-              <el-button type="primary" size="small" @click="handleReadFromCli">
-                <el-icon><Refresh /></el-icon>读取当前 CLI 配置
-              </el-button>
             </div>
             
-            <div class="credential-files-list">
-              <!-- Claude Code: settings.json -->
-              <template v-if="activeCliType === 'claude_code'">
-                <div class="credential-file-item">
-                  <div class="credential-file-label">~/.claude/settings.json</div>
-                  <el-input
-                    v-model="credentialForm.claude_settings"
-                    type="textarea"
-                    :rows="10"
-                    placeholder='{"ANTHROPIC_API_KEY": "sk-ant-xxx"}'
-                  />
-                </div>
-              </template>
-
-              <!-- Codex: auth.json -->
-              <template v-if="activeCliType === 'codex'">
-                <div class="credential-file-item">
-                  <div class="credential-file-label">~/.codex/auth.json</div>
-                  <el-input
-                    v-model="credentialForm.codex_auth"
-                    type="textarea"
-                    :rows="10"
-                    placeholder='{"OPENAI_API_KEY": null, "tokens": {...}}'
-                  />
-                </div>
-              </template>
-
-              <!-- Gemini: oauth_creds.json + google_accounts.json + settings.json -->
-              <template v-if="activeCliType === 'gemini'">
-                <div class="credential-file-item">
-                  <div class="credential-file-label">~/.gemini/oauth_creds.json</div>
-                  <el-input
-                    v-model="credentialForm.gemini_oauth"
-                    type="textarea"
-                    :rows="8"
-                    placeholder='{"access_token": "...", "refresh_token": "..."}'
-                  />
-                </div>
-                <div class="credential-file-item">
-                  <div class="credential-file-label">~/.gemini/google_accounts.json</div>
-                  <el-input
-                    v-model="credentialForm.gemini_accounts"
-                    type="textarea"
-                    :rows="4"
-                    placeholder='{"active": "user@gmail.com", "old": []}'
-                  />
-                </div>
-                <div class="credential-file-item">
-                  <div class="credential-file-label">~/.gemini/settings.json</div>
-                  <el-input
-                    v-model="credentialForm.gemini_settings"
-                    type="textarea"
-                    :rows="6"
-                    placeholder='{"general": {...}, "security": {...}}'
-                  />
-                </div>
-              </template>
+            <div style="display: flex; align-items: center; gap: 40px;">
+               <div style="display: flex; gap: 24px;">
+                 <div style="text-align: right;">
+                   <div style="font-size: 12px; margin-bottom: 2px;" :style="{ color: element.consecutive_failures >= element.failure_threshold ? '#ef4444' : '#94a3b8' }">失败次数</div>
+                   <div :style="{ color: element.consecutive_failures >= element.failure_threshold ? '#ef4444' : '#0f172a', fontWeight: 500, fontSize: '15px' }">
+                     {{ element.consecutive_failures }}
+                   </div>
+                 </div>
+                 <div style="text-align: right;">
+                   <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">失败阈值</div>
+                   <div style="color: #64748b; font-weight: 500; font-size: 15px;">{{ element.failure_threshold }}</div>
+                 </div>
+               </div>
+               
+               <div style="display: flex; align-items: center; gap: 24px;">
+                 <el-switch v-model="element.enabled" @change="handleToggle(element)" />
+                 
+                 <el-dropdown @command="handleCommand($event, element)">
+                   <div style="color: #0ea5e9; font-weight: 500; cursor: pointer; padding: 6px 16px; background: #f0f9ff; border-radius: 8px;" @click="handleEdit(element)">
+                     编辑
+                   </div>
+                   <template #dropdown>
+                     <el-dropdown-menu>
+                       <el-dropdown-item command="reset">重置失败计数</el-dropdown-item>
+                       <el-dropdown-item v-if="element.is_blacklisted" command="unblacklist">解除拉黑</el-dropdown-item>
+                       <el-dropdown-item command="delete" divided>删除服务商</el-dropdown-item>
+                     </el-dropdown-menu>
+                   </template>
+                 </el-dropdown>
+               </div>
             </div>
           </div>
-        </el-form>
-        <template #footer>
-          <el-button @click="showCredentialDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleSaveCredential">保存</el-button>
         </template>
-      </el-dialog>
+      </draggable>
+    </div>
+
+    <!-- DIRECT MODE -->
+    <div v-else class="b-card" style="padding: 0; overflow: hidden;" v-loading="credentialStore.loading">
+      <div v-if="credentialStore.credentials.length === 0" style="padding: 40px; text-align: center; color: #94a3b8;">
+        暂无凭证
+      </div>
+      
+      <draggable
+        v-else
+        v-model="credentialStore.credentials"
+        item-key="id"
+        handle=".drag-handle"
+        @end="handleCredentialDragEnd"
+      >
+        <template #item="{ element }">
+          <div style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #ffffff;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div class="drag-handle" aria-label="拖拽排序">
+                 <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+              </div>
+              
+              <div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                  <div style="font-weight: 500; font-size: 16px; color: #0f172a;">{{ element.name }}</div>
+                  <div v-if="element.is_active" class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">激活中</div>
+                </div>
+                <div style="color: #64748b; font-size: 13px; font-family: monospace;">{{ element.display_info }}</div>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px;">
+               <div style="color: #0ea5e9; font-weight: 500; cursor: pointer; padding: 6px 16px; background: #f0f9ff; border-radius: 8px;" @click="handleEditCredential(element)">编辑</div>
+               <div style="color: #ef4444; font-weight: 500; cursor: pointer; padding: 6px 16px; background: #fef2f2; border-radius: 8px;" @click="handleDeleteCredential(element)">删除</div>
+            </div>
+          </div>
+        </template>
+      </draggable>
+    </div>
+
+    <!-- Add/Edit Provider Modal custom implementation -->
+    <div class="modal-overlay" :class="{ active: showDialog }" @click.self="showDialog = false">
+      <div class="modal-content">
+        <div style="padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 20px; font-weight: 500; color: #0f172a;">{{ editingProvider ? '编辑服务商' : '添加服务商' }}</div>
+          <div style="cursor: pointer; color: #94a3b8; font-size: 20px; font-weight: bold;" @click="showDialog = false">×</div>
+        </div>
+        
+        <div style="padding: 32px; max-height: 70vh; overflow-y: auto;">
+          <!-- Base info -->
+          <!-- INCREASE MARGIN AND GAPS TO FIX "CRAMPED" ERROR -->
+          <div style="display: flex; gap: 32px; margin-bottom: 32px;">
+            <div style="flex: 1;">
+              <label class="c-label">服务商名称 <span style="color: #ef4444;">*</span></label>
+              <input type="text" v-model="form.name" class="c-input" placeholder="例如: OpenAI 官方">
+            </div>
+            <div style="flex: 1;">
+              <label class="c-label">Base URL <span style="color: #ef4444;">*</span></label>
+              <input type="text" v-model="form.base_url" class="c-input" :placeholder="baseUrlPlaceholder">
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 40px;">
+            <label class="c-label">{{ activeCliType === 'claude_code' ? 'API Token' : 'API Key' }} <span style="color: #ef4444;">*</span></label>
+            <input type="password" v-model="form.api_key" class="c-input" placeholder="sk-...">
+          </div>
+
+          <!-- Advanced Params -->
+          <div style="display: flex; gap: 32px; margin-bottom: 40px; padding: 32px 24px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9;">
+            <div style="flex: 1;">
+              <label class="c-label">失败鉴权阈值 (次)</label>
+              <input type="number" v-model.number="form.failure_threshold" class="c-input">
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 10px;">连续失败次数达到此值后拉黑。</div>
+            </div>
+            <div style="flex: 1;">
+              <label class="c-label">拉黑时长 (分钟)</label>
+              <input type="number" v-model.number="form.blacklist_minutes" class="c-input">
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 10px;">被拉黑后这段时间不再转发请求。</div>
+            </div>
+            <div style="flex: 1;">
+              <label class="c-label">自定义 UA (选填)</label>
+              <input type="text" v-model="form.custom_useragent" class="c-input" placeholder="留空则使用原始">
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 10px;">强制替换转发请求的 User-Agent。</div>
+            </div>
+          </div>
+
+          <!-- Model Maps Section -->
+          <div style="margin-bottom: 40px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <div>
+                <!-- FONT-WEIGHT REDUCED TO 500 TO PREVENT BLURRINESS -->
+                <div style="font-weight: 500; font-size: 15px; color: #0f172a;">模型转发配置 (映射)</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 6px;">将 CLI 请求的源模型名称，转译为该服务商真正的目标模型名称。</div>
+              </div>
+              <button class="b-button-outline" style="font-size: 13px; padding: 6px 12px;" @click="addModelMap">+ 添加映射</button>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <div v-for="(map, index) in form.model_maps" :key="'map-'+index" style="display: flex; gap: 16px; align-items: center;">
+                <input type="text" v-model="map.source_model" class="c-input" placeholder="CLI 源模型" style="flex: 1;">
+                <div style="color: #cbd5e1; font-weight: 500;">→</div>
+                <input type="text" v-model="map.target_model" class="c-input" placeholder="服务商模型" style="flex: 1;">
+                <div class="b-button-icon" @click="removeModelMap(index)">×</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Model Blacklist Section -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <div>
+                <!-- FONT-WEIGHT REDUCED TO 500 TO PREVENT BLURRINESS -->
+                <div style="font-weight: 500; font-size: 15px; color: #0f172a;">模型黑名单</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 6px;">配置该服务商不支持的模型正则/通配符 (如: claude-opus-*)。</div>
+              </div>
+              <button class="b-button-outline" style="font-size: 13px; padding: 6px 12px;" @click="addModelBlacklist">+ 加黑名单</button>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <div v-for="(item, index) in form.model_blacklist" :key="'blk-'+index" style="display: flex; gap: 16px; align-items: center;">
+                 <input type="text" v-model="item.model_pattern" class="c-input" placeholder="模型规则" style="flex: 1;">
+                 <div class="b-button-icon" @click="removeModelBlacklist(index)">×</div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        
+        <div style="padding: 24px 32px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 20px 20px;">
+          <button class="b-button-outline" @click="showDialog = false">取消修改</button>
+          <button class="b-button" @click="handleSave" style="background: #0ea5e9; color: white;">保存配置</button>
+        </div>
+      </div>
+    </div>
+    <!-- / Add Provider Modal -->
+
+    <!-- Add/Edit Credential Modal -->
+    <div class="modal-overlay" :class="{ active: showCredentialDialog }" @click.self="showCredentialDialog = false">
+      <div class="modal-content">
+         <div style="padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 20px; font-weight: 500; color: #0f172a;">{{ editingCredential ? '编辑凭证' : '添加凭证' }}</div>
+          <div style="cursor: pointer; color: #94a3b8; font-size: 20px; font-weight: bold;" @click="showCredentialDialog = false">×</div>
+        </div>
+        
+        <div style="padding: 32px; max-height: 70vh; overflow-y: auto;">
+          <div style="margin-bottom: 32px;">
+            <label class="c-label">凭证名称 <span style="color: #ef4444;">*</span></label>
+            <input type="text" v-model="credentialForm.name" class="c-input" placeholder="例如: 个人主账号">
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div style="font-weight: 500; font-size: 15px; color: #0f172a;">配置文件</div>
+            <button class="b-button-outline" style="font-size: 13px; padding: 6px 12px;" @click="handleReadFromCli">读取当前 CLI 配置</button>
+          </div>
+
+          <template v-if="activeCliType === 'claude_code'">
+             <div style="margin-bottom: 24px;">
+               <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">~/.claude/settings.json</div>
+               <el-input type="textarea" :rows="10" v-model="credentialForm.claude_settings" placeholder='{"ANTHROPIC_API_KEY": "..."}' />
+             </div>
+          </template>
+
+          <template v-if="activeCliType === 'codex'">
+            <div style="margin-bottom: 24px;">
+               <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">~/.codex/auth.json</div>
+               <el-input type="textarea" :rows="10" v-model="credentialForm.codex_auth" />
+             </div>
+          </template>
+
+          <template v-if="activeCliType === 'gemini'">
+             <div style="margin-bottom: 24px;">
+               <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">~/.gemini/oauth_creds.json</div>
+               <el-input type="textarea" :rows="4" v-model="credentialForm.gemini_oauth" />
+             </div>
+             <div style="margin-bottom: 24px;">
+               <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">~/.gemini/google_accounts.json</div>
+               <el-input type="textarea" :rows="3" v-model="credentialForm.gemini_accounts" />
+             </div>
+             <div style="margin-bottom: 24px;">
+               <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">~/.gemini/settings.json</div>
+               <el-input type="textarea" :rows="4" v-model="credentialForm.gemini_settings" />
+             </div>
+          </template>
+        </div>
+
+        <div style="padding: 24px 32px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 20px 20px;">
+          <button class="b-button-outline" @click="showCredentialDialog = false">取消</button>
+          <button class="b-button" @click="handleSaveCredential" style="background: #0ea5e9; color: white;">保存凭证</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ElMessageBox } from 'element-plus'
-import { notify } from '@/utils/notification'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import draggable from 'vuedraggable'
 import { useProviderStore } from '@/stores/providers'
 import { useCredentialStore } from '@/stores/credentials'
 import { useUiStore } from '@/stores/ui'
-import { useSettingsStore } from '@/stores/settings'
 import { credentialsApi } from '@/api/credentials'
-import type { Provider, ModelMap, ModelBlacklist, CliType } from '@/types/models'
-import type { OfficialCredential, OfficialCredentialCreate } from '@/types/models'
+import type { Provider, ModelMap, ModelBlacklist, CliType, OfficialCredential, OfficialCredentialCreate } from '@/types/models'
 
 const providerStore = useProviderStore()
 const credentialStore = useCredentialStore()
 const uiStore = useUiStore()
-const settingsStore = useSettingsStore()
-
-const providerFormRef = ref<FormInstance>()
-const credentialFormRef = ref<FormInstance>()
-const refreshTimer = ref<number>()
-const forceRefresh = ref(0)
-const hasRefreshed = ref(false)
-const visibilityHandler = ref<() => void>()
 
 const activeCliType = computed({
   get: () => uiStore.providersActiveCliType,
   set: (val) => uiStore.setProvidersActiveCliType(val)
 })
 
-const cliMode = computed(() => {
-  return settingsStore.settings?.cli_settings?.[activeCliType.value]?.cli_mode ?? 'proxy'
-})
+const viewMode = ref<'proxy' | 'direct'>('proxy')
+
+function handleSwitchDirect() {
+  if (activeCliType.value === 'claude_code') {
+    ElMessage.warning('Claude Code 暂未实现官方模式功能')
+    return
+  }
+  viewMode.value = 'direct'
+}
 
 const showAddDialog = ref(false)
-const editingProvider = ref<Provider | null>(null)
 const showAddCredentialDialog = ref(false)
+const editingProvider = ref<Provider | null>(null)
 const editingCredential = ref<OfficialCredential | null>(null)
 
 const showDialog = computed({
@@ -351,15 +369,8 @@ const showCredentialDialog = computed({
   }
 })
 
-interface FormModelMap {
-  source_model: string
-  target_model: string
-  enabled: boolean
-}
-
-interface FormModelBlacklist {
-  model_pattern: string
-}
+interface FormModelMap { source_model: string; target_model: string; enabled: boolean }
+interface FormModelBlacklist { model_pattern: string }
 
 const form = ref({
   name: '',
@@ -374,33 +385,12 @@ const form = ref({
 
 const credentialForm = ref({
   name: '',
-  // Claude Code
   claude_settings: '',
-  // Codex
   codex_auth: '',
-  // Gemini
   gemini_oauth: '',
   gemini_accounts: '',
   gemini_settings: ''
 })
-
-const providerRules: FormRules = {
-  name: [
-    { required: true, message: '请输入服务商名称', trigger: 'blur' }
-  ],
-  base_url: [
-    { required: true, message: '请输入 Base URL', trigger: 'blur' }
-  ],
-  api_key: [
-    { required: true, message: '请输入 API Key', trigger: 'blur' }
-  ]
-}
-
-const credentialRules: FormRules = {
-  name: [
-    { required: true, message: '请输入凭证名称', trigger: 'blur' }
-  ]
-}
 
 const baseUrlPlaceholder = computed(() => {
   if (activeCliType.value === 'codex') return 'https://api.example.com/v1'
@@ -409,156 +399,64 @@ const baseUrlPlaceholder = computed(() => {
 
 function resetForm() {
   form.value = {
-    name: '',
-    base_url: '',
-    api_key: '',
-    failure_threshold: 3,
-    blacklist_minutes: 10,
-    custom_useragent: '',
-    model_maps: [],
-    model_blacklist: []
+    name: '', base_url: '', api_key: '', failure_threshold: 3, blacklist_minutes: 10,
+    custom_useragent: '', model_maps: [], model_blacklist: []
   }
 }
-
 function resetCredentialForm() {
-  credentialForm.value = {
-    name: '',
-    claude_settings: '',
-    codex_auth: '',
-    gemini_oauth: '',
-    gemini_accounts: '',
-    gemini_settings: ''
-  }
+  credentialForm.value = { name: '', claude_settings: '', codex_auth: '', gemini_oauth: '', gemini_accounts: '', gemini_settings: '' }
 }
 
-function addModelMap() {
-  form.value.model_maps.push({
-    source_model: '',
-    target_model: '',
-    enabled: true
-  })
-}
+function addModelMap() { form.value.model_maps.push({ source_model: '', target_model: '', enabled: true }) }
+function removeModelMap(index: number) { form.value.model_maps.splice(index, 1) }
+function addModelBlacklist() { form.value.model_blacklist.push({ model_pattern: '' }) }
+function removeModelBlacklist(index: number) { form.value.model_blacklist.splice(index, 1) }
 
-function removeModelMap(index: number) {
-  form.value.model_maps.splice(index, 1)
-}
-
-function addModelBlacklist() {
-  form.value.model_blacklist.push({
-    model_pattern: ''
-  })
-}
-
-function removeModelBlacklist(index: number) {
-  form.value.model_blacklist.splice(index, 1)
-}
-
-function handleCliTypeChange(cliType: string) {
-  providerStore.fetchProviders(cliType)
+// Listen for tab changes
+watch(() => activeCliType.value, (cliType) => {
+  providerStore.fetchProviders(cliType as CliType)
   credentialStore.fetchCredentials(cliType as CliType)
-}
-
-async function handleModeChange(newMode: 'proxy' | 'direct') {
-  // Claude Code 暂未实现官方模式
-  if (newMode === 'direct' && activeCliType.value === 'claude_code') {
-    notify('Claude Code 暂未实现官方模式功能', 'warning')
-    return
-  }
-
-  try {
-    await settingsStore.setCliMode(activeCliType.value, newMode)
-    
-    if (newMode === 'direct') {
-      notify(`${activeCliType.value} 已切换到官方模式`)
-    } else {
-      notify(`${activeCliType.value} 已切换到中转模式`)
-    }
-    
-    providerStore.fetchProviders(activeCliType.value)
-    credentialStore.fetchCredentials(activeCliType.value)
-  } catch (e: any) {
-    console.error('set_cli_mode error:', e)
-    notify(`切换模式失败: ${e?.message || e}`, 'error')
-  }
-}
+})
 
 function handleEdit(provider: Provider) {
   editingProvider.value = provider
   form.value = {
-    name: provider.name,
-    base_url: provider.base_url,
-    api_key: provider.api_key,
-    failure_threshold: provider.failure_threshold,
-    blacklist_minutes: provider.blacklist_minutes,
+    name: provider.name, base_url: provider.base_url, api_key: provider.api_key,
+    failure_threshold: provider.failure_threshold, blacklist_minutes: provider.blacklist_minutes,
     custom_useragent: provider.custom_useragent || '',
-    model_maps: provider.model_maps.map(m => ({
-      source_model: m.source_model,
-      target_model: m.target_model,
-      enabled: m.enabled
-    })),
-    model_blacklist: provider.model_blacklist.map(b => ({
-      model_pattern: b.model_pattern
-    }))
+    model_maps: provider.model_maps.map(m => ({ ...m })),
+    model_blacklist: provider.model_blacklist.map(b => ({ ...b }))
   }
 }
 
-function buildModelMaps(): ModelMap[] {
-  return form.value.model_maps
-    .filter(m => m.source_model && m.target_model)
-    .map(m => ({
-      source_model: m.source_model.trim(),
-      target_model: m.target_model.trim(),
-      enabled: true
-    }))
-}
-
-function buildModelBlacklist(): ModelBlacklist[] {
-  return form.value.model_blacklist
-    .filter(b => b.model_pattern)
-    .map(b => ({
-      model_pattern: b.model_pattern.trim()
-    }))
-}
-
 async function handleSave() {
-  if (!providerFormRef.value) return
+  if (!form.value.name.trim() || !form.value.base_url.trim() || !form.value.api_key.trim()) {
+    ElMessage.error('请填写完整的必填项')
+    return
+  }
+  const data = {
+    cli_type: activeCliType.value,
+    ...form.value,
+    model_maps: form.value.model_maps.filter(m => m.source_model && m.target_model),
+    model_blacklist: form.value.model_blacklist.filter(b => b.model_pattern)
+  }
   
-  await providerFormRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    const data = {
-      cli_type: activeCliType.value,
-      name: form.value.name.trim(),
-      base_url: form.value.base_url.trim(),
-      api_key: form.value.api_key.trim(),
-      failure_threshold: form.value.failure_threshold,
-      blacklist_minutes: form.value.blacklist_minutes,
-      custom_useragent: form.value.custom_useragent.trim(),
-      model_maps: buildModelMaps(),
-      model_blacklist: buildModelBlacklist()
-    }
-
-    try {
-      if (editingProvider.value) {
-        await providerStore.updateProvider(editingProvider.value.id, data)
-        notify('更新成功')
-      } else {
-        await providerStore.createProvider(data)
-        notify('添加成功')
-      }
-      showDialog.value = false
-      resetForm()
-      providerStore.fetchProviders(activeCliType.value)
-    } catch {
-      // error handled by interceptor
-    }
-  })
+  if (editingProvider.value) {
+    await providerStore.updateProvider(editingProvider.value.id, data)
+    ElMessage.success('更新成功')
+  } else {
+    await providerStore.createProvider(data as any)
+    ElMessage.success('添加成功')
+  }
+  showDialog.value = false
+  resetForm()
+  providerStore.fetchProviders(activeCliType.value as CliType)
 }
 
 async function handleToggle(provider: Provider) {
   try {
     await providerStore.updateProvider(provider.id, { enabled: provider.enabled })
-    notify(provider.enabled ? '已启用' : '已禁用')
+    ElMessage.success(provider.enabled ? '已启用' : '已禁用')
   } catch {
     provider.enabled = !provider.enabled
   }
@@ -567,432 +465,156 @@ async function handleToggle(provider: Provider) {
 async function handleDragEnd() {
   const ids = providerStore.providers.map(p => p.id)
   await providerStore.reorderProviders(ids)
-  notify('排序已保存')
+  ElMessage.success('排序已保存')
 }
 
 async function handleCommand(command: string, provider: Provider) {
   if (command === 'reset') {
     await providerStore.resetFailures(provider.id)
-    notify('已重置')
+    ElMessage.success('已重置')
   } else if (command === 'unblacklist') {
     await providerStore.unblacklist(provider.id)
-    notify('已解除拉黑')
+    ElMessage.success('已解除拉黑')
   } else if (command === 'delete') {
     await ElMessageBox.confirm('确定删除该服务商？', '确认')
     await providerStore.deleteProvider(provider.id)
-    notify('已删除')
+    ElMessage.success('已删除')
   }
 }
 
-// Credential handlers
 function handleEditCredential(credential: OfficialCredential) {
   editingCredential.value = credential
   credentialForm.value.name = credential.name
-  
-  // 解析 credential_json 为文件列表
   try {
     const filesData = JSON.parse(credential.credential_json)
     if (Array.isArray(filesData)) {
-      // 根据文件路径填充到对应字段
       filesData.forEach(file => {
-        const path = file.path || ''
-        const content = file.content || ''
-        
-        if (path.includes('.claude') && path.includes('settings.json')) {
-          credentialForm.value.claude_settings = content
-        } else if (path.includes('auth.json')) {
-          credentialForm.value.codex_auth = content
-        } else if (path.includes('oauth_creds.json')) {
-          credentialForm.value.gemini_oauth = content
-        } else if (path.includes('google_accounts.json')) {
-          credentialForm.value.gemini_accounts = content
-        } else if (path.includes('.gemini') && path.includes('settings.json')) {
-          credentialForm.value.gemini_settings = content
-        }
+        const path = file.path || ''; const content = file.content || ''
+        if (path.includes('.claude') && path.includes('settings.json')) credentialForm.value.claude_settings = content
+        else if (path.includes('auth.json')) credentialForm.value.codex_auth = content
+        else if (path.includes('oauth_creds.json')) credentialForm.value.gemini_oauth = content
+        else if (path.includes('google_accounts.json')) credentialForm.value.gemini_accounts = content
+        else if (path.includes('.gemini') && path.includes('settings.json')) credentialForm.value.gemini_settings = content
       })
     }
-  } catch (e) {
-    console.error('解析凭证 JSON 失败:', e)
-  }
+  } catch (e) {}
 }
 
 async function handleDeleteCredential(credential: OfficialCredential) {
   await ElMessageBox.confirm('确定删除该凭证？', '确认')
   await credentialStore.deleteCredential(credential.id)
-  notify('已删除')
+  ElMessage.success('已删除')
 }
 
 async function handleReadFromCli() {
   try {
-    const { data } = await credentialsApi.readCliCredential(activeCliType.value)
-    
-    // 解析返回的文件数据
+    const { data } = await credentialsApi.readCliCredential(activeCliType.value as CliType)
     try {
       const filesData = JSON.parse(data)
       if (Array.isArray(filesData)) {
-        // 根据文件路径填充到对应字段
         filesData.forEach(file => {
-          const path = file.path || ''
-          const content = file.content || ''
-          
-          if (path.includes('.claude') && path.includes('settings.json')) {
-            credentialForm.value.claude_settings = content
-          } else if (path.includes('auth.json')) {
-            credentialForm.value.codex_auth = content
-          } else if (path.includes('oauth_creds.json')) {
-            credentialForm.value.gemini_oauth = content
-          } else if (path.includes('google_accounts.json')) {
-            credentialForm.value.gemini_accounts = content
-          } else if (path.includes('.gemini') && path.includes('settings.json')) {
-            credentialForm.value.gemini_settings = content
-          }
+          const path = file.path || ''; const content = file.content || ''
+          if (path.includes('.claude') && path.includes('settings.json')) credentialForm.value.claude_settings = content
+          else if (path.includes('auth.json')) credentialForm.value.codex_auth = content
+          else if (path.includes('oauth_creds.json')) credentialForm.value.gemini_oauth = content
+          else if (path.includes('google_accounts.json')) credentialForm.value.gemini_accounts = content
+          else if (path.includes('.gemini') && path.includes('settings.json')) credentialForm.value.gemini_settings = content
         })
       }
-    } catch (e) {
-      console.error('解析文件数据失败:', e)
-    }
-    
-    notify('读取成功')
+    } catch {}
+    ElMessage.success('读取成功')
   } catch (e: any) {
-    notify(e.message || '读取失败', 'error')
+    ElMessage.error(e.message || '读取失败')
   }
 }
 
 async function handleSaveCredential() {
-  if (!credentialFormRef.value) return
-  
-  await credentialFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  if (!credentialForm.value.name) {
+    ElMessage.error('请输入凭证名称')
+    return
+  }
+  const files: Array<{ path: string; content: string }> = []
+  if (activeCliType.value === 'claude_code') {
+    if (credentialForm.value.claude_settings) files.push({ path: '~/.claude/settings.json', content: credentialForm.value.claude_settings })
+  } else if (activeCliType.value === 'codex') {
+    if (credentialForm.value.codex_auth) files.push({ path: '~/.codex/auth.json', content: credentialForm.value.codex_auth })
+  } else if (activeCliType.value === 'gemini') {
+    if (credentialForm.value.gemini_oauth) files.push({ path: '~/.gemini/oauth_creds.json', content: credentialForm.value.gemini_oauth })
+    if (credentialForm.value.gemini_accounts) files.push({ path: '~/.gemini/google_accounts.json', content: credentialForm.value.gemini_accounts })
+    if (credentialForm.value.gemini_settings) files.push({ path: '~/.gemini/settings.json', content: credentialForm.value.gemini_settings })
+  }
+  if (files.length === 0) {
+    ElMessage.error('请至少填写一个文件内容')
+    return
+  }
 
-    // 根据 CLI 类型构建文件列表
-    const files: Array<{ path: string; content: string }> = []
-    
-    if (activeCliType.value === 'claude_code') {
-      if (credentialForm.value.claude_settings) {
-        files.push({
-          path: '~/.claude/settings.json',
-          content: credentialForm.value.claude_settings
-        })
-      }
-    } else if (activeCliType.value === 'codex') {
-      if (credentialForm.value.codex_auth) {
-        files.push({
-          path: '~/.codex/auth.json',
-          content: credentialForm.value.codex_auth
-        })
-      }
-    } else if (activeCliType.value === 'gemini') {
-      if (credentialForm.value.gemini_oauth) {
-        files.push({
-          path: '~/.gemini/oauth_creds.json',
-          content: credentialForm.value.gemini_oauth
-        })
-      }
-      if (credentialForm.value.gemini_accounts) {
-        files.push({
-          path: '~/.gemini/google_accounts.json',
-          content: credentialForm.value.gemini_accounts
-        })
-      }
-      if (credentialForm.value.gemini_settings) {
-        files.push({
-          path: '~/.gemini/settings.json',
-          content: credentialForm.value.gemini_settings
-        })
-      }
-    }
+  const data: OfficialCredentialCreate = {
+    cli_type: activeCliType.value as CliType,
+    name: credentialForm.value.name.trim(),
+    credential_json: JSON.stringify(files)
+  }
 
-    if (files.length === 0) {
-      notify('请至少填写一个文件内容', 'error')
-      return
-    }
-
-    const filesJson = JSON.stringify(files)
-
-    const data: OfficialCredentialCreate = {
-      cli_type: activeCliType.value,
-      name: credentialForm.value.name.trim(),
-      credential_json: filesJson
-    }
-
-    try {
-      if (editingCredential.value) {
-        await credentialStore.updateCredential(editingCredential.value.id, {
-          name: data.name,
-          credential_json: data.credential_json
-        })
-        notify('更新成功')
-      } else {
-        await credentialStore.createCredential(data)
-        notify('添加成功')
-      }
-      showCredentialDialog.value = false
-      resetCredentialForm()
-      credentialStore.fetchCredentials(activeCliType.value)
-    } catch {
-      // error handled by interceptor
-    }
-  })
+  if (editingCredential.value) {
+    await credentialStore.updateCredential(editingCredential.value.id, { name: data.name, credential_json: data.credential_json })
+    ElMessage.success('更新成功')
+  } else {
+    await credentialStore.createCredential(data)
+    ElMessage.success('添加成功')
+  }
+  showCredentialDialog.value = false
+  resetCredentialForm()
+  credentialStore.fetchCredentials(activeCliType.value as CliType)
 }
 
 async function handleCredentialDragEnd() {
   const ids = credentialStore.credentials.map(c => c.id)
   await credentialStore.reorderCredentials(ids)
-  notify('排序已保存，第一位置凭证已激活')
+  ElMessage.success('排序已保存')
 }
 
 function getUnblacklistTime(provider: Provider): string {
-  void forceRefresh.value
-
-  if (!provider.is_blacklisted || !provider.blacklisted_until) {
-    return '已拉黑'
-  }
-
-  const now = Date.now() / 1000
-  const blacklistedUntil = provider.blacklisted_until
-  const diffSeconds = blacklistedUntil - now
-
-  if (diffSeconds <= 0) {
-    // 倒计时归零，自动刷新数据（只刷新一次）
-    if (!hasRefreshed.value) {
-      hasRefreshed.value = true
-      providerStore.fetchProviders()
-    }
-    return '已拉黑'
-  }
-
-  const totalSeconds = Math.ceil(diffSeconds)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  if (minutes === 0) {
-    return `${seconds}秒后解除拉黑`
-  } else {
-    return `${minutes}分${seconds}秒后解除拉黑`
-  }
+  if (!provider.is_blacklisted || !provider.blacklisted_until) return '已拉黑'
+  const diffSeconds = provider.blacklisted_until - (Date.now() / 1000)
+  if (diffSeconds <= 0) return '已拉黑'
+  const mins = Math.floor(diffSeconds / 60)
+  return mins === 0 ? `${Math.ceil(diffSeconds)}秒后解除` : `${mins}分${Math.ceil(diffSeconds % 60)}秒后解除`
 }
 
 onMounted(() => {
-  providerStore.fetchProviders()
-  credentialStore.fetchCredentials(activeCliType.value)
-
-  // 启动定时器，每秒刷新一次倒计时显示
-  refreshTimer.value = window.setInterval(() => {
-    forceRefresh.value++
-    hasRefreshed.value = false
-  }, 1000)
-
-  // 页面可见性监听：当页面切换到后台时暂停定时器，切回时恢复
-  let wasRunning = true
-  visibilityHandler.value = () => {
-    if (document.hidden) {
-      // 页面不可见，暂停定时器
-      if (refreshTimer.value) {
-        clearInterval(refreshTimer.value)
-        refreshTimer.value = undefined
-      }
-      wasRunning = true
-    } else if (wasRunning) {
-      // 页面重新可见，恢复定时器
-      refreshTimer.value = window.setInterval(() => {
-        forceRefresh.value++
-        hasRefreshed.value = false
-      }, 1000)
-      // 切回时立即刷新一次数据
-      providerStore.fetchProviders()
-    }
-  }
-  document.addEventListener('visibilitychange', visibilityHandler.value)
-})
-
-onUnmounted(() => {
-  if (refreshTimer.value) {
-    clearInterval(refreshTimer.value)
-  }
-  if (visibilityHandler.value) {
-    document.removeEventListener('visibilitychange', visibilityHandler.value)
-  }
+  providerStore.fetchProviders(activeCliType.value as CliType)
+  credentialStore.fetchCredentials(activeCliType.value as CliType)
 })
 </script>
 
 <style scoped>
-.page-header {
-  margin-bottom: 20px;
-}
+.b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 24px; transition: transform 0.2s, box-shadow 0.2s; }
+.b-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
 
-.mode-switch {
-  margin: 20px 0;
-}
+.b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
+.b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s ease; }
+.b-seg-btn.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-.provider-item,
-.credential-item {
-  display: flex;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
+.b-button { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.b-button:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(14, 165, 233, 0.3); }
 
-.provider-item:last-child,
-.credential-item:last-child {
-  border-bottom: none;
-}
+.b-button-outline { background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+.b-button-outline:hover { background: #f8fafc; }
 
-.drag-handle {
-  cursor: move;
-  padding: 10px;
-  color: var(--el-text-color-secondary);
-}
+.b-button-icon { background: white; border: 1px solid #e2e8f0; color: #64748b; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+.b-button-icon:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
 
-.provider-info,
-.credential-info {
-  flex: 1;
-  margin-left: 10px;
-}
+.tag { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
 
-.provider-name,
-.credential-name {
-  font-weight: bold;
-  margin-bottom: 5px;
-}
+.c-input { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.c-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+.c-label { font-size: 13px; font-weight: 500; color: #475569; margin-bottom: 12px; display: block; }
 
-.provider-url {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
+.drag-handle { display: flex; flex-direction: column; gap: 3px; cursor: grab; padding: 8px; margin-left: -8px; opacity: 0.3; transition: opacity 0.2s; }
+.drag-handle:hover { opacity: 0.8; }
+.drag-dot { width: 4px; height: 4px; border-radius: 50%; background: #64748b; }
 
-.credential-display-info {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.provider-stats {
-  display: flex;
-  gap: 20px;
-  margin-right: 20px;
-  color: var(--el-text-color-regular);
-  font-size: 14px;
-}
-
-.provider-actions,
-.credential-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.form-tip {
-  margin-left: 10px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.model-maps-section {
-  padding: 0 20px;
-}
-
-.model-maps-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.model-maps-tip {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.model-maps-empty {
-  text-align: center;
-  padding: 20px;
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
-}
-
-.model-maps-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.model-map-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.model-input {
-  flex: 1;
-}
-
-.arrow-icon {
-  color: var(--el-text-color-secondary);
-  font-size: 16px;
-}
-
-.credential-files-section {
-  padding: 0 20px;
-}
-
-.credential-files-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.credential-files-tip {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.credential-files-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.credential-file-item {
-  width: 100%;
-}
-
-.credential-file-label {
-  font-weight: 500;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  margin-bottom: 8px;
-}
-
-.files-section {
-  padding: 0 20px;
-}
-
-.files-tip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 15px;
-  background: var(--el-color-info-light-9);
-  border-radius: 4px;
-  color: var(--el-text-color-regular);
-  font-size: 13px;
-}
-
-.file-item {
-  margin-bottom: 20px;
-}
-
-.file-label {
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13px;
-  margin-bottom: 8px;
-  padding: 8px 12px;
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
-  border-left: 3px solid var(--el-color-primary);
-}
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000; }
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-content { background: white; border-radius: 20px; width: 720px; max-width: 95vw; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); transform: translateY(20px); transition: transform 0.2s; display: flex; flex-direction: column; }
+.modal-overlay.active .modal-content { transform: translateY(0); }
 </style>

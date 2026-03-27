@@ -19,11 +19,11 @@ The Global Config (全局设置) view completely sheds the heavy "admin panel" a
 *   **Toggle:** Uses a 100% width Segmented Control containing two items: **"本地备份"** and **"WebDAV"**. Each button spans `flex: 1`. 
 *   **Local Backup State:** 
     *   Subtext: "将数据库文件导出到本地，或从本地文件恢复".
-    *   Buttons: **"导出"** (Green), **"导入"** (White outline).
+    *   Buttons: **"导出"** (Green Solid), **"导入"** (Amber/Orange Solid `#f59e0b`).
     *   Buttons strictly aligned to the right (`justify-content: flex-end`).
 *   **WebDAV State:**
     *   Inputs: "服务器", "用户名", "密码".
-    *   Buttons: **"测试连接"**, **"保存配置"**, **"导出"** (Green), **"导入"** (Amber).
+    *   Buttons: **"测试连接"**, **"保存配置"**, **"导出"** (Green Solid), **"导入"** (Amber/Orange Solid `#f59e0b`).
     *   Buttons strictly grouped and aligned to the right (`justify-content: flex-end`).
 
 ### 3.3 CLI配置 (CLI Settings)

@@ -6,7 +6,7 @@ The `Providers` management view is overhauled to align with the "Friendly Ethere
 ## 2. Page Structure
 *   **Left Sidebar/Global Tabs:** Claude Code, Codex, Gemini (Blue bottom underline active state).
 *   **Header Controls:** 
-    *   Segmented Control explicitly offering ONLY two options: `中转模式` | `官方模式`. (No "全部" filter).
+    *   Segmented Control explicitly offering ONLY two options: `中转模式` | `官方模式`. (No "全部" filter). **NOTE:** This button acts strictly as a UI View Toggle for the two different lists below it, and does NOT mutate global CLI API settings.
     *   Primary action button: `+ 添加服务商` (Accent Blue).
 
 ## 3. Provider List (Card View)
@@ -27,6 +27,8 @@ The `Providers` management view is overhauled to align with the "Friendly Ethere
 ## 4. Add/Edit Provider Modal
 *   **Backdrop:** Blurred overlay (`backdrop-filter: blur(4px)`) over the application.
 *   **Container:** White floating dialog (`border-radius: 20px`, `width: 720px`).
+*   **Typography Constraint for Modals:** All sub-headers ("模型转发", etc.) and field labels (`c-label`) MUST use `font-weight: 500`. Do NOT use `600` or `bold`, as this causes severe anti-aliasing blur on Windows screens.
+*   **Spacing Constraint**: Groups of inputs must strictly utilize `gap: 24px` to `32px` horizontally and `margin-bottom: 32px` to `40px` vertically to preserve a spacious, breathable aesthetic.
 *   **Form Design:**
     *   **Base Info:** "服务商名称", "Base URL", "API Key / Token" (fields span flexibly).
     *   **Advanced Group:** A distinct grey bounded box (`#f8fafc`, `border-radius: 12px`, padding inside) holding three specific inputs aligned horizontally:
