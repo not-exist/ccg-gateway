@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    background: #f8fafc; margin: 0; padding: 20px;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app-shell { display: flex; gap: 32px; min-height: 800px; max-width: 1400px; margin: 0 auto; }
+  
+  /* Sidebar */
+  .sidebar { width: 220px; padding-top: 12px; }
+  .logo { font-size: 22px; font-weight: 800; margin-bottom: 40px; color: #0ea5e9; padding-left: 16px; letter-spacing: -0.5px; }
+  .nav-group { margin-bottom: 32px; }
+  .nav-group-title { font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; padding-left: 16px; }
+  .nav-item { padding: 10px 16px; border-radius: 10px; margin-bottom: 4px; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748b; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
+  .nav-item:hover { background: #f1f5f9; color: #0f172a; }
+  .nav-item.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.08); font-weight: 600; }
+  
+  /* View Container (Ethereal Frost) */
+  .view-container { flex: 1; background: linear-gradient(150deg, #f4f7fe 0%, #ffffff 100%); border-radius: 24px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.8), 0 10px 40px -10px rgba(0,0,0,0.03); padding: 40px; min-width: 0; }
+  .main-content { display: none; animation: fadeIn 0.4s ease-out; }
+  .main-content.active { display: block; }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+  /* Shared Typography */
+  .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+  .page-title { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; color: #0f172a; }
+  
+  /* Segmented Control iOS Style */
+  .b-segmented { display: inline-flex; background: rgba(226, 232, 240, 0.6); padding: 4px; border-radius: 12px; }
+  .b-seg-btn { text-align: center; padding: 6px 16px; font-size: 13px; color: #64748b; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+  .b-seg-btn.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 2px 8px rgba(0,0,0,0.06); font-weight: 600; }
+  .b-seg-btn:not(.active):hover { color: #0f172a; }
+
+  /* Tab Underlines */
+  .top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; }
+  .tab-item { padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer; position: relative; transition: color 0.2s; }
+  .tab-item:hover { color: #475569; }
+  .tab-item.active { color: #0f172a; font-weight: 600; border-bottom: 2px solid #0f172a; }
+  
+  /* Buttons & Inputs */
+  .b-button { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .b-button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3); }
+  .b-button-outline { background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s;}
+  .b-button-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
+  
+  .c-input { padding: 8px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; outline: none; background: rgba(255,255,255,0.8); color: #0f172a; transition: all 0.2s; flex: 1; }
+  .c-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); background: #ffffff; }
+  
+  .search-box { position: relative; width: 320px; }
+  .search-box input { width: 100%; padding-left: 36px; border-radius: 10px; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+
+  /* Tags / Pills */
+  .pill { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; letter-spacing: 0.3px; }
+  .pill-grey { background: #f1f5f9; color: #475569; }
+  .pill-blue { background: #f0f9ff; color: #0ea5e9; }
+  .pill-green { background: #ecfdf5; color: #10b981; }
+  .pill-red { background: #fff1f2; color: #f43f5e; }
+
+  /* iOS Toggle */
+  .toggle { width: 40px; height: 22px; background: #10b981; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+  .toggle::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 2px; right: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: right 0.3s; }
+  .toggle.off { background: #cbd5e1; }
+  .toggle.off::after { left: 2px; right: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+  /* Custom Select Component (Fixed UI) */
+  .custom-select { position: relative; width: 150px; }
+  .custom-select-trigger { padding: 9px 36px 9px 16px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-weight: 500; color: #0f172a; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); cursor: pointer; transition: all 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
+  .custom-select:hover .custom-select-trigger { border-color: #cbd5e1; }
+  .custom-select.open .custom-select-trigger { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+  .custom-select .chevron { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #64748b; pointer-events: none; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  .custom-select.open .chevron { transform: translateY(-50%) rotate(180deg); color: #0ea5e9; }
+  
+  .custom-select-options { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1); padding: 6px; z-index: 50; opacity: 0; transform: translateY(-5px); pointer-events: none; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+  .custom-select.open .custom-select-options { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .custom-option { padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #475569; cursor: pointer; transition: all 0.1s; display: flex; align-items: center; justify-content: space-between; }
+  .custom-option:hover { background: #f1f5f9; color: #0f172a; }
+  .custom-option.selected { font-weight: 600; color: #0ea5e9; background: #f0f9ff; }
+
+  /* =============== Refined Components =============== */
+
+  /* Project Grid - EXACTLY 2 COLUMNS */
+  .project-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .project-card { display: flex; align-items: center; padding: 16px 20px; border: 1px solid rgba(255,255,255,0.6); border-radius: 16px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+  .project-card:hover { border-color: rgba(14, 165, 233, 0.3); box-shadow: 0 12px 30px rgba(14, 165, 233, 0.08); transform: translateY(-2px); background: #ffffff; }
+  
+  .project-icon-box { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0284c7; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(186, 230, 253, 0.5); margin-right: 16px; flex-shrink: 0; }
+  .project-info { flex: 1; min-width: 0; padding-right: 28px; }
+  .project-name { font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .project-path { font-size: 12px; color: #64748b; font-family: "JetBrains Mono", monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 8px; }
+  .project-meta { display: flex; align-items: center; gap: 12px; }
+  
+  .ghost-delete { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #cbd5e1; opacity: 0; transition: all 0.2s; padding: 6px; border-radius: 6px; }
+  .project-card:hover .ghost-delete { opacity: 1; }
+  .ghost-delete:hover { background: #fee2e2; color: #ef4444; }
+
+  /* Sessions List View */
+  .session-card { display: flex; align-items: flex-start; padding: 20px 24px; border-radius: 16px; background: rgba(255,255,255,0.8); cursor: pointer; transition: all 0.2s; margin-bottom: 12px; position: relative; border: 1px solid transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.02); gap: 16px; }
+  .session-card:hover { background: #ffffff; border-color: #e0f2fe; box-shadow: 0 10px 30px rgba(14, 165, 233, 0.06); transform: scale(1.002); }
+  .session-card:hover .ghost-delete { opacity: 1; }
+  
+  .session-icon { width: 40px; height: 40px; border-radius: 50%; background: #f0f9ff; color: #0ea5e9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  
+  /* Modern Flat Table */
+  .table-container { background: #ffffff; border-radius: 12px; padding: 4px 0; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.02); overflow-x: auto; }
+  .flat-table { width: 100%; border-collapse: collapse; text-align: left; }
+  .flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+  .flat-table th { padding: 12px 20px; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+  .flat-table td { padding: 12px 20px; font-size: 13px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
+  .flat-table tr:last-child td { border-bottom: none; }
+  .flat-table tr:hover td { background: #f8fafc; }
+  
+  .table-link { color: #0ea5e9; cursor: pointer; text-decoration: none; font-weight: 500; }
+  .table-link:hover { text-decoration: underline; }
+
+  /* Drawer / Conversational UX */
+  .scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.15); backdrop-filter: blur(2px); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 680px; max-width: 100vw; background: #ffffff; z-index: 101; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: -20px 0 50px rgba(0,0,0,0.05); display: flex; flex-direction: column; border-top-left-radius: 24px; border-bottom-left-radius: 24px; }
+  .scrim.active { opacity: 1; pointer-events: auto; }
+  .drawer.active { transform: translateX(0); }
+  
+  .drawer-header { padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 24px; background: #f8fafc; }
+
+  .bubble { max-width: 85%; line-height: 1.6; font-size: 14px; position: relative; display: flex; flex-direction: column; gap: 6px; }
+  .bubble-role { font-size: 12px; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .bubble-user { align-self: flex-end; }
+  .bubble-user .bubble-content { background: #0ea5e9; color: white; padding: 14px 20px; border-radius: 20px; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15); }
+  .bubble-user .bubble-role { justify-content: flex-end; }
+  .bubble-bot { align-self: flex-start; }
+  .bubble-bot .bubble-content { background: #ffffff; color: #334155; padding: 14px 20px; border-radius: 20px; border-bottom-left-radius: 4px; border: 1px solid #f1f5f9; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+  
+  .copy-btn { opacity: 0; transition: opacity 0.2s; color: #94a3b8; cursor: pointer; padding: 4px; }
+  .bubble:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { color: #0f172a; }
+  .bubble-user .copy-btn { color: rgba(255,255,255,0.7); }
+  .bubble-user .copy-btn:hover { color: white; }
+
+</style>
+
+<!-- Lucide SVGs embedded inline -->
+<svg style="display:none">
+  <defs>
+    <symbol id="icon-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+    </symbol>
+    <symbol id="icon-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>
+    </symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </symbol>
+    <symbol id="icon-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
+    </symbol>
+    <symbol id="icon-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+    </symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+    </symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6"/>
+    </symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script>
+  function switchPage(pageId, navItem) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if(navItem) navItem.classList.add('active');
+    document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+  }
+  
+  function switchState(stateId) {
+    document.querySelectorAll('.mock-state').forEach(el => el.style.display = 'none');
+    document.getElementById(stateId).style.display = 'block';
+  }
+
+  function openDrawer(sessId) {
+    document.getElementById('mock-scrim').classList.add('active');
+    document.getElementById('mock-drawer').classList.add('active');
+    if(sessId) {
+       document.getElementById('drawer-sess-id').innerText = sessId;
+    }
+  }
+
+  function closeDrawer() {
+    document.getElementById('mock-scrim').classList.remove('active');
+    document.getElementById('mock-drawer').classList.remove('active');
+  }
+  
+  // Custom Select Dropdown logic
+  function selectOption(el) {
+    const customSelect = el.closest('.custom-select');
+    customSelect.querySelectorAll('.custom-option').forEach(opt => {
+      opt.classList.remove('selected');
+      opt.innerHTML = opt.innerText; // remove the checkmark
+    });
+    
+    el.classList.add('selected');
+    el.innerHTML = el.innerText + `<span style="color:#0ea5e9; font-weight: bold; font-size:14px; margin-left:8px;">✓</span>`;
+    
+    customSelect.querySelector('.custom-select-trigger').innerText = el.innerText;
+    customSelect.classList.remove('open');
+  }
+
+  // Close dropdowns if clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-select')) {
+      document.querySelectorAll('.custom-select').forEach(cs => cs.classList.remove('open'));
+    }
+  });
+</script>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">CCG Gateway</div>
+    <div class="nav-group">
+      <div class="nav-group-title">总览</div>
+      <div class="nav-item">
+        <svg width="18" height="18"><use href="#icon-folder"/></svg> 仪表盘
+      </div>
+      <div class="nav-item active" onclick="switchPage('page-sessions', this)">
+        <svg width="18" height="18"><use href="#icon-chat"/></svg> 会话记录
+      </div>
+      <div class="nav-item" onclick="switchPage('page-logs', this)">
+        <svg width="18" height="18"><use href="#icon-settings"/></svg> 系统日志
+      </div>
+    </div>
+  </div>
+
+  <div class="view-container">
+    
+    <!-- 设计原型演示控制台 -->
+    <div style="background: rgba(14, 165, 233, 0.05); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(14, 165, 233, 0.1); display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
+      <span style="font-size: 13px; color: #0284c7; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">视觉控制台:</span>
+      <div class="b-segmented">
+        <div class="b-seg-btn active" onclick="switchState('state-projects'); this.parentNode.querySelectorAll('.b-seg-btn').forEach(btn=>btn.classList.remove('active')); this.classList.add('active');">项目列表</div>
+        <div class="b-seg-btn" onclick="switchState('state-sessions'); this.parentNode.querySelectorAll('.b-seg-btn').forEach(btn=>btn.classList.remove('active')); this.classList.add('active');">会话内页</div>
+        <div class="b-seg-btn" onclick="switchPage('page-logs', document.querySelectorAll('.nav-item')[2]); this.parentNode.querySelectorAll('.b-seg-btn').forEach(btn=>btn.classList.remove('active')); this.classList.add('active');">系统日志</div>
+      </div>
+      <span style="font-size: 12px; color: #64748b; margin-left: auto;">(V4: 双列布局｜会话结构调整｜定制 Select UI 重载)</span>
+    </div>
+
+    <!-- ==================== PAGE: SESSIONS ==================== -->
+    <div id="page-sessions" class="main-content active">
+      
+      <!-- Top Level Tabs -->
+      <div class="top-tabs">
+        <div class="tab-item active">Claude Code</div>
+        <div class="tab-item">Codex</div>
+        <div class="tab-item">Gemini</div>
+      </div>
+
+      <!-- STATE 1: PROJECT LIST -->
+      <div id="state-projects" class="mock-state">
+        <div class="page-header">
+          <h2 class="page-title" style="font-size: 24px;">项目列表</h2>
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16"><use href="#icon-search"/></svg>
+            <input type="text" class="c-input" placeholder="搜索项目...">
+          </div>
+        </div>
+
+        <div class="project-grid">
+          <!-- Project 1 -->
+          <div class="project-card" onclick="switchState('state-sessions');">
+            <div class="project-icon-box">
+              <svg width="24" height="24"><use href="#icon-folder"/></svg>
+            </div>
+            <div class="project-info">
+              <div class="project-name">demo-project</div>
+              <div class="project-path">/Users/username/workspace/demo-project</div>
+              <div class="project-meta">
+                <div class="pill pill-grey">45 个会话</div>
+                <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">12.4 MB</span>
+              </div>
+            </div>
+            <div class="ghost-delete"><svg width="16" height="16"><use href="#icon-trash"/></svg></div>
+          </div>
+          
+          <!-- Project 2 -->
+          <div class="project-card">
+            <div class="project-icon-box" style="background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #64748b; box-shadow: 0 4px 10px rgba(226, 232, 240, 0.5);">
+              <svg width="24" height="24"><use href="#icon-folder"/></svg>
+            </div>
+            <div class="project-info">
+              <div class="project-name">ccg-gateway-core</div>
+              <div class="project-path">D:\my-develop\project\ccg-gateway-core</div>
+              <div class="project-meta">
+                <div class="pill pill-grey">12 个会话</div>
+                <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">3.1 MB</span>
+              </div>
+            </div>
+            <div class="ghost-delete"><svg width="16" height="16"><use href="#icon-trash"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE 2: SESSIONS LIST -->
+      <div id="state-sessions" class="mock-state" style="display: none;">
+        <div class="page-header">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <button class="b-button-outline" style="border: none; background: transparent; box-shadow: none; padding: 6px; color: #64748b;" onclick="switchState('state-projects')">
+              <svg width="20" height="20"><use href="#icon-back"/></svg>
+            </button>
+            <h2 class="page-title" style="font-size: 20px;">demo-project</h2>
+            <div class="pill pill-grey">45 个会话</div>
+          </div>
+          <div class="search-box" style="width: 260px;">
+            <svg class="search-icon" width="16" height="16"><use href="#icon-search"/></svg>
+            <input type="text" class="c-input" placeholder="搜索会话...">
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column;">
+          <!-- Session Row 1 (Line 1: Header, Line 2: Message, Line 3: Meta) -->
+          <div class="session-card" onclick="openDrawer('sess_8f29d1a3b5c8ed92')">
+            <div class="session-icon">
+              <svg width="20" height="20"><use href="#icon-chat"/></svg>
+            </div>
+            
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+              <!-- Line 1: Header -->
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 2px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 14px; color: #0f172a;">sess_8f29d1a3b5c8ed92</span>
+                <div class="pill pill-blue">
+                  <svg width="12" height="12"><use href="#icon-branch"/></svg> feature/login
+                </div>
+              </div>
+              
+              <!-- Line 2: 1-Line Preview -->
+              <div style="font-size: 13px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 32px;">
+                "Please implement the backend authentication flow. Connect the login form to the mock user database, add JWT signing, and extract repetitive validation logic into helpers."
+              </div>
+
+              <!-- Line 3: Time & Size Meta Data -->
+              <div style="display: flex; gap: 20px; font-size: 12px; color: #94a3b8; font-family: monospace;">
+                <span>2026/03/26 14:32:00</span>
+                <span>245 KB</span>
+              </div>
+            </div>
+            
+            <div class="ghost-delete"><svg width="16" height="16"><use href="#icon-trash"/></svg></div>
+          </div>
+
+          <!-- Session Row 2 -->
+          <div class="session-card" onclick="openDrawer('sess_e1c94b72aa982cf1')">
+            <div class="session-icon">
+              <svg width="20" height="20"><use href="#icon-chat"/></svg>
+            </div>
+            
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+              <!-- Line 1: Header -->
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 2px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 14px; color: #0f172a;">sess_e1c94b72aa982cf1</span>
+                <div class="pill pill-blue">
+                  <svg width="12" height="12"><use href="#icon-branch"/></svg> main
+                </div>
+              </div>
+              
+              <!-- Line 2: 1-Line Preview -->
+              <div style="font-size: 13px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 32px;">
+                "Analyze the recent memory leak logs and suggest optimizations for the event emitter hooks in Core engine."
+              </div>
+
+              <!-- Line 3: Time & Size Meta Data -->
+              <div style="display: flex; gap: 20px; font-size: 12px; color: #94a3b8; font-family: monospace;">
+                <span>2026/03/25 09:15:10</span>
+                <span>1.1 MB</span>
+              </div>
+            </div>
+            
+            <div class="ghost-delete"><svg width="16" height="16"><use href="#icon-trash"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ==================== PAGE: LOGS ==================== -->
+    <div id="page-logs" class="main-content">
+      
+      <!-- Top Settings Widget -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); border-radius: 12px; margin-bottom: 32px; border: 1px solid rgba(255,255,255,1); box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+        <div style="display: flex; align-items: center; gap: 24px;">
+          <span style="font-weight: 600; color: #0f172a; font-size: 14px;">全局日志设置</span>
+          <div style="width: 1px; height: 20px; background: #e2e8f0;"></div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 13px; color: #475569; font-weight: 500;">记录请求日志</span>
+            <div class="toggle" onclick="this.classList.toggle('off')"></div>
+          </div>
+        </div>
+        <span style="font-size: 12px; color: #94a3b8;">注：核心系统日志不受阻断，始终记录</span>
+      </div>
+
+      <!-- Top Level Tabs -->
+      <div class="top-tabs">
+        <div class="tab-item active">请求日志</div>
+        <div class="tab-item">系统报错</div>
+      </div>
+
+      <!-- Filters & Actions -->
+      <div style="display: flex; gap: 16px; margin-bottom: 20px; align-items: center;">
+        
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase;">CLI</span>
+          <!-- Custom Select 1 -->
+          <div class="custom-select" onclick="event.stopPropagation(); this.classList.toggle('open'); document.getElementById('cs-provider').classList.remove('open');">
+            <div class="custom-select-trigger">全部终端接入</div>
+            <svg class="chevron" width="16" height="16"><use href="#icon-chevron"/></svg>
+            <div class="custom-select-options">
+              <div class="custom-option selected" onclick="event.stopPropagation(); selectOption(this)">全部终端接入<span style="color:#0ea5e9; font-weight: bold; font-size:14px; margin-left:8px;">✓</span></div>
+              <div class="custom-option" onclick="event.stopPropagation(); selectOption(this)">ClaudeCode</div>
+              <div class="custom-option" onclick="event.stopPropagation(); selectOption(this)">Codex</div>
+              <div class="custom-option" onclick="event.stopPropagation(); selectOption(this)">Gemini</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; margin-left: 8px;">
+          <span style="font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase;">路由节点</span>
+          <!-- Custom Select 2 -->
+          <div class="custom-select" id="cs-provider" style="width: 170px;" onclick="event.stopPropagation(); this.classList.toggle('open'); this.previousElementSibling.querySelector('.custom-select').classList.remove('open');">
+            <div class="custom-select-trigger">全局任意服务商</div>
+            <svg class="chevron" width="16" height="16"><use href="#icon-chevron"/></svg>
+            <div class="custom-select-options" style="width: 220px;">
+              <div class="custom-option selected" onclick="event.stopPropagation(); selectOption(this)">全局任意服务商<span style="color:#0ea5e9; font-weight: bold; font-size:14px; margin-left:8px;">✓</span></div>
+              <div class="custom-option" onclick="event.stopPropagation(); selectOption(this)">OpenAI 官方直连</div>
+              <div class="custom-option" onclick="event.stopPropagation(); selectOption(this)">DeepSeek API</div>
+              <div class="custom-option" onclick="event.stopPropagation(); selectOption(this)">Google Vertex AI</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex: 1;"></div>
+        <button class="b-button" style="padding: 9px 20px;">查询</button>
+        <button class="b-button-outline" style="padding: 9px 20px;">重置</button>
+        <button class="b-button" style="background: white; border: 1px solid #fee2e2; color: #ef4444; box-shadow: none;">清空</button>
+      </div>
+
+      <!-- Super Clean, Efficient Flat Table (1 line strictly) -->
+      <div class="table-container">
+        <table class="flat-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">ID</th>
+              <th style="width: 160px;">时间</th>
+              <th style="width: 100px;">终端</th>
+              <th style="width: 130px;">服务商</th>
+              <th style="width: 70px;">状态</th>
+              <th style="width: 70px;">耗时</th>
+              <th>路由链路 (源 → 映射)</th>
+              <th style="width: 110px;">Tokens</th>
+              <th style="width: 60px; text-align: right;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>204</td>
+              <td class="mono">03/27 15:42:01</td>
+              <td>ClaudeCode</td>
+              <td>OpenAI 官方</td>
+              <td><span class="pill pill-green">200</span></td>
+              <td class="mono">1542ms</td>
+              <td>claude-3-opus-20240229 <span style="color:#94a3b8; font-weight:normal; margin: 0 4px;">→</span> claude-3-opus</td>
+              <td class="mono">1.2k / 450</td>
+              <td style="text-align: right;"><a class="table-link">详情</a></td>
+            </tr>
+            <tr>
+              <td>203</td>
+              <td class="mono">03/27 15:40:12</td>
+              <td>Codex</td>
+              <td>Anthropic</td>
+              <td><span class="pill pill-green">200</span></td>
+              <td class="mono">840ms</td>
+              <td>claude-3-sonnet <span style="color:#94a3b8; font-weight:normal; margin: 0 4px;">→</span> -</td>
+              <td class="mono">350 / 80</td>
+              <td style="text-align: right;"><a class="table-link">详情</a></td>
+            </tr>
+            <tr>
+              <td>202</td>
+              <td class="mono">03/27 15:38:50</td>
+              <td>ClaudeCode</td>
+              <td>DeepSeek</td>
+              <td><span class="pill pill-red">504</span></td>
+              <td class="mono" style="color: #ef4444;">30s</td>
+              <td>gpt-4-turbo <span style="color:#94a3b8; font-weight:normal; margin: 0 4px;">→</span> deepseek-chat</td>
+              <td class="mono">-</td>
+              <td style="text-align: right;"><a class="table-link">详情</a></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 13px; color: #64748b;">记录池总计 204</span>
+          <div style="display: flex; gap: 4px;">
+            <button class="b-button-outline" style="padding: 4px 10px; border-radius: 6px; border-color: transparent;">&lt;</button>
+            <button class="b-button-outline" style="padding: 4px 12px; border-radius: 6px; border-color: transparent; background: #e0f2fe; color: #0284c7;">1</button>
+            <button class="b-button-outline" style="padding: 4px 12px; border-radius: 6px; border-color: transparent;">2</button>
+            <button class="b-button-outline" style="padding: 4px 12px; border-radius: 6px; border-color: transparent;">3</button>
+            <button class="b-button-outline" style="padding: 4px 10px; border-radius: 6px; border-color: transparent;">&gt;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<!-- Elegantly Designed Right Drawer For Session Details -->
+<div class="scrim" id="mock-scrim" onclick="closeDrawer()"></div>
+<div class="drawer" id="mock-drawer">
+  <div class="drawer-header">
+    <div>
+      <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px;">会话审查</div>
+      <div id="drawer-sess-id" style="font-size: 18px; font-weight: 700; color: #0f172a; font-family: 'JetBrains Mono', monospace;">sess_8f29d1a3b5c8ed92</div>
+    </div>
+    <div style="cursor: pointer; padding: 8px; border-radius: 50%; background: #f1f5f9; color: #64748b; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" onclick="closeDrawer()" onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </div>
+  </div>
+  <div class="drawer-body">
+    
+    <!-- User Bubble -->
+    <div class="bubble bubble-user">
+      <div class="bubble-role">
+        USER
+        <svg class="copy-btn" width="12" height="12"><use href="#icon-copy"/></svg>
+      </div>
+      <div class="bubble-content">
+        Please implement the backend authentication flow. Connect the login form to the mock user database, add JWT signing, and extract repetitive validation logic into helpers.
+      </div>
+    </div>
+    
+    <!-- Assistant Bubble -->
+    <div class="bubble bubble-bot">
+      <div class="bubble-role">
+        ASSISTANT
+        <svg class="copy-btn" width="12" height="12"><use href="#icon-copy"/></svg>
+      </div>
+      <div class="bubble-content">
+        I'll help you implement the backend authentication flow. First, let's create the JWT helper functions.
+        <br><br>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #475569; margin: 8px 0;">
+          [ 代码重构模拟模块...正在签名并生成Token... ]
+        </div>
+        This sets up the `jwt.sign` behavior properly, maintaining stateless authentication. Does this approach work for your schema?
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
