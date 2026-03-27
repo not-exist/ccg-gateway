@@ -1,0 +1,561 @@
+<style>
+  * { box-sizing: border-box; }
+  body {
+    background: #f8fafc; margin: 0; padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a;
+  }
+  .app-shell { display: flex; gap: 32px; min-height: 800px; max-width: 1400px; margin: 0 auto; }
+  
+  /* Sidebar */
+  .sidebar { width: 220px; padding-top: 12px; }
+  .logo { font-size: 22px; font-weight: 700; margin-bottom: 40px; color: #0ea5e9; padding-left: 16px; letter-spacing: -0.5px; }
+  .nav-group { margin-bottom: 32px; }
+  .nav-group-title { font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 12px; letter-spacing: 1px; padding-left: 16px; }
+  .nav-item { padding: 10px 16px; border-radius: 8px; margin-bottom: 4px; cursor: pointer; font-size: 14px; font-weight: 500; color: #475569; transition: all 0.2s; }
+  .nav-item:hover { background: #e2e8f0; color: #0f172a; }
+  .nav-item.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 2px 8px rgba(0,0,0,0.03); font-weight: 600; }
+  
+  /* View Container */
+  .view-container { flex: 1; background: #f4f7fe; border-radius: 24px; box-shadow: inset 0 0 0 1px #e2e8f0; padding: 40px; min-width: 0; }
+  .main-content { display: none; animation: fadeIn 0.3s ease; }
+  .main-content.active { display: block; }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  
+  /* Shared */
+  .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+  .page-title { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
+  
+  .b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: transform 0.2s, box-shadow 0.2s; }
+  .b-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
+  .b-card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+  
+  /* Segmented Control */
+  .b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
+  .b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s ease; }
+  .b-seg-btn.active { background: #ffffff; color: #0ea5e9; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .b-seg-btn:not(.active):hover { color: #0f172a; }
+  
+  /* Buttons */
+  .b-button { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2); transition: transform 0.2s, box-shadow 0.2s; }
+  .b-button:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(14, 165, 233, 0.3); }
+  .b-button-outline { background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+  .b-button-outline:hover { background: #f8fafc; }
+  .b-button-icon { background: white; border: 1px solid #e2e8f0; color: #64748b; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+  .b-button-icon:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+  
+  /* Tags */
+  .tag { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  
+  /* Form Field */
+  .c-input { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+  .c-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+  .c-label { font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block; }
+  
+  /* iOS Toggle */
+  .toggle { width: 44px; height: 24px; background: #10b981; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+  .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: white; border-radius: 50%; top: 2px; right: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: right 0.3s; }
+  .toggle.off { background: #cbd5e1; }
+  .toggle.off::after { left: 2px; right: auto; }
+
+  /* Drag handle */
+  .drag-handle { display: flex; flex-direction: column; gap: 3px; cursor: grab; padding: 8px; margin-left: -8px; opacity: 0.3; transition: opacity 0.2s; }
+  .drag-handle:hover { opacity: 0.8; }
+  .drag-dot { width: 4px; height: 4px; border-radius: 50%; background: #64748b; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000; }
+  .modal-overlay.active { opacity: 1; pointer-events: auto; }
+  .modal-content { background: white; border-radius: 20px; width: 720px; max-width: 95vw; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); transform: translateY(20px); transition: transform 0.2s; }
+  .modal-overlay.active .modal-content { transform: translateY(0); }
+</style>
+
+<script>
+  function switchPage(pageId, navItem) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    navItem.classList.add('active');
+    document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+  }
+  function toggleBackupTab(tab) {
+    document.querySelectorAll('.backup-seg').forEach(el => el.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('backup-local').style.display = tab.innerText === '本地备份' ? 'block' : 'none';
+    document.getElementById('backup-webdav').style.display = tab.innerText === '本地备份' ? 'none' : 'block';
+  }
+  function toggleCliTab(tab) {
+    document.querySelectorAll('.cli-seg').forEach(el => el.classList.remove('active'));
+    tab.classList.add('active');
+    const tip = document.getElementById('cli-tip');
+    const jsonTextarea = document.getElementById('cli-textarea');
+    if (tab.innerText === 'Codex') {
+      tip.innerText = '此处配置会合并到 config.toml（TOML 格式）';
+      jsonTextarea.value = 'model_reasoning_effort = "high"\nmodel_reasoning_summary = "detailed"';
+    } else {
+      tip.innerText = '此处配置会合并到 settings.json（JSON 格式）';
+      jsonTextarea.value = tab.innerText === 'ClaudeCode' ? '{\n  "env": {},\n  "permissions": {}\n}' : '{\n  "theme": "dark"\n}';
+    }
+  }
+  function toggleModal(show) {
+    const el = document.getElementById('add-provider-modal');
+    if (show) el.classList.add('active');
+    else el.classList.remove('active');
+  }
+</script>
+
+<!-- Add Provider Modal -->
+<div class="modal-overlay" id="add-provider-modal" onclick="if(event.target===this) toggleModal(false)">
+  <div class="modal-content">
+    <div style="padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+      <div style="font-size: 20px; font-weight: 600; color: #0f172a;">添加 / 编辑服务商</div>
+      <div style="cursor: pointer; color: #94a3b8; font-size: 20px; font-weight: bold;" onclick="toggleModal(false)">×</div>
+    </div>
+    
+    <div style="padding: 32px; max-height: 70vh; overflow-y: auto;">
+      <!-- Base info -->
+      <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+        <div style="flex: 1;">
+          <label class="c-label">服务商名称 <span style="color: #ef4444;">*</span></label>
+          <input type="text" class="c-input" placeholder="例如: OpenAI 官方">
+        </div>
+        <div style="flex: 1;">
+          <label class="c-label">Base URL <span style="color: #ef4444;">*</span></label>
+          <input type="text" class="c-input" placeholder="https://api.openai.com/v1">
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 32px;">
+        <label class="c-label">API Key / Token <span style="color: #ef4444;">*</span></label>
+        <input type="password" class="c-input" value="sk-ant-xxxxxxxxxxxxxxxxxxxxxxx">
+      </div>
+
+      <!-- Advanced Params -->
+      <div style="display: flex; gap: 24px; margin-bottom: 32px; padding: 24px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9;">
+        <div style="flex: 1;">
+          <label class="c-label">失败鉴权阈值 (次)</label>
+          <input type="number" class="c-input" value="3">
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">连续失败次数达到此值后拉黑该服务。</div>
+        </div>
+        <div style="flex: 1;">
+          <label class="c-label">拉黑时长 (分钟)</label>
+          <input type="number" class="c-input" value="10">
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">被拉黑后这段时间内不再向其转发请求。</div>
+        </div>
+        <div style="flex: 1;">
+          <label class="c-label">自定义 UA (选填)</label>
+          <input type="text" class="c-input" placeholder="留空则使用原始">
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">强制替换转发请求的 User-Agent。</div>
+        </div>
+      </div>
+
+      <!-- Model Maps Section -->
+      <div style="margin-bottom: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <div style="font-weight: 600; font-size: 15px; color: #0f172a;">模型转发配置 (映射)</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">将 CLI 请求的源模型名称，转译为该服务商真正的目标模型名称。</div>
+          </div>
+          <button class="b-button-outline" style="font-size: 13px; padding: 6px 12px;">+ 添加映射</button>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Map Item 1 -->
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <input type="text" class="c-input" value="claude-3-opus-20240229" style="flex: 1;">
+            <div style="color: #cbd5e1; font-weight: bold;">→</div>
+            <input type="text" class="c-input" value="claude-3-opus" style="flex: 1;">
+            <div class="b-button-icon">×</div>
+          </div>
+          <!-- Map Item 2 -->
+           <div style="display: flex; gap: 12px; align-items: center;">
+            <input type="text" class="c-input" value="claude-3-sonnet-20240229" style="flex: 1;">
+            <div style="color: #cbd5e1; font-weight: bold;">→</div>
+            <input type="text" class="c-input" value="claude-3-sonnet" style="flex: 1;">
+            <div class="b-button-icon">×</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Blacklist Section -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <div style="font-weight: 600; font-size: 15px; color: #0f172a;">模型黑名单</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">配置该服务商不支持的模型正则/通配符 (如: claude-opus-*)。</div>
+          </div>
+          <button class="b-button-outline" style="font-size: 13px; padding: 6px 12px;">+ 加黑名单</button>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Blacklist Item -->
+          <div style="display: flex; gap: 12px; align-items: center;">
+             <input type="text" class="c-input" value="gemini-*" style="flex: 1;">
+             <div class="b-button-icon">×</div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+    
+    <div style="padding: 24px 32px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 20px 20px;">
+      <button class="b-button-outline" onclick="toggleModal(false)">取消修改</button>
+      <button class="b-button" onclick="toggleModal(false)">保存配置</button>
+    </div>
+  </div>
+</div>
+<!-- / Add Provider Modal -->
+
+<div class="app-shell">
+  <!-- Sidebar Navigation -->
+  <div class="sidebar">
+    <div class="logo">CCG Gateway</div>
+    <div class="nav-group">
+      <div class="nav-group-title">总览</div>
+      <div class="nav-item active" onclick="switchPage('page-dashboard', this)">仪表盘</div>
+      <div class="nav-item">会话记录</div>
+      <div class="nav-item">系统日志</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">核心资源</div>
+      <div class="nav-item" onclick="switchPage('page-providers', this)">服务商</div>
+      <div class="nav-item">MCP 工具</div>
+      <div class="nav-item">提示词</div>
+      <div class="nav-item">扩展技能</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">系统管理</div>
+      <div class="nav-item" onclick="switchPage('page-config', this)">全局设置</div>
+    </div>
+  </div>
+
+  <div class="view-container">
+    
+    <!-- DASHBOARD VIEW -->
+    <div id="page-dashboard" class="main-content active">
+      <div class="page-header">
+        <h1 class="page-title">仪表盘</h1>
+      </div>
+      
+      <!-- CLI Cards -->
+      <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+        <div class="b-card" style="flex:1; margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.5);"></div>
+              <span style="font-weight: 600; font-size: 16px;">Claude Code</span>
+            </div>
+            <div class="toggle" onclick="this.classList.toggle('off')"></div>
+          </div>
+          <div class="b-segmented" style="width: 100%; display: flex;">
+            <div class="b-seg-btn active" style="flex: 1;">中转模式</div>
+            <div class="b-seg-btn" style="flex: 1;">官方模式</div>
+          </div>
+        </div>
+        
+        <div class="b-card" style="flex:1; margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.5);"></div>
+              <span style="font-weight: 600; font-size: 16px;">Codex</span>
+            </div>
+            <div class="toggle" onclick="this.classList.toggle('off')"></div>
+          </div>
+          <div class="b-segmented" style="width: 100%; display: flex;">
+            <div class="b-seg-btn" style="flex: 1;">中转模式</div>
+            <div class="b-seg-btn active" style="flex: 1;">官方模式</div>
+          </div>
+        </div>
+        
+        <div class="b-card" style="flex:1; margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1;"></div>
+              <span style="font-weight: 600; font-size: 16px; color: #94a3b8;">Gemini (已禁用)</span>
+            </div>
+            <div class="toggle off" onclick="this.classList.toggle('off')"></div>
+          </div>
+          <div class="b-segmented" style="width: 100%; display: flex; opacity: 0.5;">
+            <div class="b-seg-btn active" style="flex: 1;">中转模式</div>
+            <div class="b-seg-btn" style="flex: 1;">官方模式</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- KPI -->
+      <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+        <div class="b-card" style="flex:1; margin-bottom: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 20px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 500;">请求总数</div>
+          <div style="font-size: 32px; font-weight: 700; color: #0ea5e9; font-variant-numeric: tabular-nums;">12,482</div>
+        </div>
+        <div class="b-card" style="flex:1; margin-bottom: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 20px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 500;">全局成功率</div>
+          <div style="font-size: 32px; font-weight: 700; color: #10b981; font-variant-numeric: tabular-nums;">99.4%</div>
+        </div>
+        <div class="b-card" style="flex:1; margin-bottom: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 20px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 500;">Token消耗</div>
+          <div style="font-size: 32px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums;">8.2<span style="font-size: 20px;">M</span></div>
+        </div>
+        <div class="b-card" style="flex:1; margin-bottom: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 20px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 500;">活跃服务商</div>
+          <div style="font-size: 32px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums;">5</div>
+        </div>
+      </div>
+
+      <!-- Bottom Charts Mockup -->
+      <div style="display: flex; gap: 24px;">
+        <div class="b-card" style="flex: 2; margin-bottom: 0; min-height: 280px; display: flex; flex-direction: column;">
+          <div class="b-card-title">请求统计与成功率趋势</div>
+          <div style="flex: 1; border: 1px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; color: #94a3b8;">
+            [ 趋势折线图表组件区域 (无粗边框) ]
+          </div>
+        </div>
+        <div class="b-card" style="flex: 1; margin-bottom: 0; min-height: 280px; display: flex; flex-direction: column;">
+          <div class="b-card-title">最近失败记录</div>
+           <div style="flex: 1; border: 1px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; color: #94a3b8;">
+            [ 行距宽敞的失败日志列表 ]
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- PROVIDERS VIEW -->
+    <div id="page-providers" class="main-content">
+      <!-- Blue Underline Top Tabs -->
+      <div style="display: flex; gap: 32px; border-bottom: 1px solid #e2e8f0; margin-bottom: 32px;">
+        <div style="padding-bottom: 16px; color: #0ea5e9; font-weight: 600; font-size: 16px; border-bottom: 2px solid #0ea5e9; cursor: pointer;">Claude Code</div>
+        <div style="padding-bottom: 16px; color: #64748b; font-weight: 500; font-size: 16px; cursor: pointer;">Codex</div>
+        <div style="padding-bottom: 16px; color: #64748b; font-weight: 500; font-size: 16px; cursor: pointer;">Gemini</div>
+      </div>
+      
+      <div class="page-header" style="margin-bottom: 24px;">
+        <div class="b-segmented">
+          <div class="b-seg-btn active">中转模式</div>
+          <div class="b-seg-btn">官方模式</div>
+        </div>
+        <button class="b-button" style="transform: translateY(-2px); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);" onclick="toggleModal(true)">+ 添加服务商</button>
+      </div>
+      
+      <div class="b-card" style="padding: 0; overflow: hidden;">
+        <!-- Provider Rows -->
+        
+        <!-- Row 1 Active -->
+        <div style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #ffffff; transition: background 0.2s;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="drag-handle">
+               <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                <div style="font-weight: 600; font-size: 16px;">OpenAI 官方通道</div>
+                <div class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">5个模型映射</div>
+              </div>
+              <div style="color: #64748b; font-size: 13px; font-family: monospace;">https://api.openai.com/v1</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 40px;">
+             <!-- Stats -->
+             <div style="display: flex; gap: 24px;">
+               <div style="text-align: right;">
+                 <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">失败次数</div>
+                 <div style="color: #0f172a; font-weight: 600; font-size: 15px;">0</div>
+               </div>
+               <div style="text-align: right;">
+                 <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">失败阈值</div>
+                 <div style="color: #64748b; font-weight: 600; font-size: 15px;">10</div>
+               </div>
+             </div>
+             <!-- Actions -->
+             <div style="display: flex; align-items: center; gap: 24px;">
+               <div class="toggle" onclick="this.classList.toggle('off')"></div>
+               <div style="color: #0ea5e9; font-weight: 500; cursor: pointer; padding: 6px 16px; background: #f0f9ff; border-radius: 8px;">编辑</div>
+             </div>
+          </div>
+        </div>
+        
+        <!-- Row 2 Error / Blacklist -->
+        <div style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: rgba(244, 63, 94, 0.02); transition: background 0.2s;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="drag-handle">
+               <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                <div style="font-weight: 600; font-size: 16px;">DeepSeek 中转集群 (欧洲节点)</div>
+                <div class="tag" style="background: rgba(244, 63, 94, 0.1); color: #f43f5e;">已拉黑 (12分20秒后解除)</div>
+              </div>
+              <div style="color: #64748b; font-size: 13px; font-family: monospace;">https://eu.deepseek.xyz</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 40px;">
+             <div style="display: flex; gap: 24px;">
+               <div style="text-align: right;">
+                 <div style="font-size: 12px; color: #ef4444; margin-bottom: 2px;">失败次数</div>
+                 <div style="color: #ef4444; font-weight: 600; font-size: 15px;">5</div>
+               </div>
+               <div style="text-align: right;">
+                 <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">失败阈值</div>
+                 <div style="color: #64748b; font-weight: 600; font-size: 15px;">5</div>
+               </div>
+             </div>
+             <div style="display: flex; align-items: center; gap: 24px;">
+               <div class="toggle" onclick="this.classList.toggle('off')"></div>
+               <div style="color: #0ea5e9; font-weight: 500; cursor: pointer; padding: 6px 16px; background: #f0f9ff; border-radius: 8px;">编辑</div>
+             </div>
+          </div>
+        </div>
+        
+        <!-- Row 3 Disabled Row -->
+        <div style="padding: 24px; display: flex; justify-content: space-between; align-items: center; background: #ffffff;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="drag-handle">
+               <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                <div style="font-weight: 500; font-size: 16px; color: #94a3b8;">Anthropic Proxy Node 3</div>
+                <div class="tag" style="background: #f1f5f9; color: #64748b;">已禁用</div>
+                <div class="tag" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">2个黑名单配置</div>
+              </div>
+              <div style="color: #94a3b8; font-size: 13px; font-family: monospace;">https://api.anthropic.com</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 40px;">
+             <div style="display: flex; gap: 24px;">
+               <div style="text-align: right;">
+                 <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">失败次数</div>
+                 <div style="color: #94a3b8; font-weight: 500; font-size: 15px;">0</div>
+               </div>
+               <div style="text-align: right;">
+                 <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">失败阈值</div>
+                 <div style="color: #94a3b8; font-weight: 500; font-size: 15px;">10</div>
+               </div>
+             </div>
+             <div style="display: flex; align-items: center; gap: 24px;">
+               <div class="toggle off" onclick="this.classList.toggle('off')"></div>
+               <!-- Notice here: The edit button is fully colored and active visually even if the row toggle is OFF -->
+               <div style="color: #0ea5e9; font-weight: 500; cursor: pointer; padding: 6px 16px; background: #f0f9ff; border-radius: 8px;">编辑</div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- CONFIG VIEW -->
+    <div id="page-config" class="main-content">
+      <div class="page-header">
+        <h1 class="page-title">全局设置</h1>
+      </div>
+      
+      <div style="display: flex; gap: 24px; align-items: flex-start;">
+        <!-- Left Column -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+          <!-- Timeouts -->
+          <div class="b-card" style="margin-bottom: 0;">
+            <div class="b-card-title">基础配置</div>
+            <div style="margin-bottom: 16px; display: flex; align-items: center;">
+              <div style="width: 120px; font-size: 14px; color: #475569; font-weight: 500;">流式首字节超时</div>
+              <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                <input type="number" value="30" class="c-input" style="flex: 1;">
+                <span style="color: #94a3b8; font-size: 14px;">秒</span>
+              </div>
+            </div>
+            <div style="margin-bottom: 16px; display: flex; align-items: center;">
+              <div style="width: 120px; font-size: 14px; color: #475569; font-weight: 500;">流式空闲超时</div>
+              <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                <input type="number" value="60" class="c-input" style="flex: 1;">
+                <span style="color: #94a3b8; font-size: 14px;">秒</span>
+              </div>
+            </div>
+            <div style="margin-bottom: 16px; display: flex; align-items: center;">
+              <div style="width: 120px; font-size: 14px; color: #475569; font-weight: 500;">非流式超时</div>
+              <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                <input type="number" value="120" class="c-input" style="flex: 1;">
+                <span style="color: #94a3b8; font-size: 14px;">秒</span>
+              </div>
+            </div>
+            <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+              <button class="b-button">保存</button>
+            </div>
+          </div>
+          
+          <!-- Backup -->
+          <div class="b-card" style="margin-bottom: 0;">
+            <div class="b-card-title">备份与恢复</div>
+            <div class="b-segmented" style="width: 100%; margin-bottom: 20px;">
+              <div class="b-seg-btn backup-seg active" style="flex: 1;" onclick="toggleBackupTab(this)">本地备份</div>
+              <div class="b-seg-btn backup-seg" style="flex: 1;" onclick="toggleBackupTab(this)">WebDAV</div>
+            </div>
+            
+            <div id="backup-local">
+              <p style="font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.5;">
+                将数据库文件导出到本地，或从本地文件恢复
+              </p>
+              <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="b-button" style="background:#10b981; box-shadow: 0 2px 4px rgba(16,185,129,0.2);">导出</button>
+                <button class="b-button-outline">导入</button>
+              </div>
+            </div>
+            
+            <div id="backup-webdav" style="display: none;">
+              <div style="margin-bottom: 12px; display: flex; align-items: center;">
+                <div style="width: 80px; font-size: 14px; color: #475569; font-weight: 500;">服务器</div>
+                <input type="text" placeholder="https://dav.example.com" class="c-input" style="flex: 1;">
+              </div>
+              <div style="margin-bottom: 12px; display: flex; align-items: center;">
+                <div style="width: 80px; font-size: 14px; color: #475569; font-weight: 500;">用户名</div>
+                <input type="text" class="c-input" style="flex: 1;">
+              </div>
+              <div style="margin-bottom: 24px; display: flex; align-items: center;">
+                <div style="width: 80px; font-size: 14px; color: #475569; font-weight: 500;">密码</div>
+                <input type="password" value="********" class="c-input" style="flex: 1;">
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                <button class="b-button-outline">测试连接</button>
+                <button class="b-button-outline">保存配置</button>
+                <button class="b-button" style="background:#10b981;">导出</button>
+                <button class="b-button" style="background:#f59e0b; box-shadow: 0 2px 4px rgba(245,158,11,0.2);">导入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          <div class="b-card" style="flex: 1; margin-bottom: 0;">
+            <div class="b-card-title">CLI配置</div>
+            
+            <div class="b-segmented" style="width: 100%; margin-bottom: 24px;">
+              <div class="b-seg-btn cli-seg active" style="flex: 1;" onclick="toggleCliTab(this)">ClaudeCode</div>
+              <div class="b-seg-btn cli-seg" style="flex: 1;" onclick="toggleCliTab(this)">Codex</div>
+              <div class="b-seg-btn cli-seg" style="flex: 1;" onclick="toggleCliTab(this)">Gemini</div>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+              <div style="font-size: 14px; color: #475569; font-weight: 500; margin-bottom: 10px;">配置目录</div>
+              <div style="display: flex; width: 100%; gap: 8px;">
+                <input type="text" value="C:\Users\username\.claude" readonly class="c-input" style="flex: 1; background: #f8fafc; color: #94a3b8; outline: none;">
+                <button class="b-button-outline">重置</button>
+              </div>
+            </div>
+            
+            <div>
+              <div style="font-size: 14px; color: #475569; font-weight: 500; margin-bottom: 10px;">默认配置</div>
+              <textarea id="cli-textarea" style="width: 100%; height: 180px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: monospace; font-size: 13px; background: #f8fafc; color: #0f172a; resize: none; margin-bottom: 4px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;" onfocus="this.style.borderColor='#0ea5e9'; this.style.boxShadow='0 0 0 3px rgba(14, 165, 233, 0.1)'" onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'">{
+  "env": {},
+  "permissions": {}
+}</textarea>
+              <div id="cli-tip" style="font-size: 12px; color: #94a3b8;">此处配置会合并到 settings.json（JSON 格式）</div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 32px; justify-content: flex-end;">
+              <button class="b-button-outline">格式化</button>
+              <button class="b-button">保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

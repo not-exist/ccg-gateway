@@ -1,43 +1,42 @@
-# Providers Module Redesign Spec (Friendly & Professional)
+# Providers Module Redesign Spec (Friendly & Ethereal Frost)
 
 ## 1. Overview
-The goal of this redesign is to align the `Providers` management view with the "Friendly Ethereal Frost" design language. It replaces the default Element Plus list and heavy dialogs with a customized, airy, and interactive aesthetic that clearly separates CLI environments (Claude Code, Codex, Gemini) and proxy vs. direct modes.
+The `Providers` management view is overhauled to align with the "Friendly Ethereal Frost" design language. It replaces Element Plus lists and heavy dialogs with a customized, interactive aesthetic separating CLI environments and mode toggles.
 
-## 2. Page Structure & Navigation
-*   **CLI Tabs (Top):**
-    *   Transition from boxed/border-heavy tabs to clean, text-based tabs with an accent blue bottom underline (`--accent-blue`) for the active state.
-    *   Generous spacing between tabs (`gap: 32px`).
-*   **Page Header & Mode Switch:**
-    *   Uses the unified **Segmented Control** for switching between "中转模式" (Proxy Mode) and "官方模式" (Direct Mode). The control has a slightly darker grey background (`#e2e8f0`) framing pure white active pills.
-    *   Primary action button ("+ 添加服务商") features the brand's accent blue, a soft drop shadow, and a subtle float interaction (`transform: translateY(-2px)`) on hover.
+## 2. Page Structure
+*   **Left Sidebar/Global Tabs:** Claude Code, Codex, Gemini (Blue bottom underline active state).
+*   **Header Controls:** 
+    *   Segmented Control explicitly offering ONLY two options: `中转模式` | `官方模式`. (No "全部" filter).
+    *   Primary action button: `+ 添加服务商` (Accent Blue).
 
 ## 3. Provider List (Card View)
-*   **Container:** The list lives inside a unified floating card container (`--card-bg`, `--radius-lg`, `--shadow-soft`) to maintain visual cleanliness.
-*   **Row Items:**
-    *   Rows are separated by a very light border (`#f1f5f9`), removing traditional heavy table grids.
-    *   A subtle background color change (`#f8fafc`) on row hover indicates interactivity.
-*   **Status Indicators (Tags):**
-    *   Pill-shaped, soft-background tags for status elements to reduce visual noise:
-        *   **Success (Mappings):** Emerald Green (`rgba(16, 185, 129, 0.1)` bg, `--success-green` text).
-        *   **Warning (Blacklist):** Amber (`rgba(245, 158, 11, 0.1)` bg, `--warning-amber` text).
-        *   **Danger (Blocked):** Rose Red (`rgba(244, 63, 94, 0.1)` bg, `--danger-red` text). Blocked provider rows also feature a faint red tint (`rgba(244, 63, 94, 0.02)`) over the entire row for immediate visibility.
-        *   **Info (Disabled):** Slate grey (`#f1f5f9` bg, `--text-muted` text) with an overall row opacity of `0.75`.
-*   **Actions:**
-    *   Replaced default switches with iOS-style toggles (green for active, grey for disabled).
-    *   Action buttons ("编辑", "更多") are borderless and use text colors with soft hover backgrounds.
+*   **Container:** Unified floating card container (`background: #ffffff`, `radius-lg`).
+*   **Row Items Structure:**
+    *   **Drag Handle:** The very left of the row features a `⋮⋮` drag handle (dots with `opacity: 0.3`, hover `0.8`) indicating the list supports drag-and-drop ordering.
+    *   **Provider Info:** 
+        *   Provider Name (`#0f172a`, `16px`, `font-weight: 600`).
+        *   Base URL displayed directly below the name in a smaller monospace grey text (`13px`, `#64748b`).
+    *   **Tags:** Soft pill-shaped tags next to the name: e.g., "5个模型映射" (green), "已拉黑 (12分后解除)" (red), "已禁用" (grey).
+    *   **Status Metrics (Exact Labels):** Two distinct right-aligned metrics: 
+        *   `失败次数` (Current failure count: e.g., 0 or 5). Turns red if equal to threshold.
+        *   `失败阈值` (Threshold max: e.g., 10 or 5).
+    *   **Actions:** 
+        *   iOS-style toggle (Enabled/Disabled).
+        *   `编辑` (Edit) Button: Has a permanent soft blue background (`#f0f9ff`) and blue text (`#0ea5e9`). It is ALWAYS fully visible/clickable, even if the provider toggle is turned off (unaffected by row opacity).
 
 ## 4. Add/Edit Provider Modal
-*   **Backdrop:** Implements a blurry overlay (`backdrop-filter: blur(4px)`) over the application to focus attention entirely on the modal.
+*   **Backdrop:** Blurred overlay (`backdrop-filter: blur(4px)`) over the application.
+*   **Container:** White floating dialog (`border-radius: 20px`, `width: 720px`).
 *   **Form Design:**
-    *   Fields feature subtle borders that transition to a blue glow (`box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1)`) upon focus.
-    *   Inputs like "失败阈值" and "拉黑时长" are positioned side-by-side using Flexbox to save vertical space.
-*   **Dynamic Lists (Model Mappings & Blacklists):**
-    *   Visual "Divider" lines separating the main configuration from dynamic lists.
-    *   Map items are encased in a light grey box (`#f8fafc`) with a clear visual arrow (`→`) denoting the source-to-target relationship.
-    *   Delete actions use a circular hover icon to prevent accidental clicks.
-    *   Empty states use a dashed border and centered muted text.
-
-## 5. Success Criteria
-*   The Providers page completely eliminates generic "admin panel" components.
-*   User experience for managing API keys and mappings feels fluid, modern, and distinctively "premium."
-*   Status feedback (blocked vs. active vs. disabled) is immediately recognizable through color hierarchy and opacity without relying solely on reading text.
+    *   **Base Info:** "服务商名称", "Base URL", "API Key / Token" (fields span flexibly).
+    *   **Advanced Group:** A distinct grey bounded box (`#f8fafc`, `border-radius: 12px`, padding inside) holding three specific inputs aligned horizontally:
+        *   `失败鉴权阈值 (次)` - (default: 3).
+        *   `拉黑时长 (分钟)` - (default: 10).
+        *   `自定义 UA (选填)`.
+    *   **Model Forwarding (模型转发配置 - 映射):**
+        *   Header with title and "+ 添加映射" outline button.
+        *   Rows containing: `source_model` input, a visual `→` arrow, `target_model` input, and a circular red `×` button for deletion.
+    *   **Model Blacklist (模型黑名单):**
+        *   Header with title and "+ 加黑名单" outline button.
+        *   Rows containing regex/pattern input and `×` delete button.
+    *   **Actions:** "取消修改", "保存配置" (Bottom right, flex-end).

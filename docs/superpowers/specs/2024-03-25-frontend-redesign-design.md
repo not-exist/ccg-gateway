@@ -1,52 +1,39 @@
-# Frontend Redesign Spec: CCG Gateway (Friendly & Professional)
+# Frontend Redesign Spec: Dashboard (Friendly & Ethereal Frost)
 
 ## 1. Overview
-The goal is to redesign the frontend of the CCG Gateway Tauri application. The new design must strike a balance between a "$20/month premium tool" and an inviting, user-friendly interface. It completely replaces the generic Element Plus "admin panel" look with a bespoke, vibrant, and airy aesthetic.
+The goal is to redesign the Dashboard frontend of the CCG Gateway Tauri application using the "Friendly Ethereal Frost" design system. It eliminates Element Plus default borders and heavy backgrounds, implementing a bespoke, vibrant, and airy aesthetic.
 
 ## 2. Design Language & Aesthetics
 *   **Base Style:** Friendly Ethereal Frost.
-*   **Backgrounds:** A soft, airy blue-grey (`#f4f7fe`) for the main app background to reduce eye strain, paired with pure white (`#ffffff`) for content cards.
-*   **Colors (Vibrant & Approachable):**
-    *   **Primary/Accent:** Bright Ocean Blue (`#0ea5e9`).
-    *   **Success:** Emerald Green (`#10b981`).
-    *   **Warning:** Amber (`#f59e0b`).
-    *   **Danger:** Rose Red (`#f43f5e`).
-    *   **Text:** Deep slate (`#0f172a`) for headings, softer slate (`#475569`) for body text.
-*   **Shapes & Shadows:** 
-    *   Larger, friendlier border-radiuses (`16px` for main cards, `8px` for buttons/inputs).
-    *   Soft, diffused drop shadows that give cards a "floating" feel.
-*   **Interaction:** Smooth, bouncy transitions (like iOS).
+*   **Backgrounds:** A soft blue-grey (`#f4f7fe`) for the main app background, and pure white (`#ffffff`) for content cards with soft box shadows (`box-shadow: 0 4px 12px rgba(0,0,0,0.03)`).
+*   **Colors:** Primary/Accent Blue (`#0ea5e9`), Success Green (`#10b981`), Warning Amber (`#f59e0b`), Danger Red (`#f43f5e`). Headings (`#0f172a`), Text (`#475569`, `#94a3b8`).
+*   **Shapes:** `16px` border radii for main cards, `8px` for buttons and inputs.
+*   **Global Sidebar Navigation:** Fully Chinese terms: "总览" (仪表盘, 会话记录, 系统日志), "核心资源" (服务商, MCP 工具, 提示词, 扩展技能), "系统管理" (全局设置).
 
-## 3. Structural Changes (Navigation)
-*   **Architecture:** Flat with Groups. (Side navigation remains, but styled cleanly without heavy borders).
-*   `OVERVIEW`: Dashboard, Sessions, Logs
-*   `RESOURCES`: Providers, MCP, Prompts, Skills, Plugins
-*   `SYSTEM`: Global Config
+## 3. Key View Overhaul: Dashboard (仪表盘)
+### 3.1 CLI Status Cards (Top Row)
+*   **Layout:** 3 parallel white cards (Claude Code, Codex, Gemini).
+*   **UI Elements:**
+    *   No redundant text ("运行中" / "已停止"). Relies entirely on colored status dots (Green for active, Grey for disabled/off) and text opacity.
+    *   **Proxy vs Direct Mode Switch:** Integrated iOS-style segmented control inside the card (`中转模式` / `官方模式`). Uses a slightly darker grey background (`#e2e8f0`) framing pure white active pills.
+    *   **Master Toggle:** Friendly iOS-style toggle switches (`.toggle`) in the top right to enable/disable the node.
 
-## 4. Key View Overhauls
+### 3.2 KPI Overview (Middle Row)
+*   **Layout:** 4 distinct high-contrast numerical cards.
+*   **Card Styling:** Compressed height design (`padding: 24px 20px`) to prevent them from looking excessively tall.
+*   **Exact Labels (Must Match):**
+    1.  **请求总数** (Accent Blue text)
+    2.  **全局成功率** (Emerald Green text)
+    3.  **Token消耗** (Dark Slate text)
+    4.  **活跃服务商** (Dark Slate text)
+*   **Visuals:** Typography-only. Icons removed. Font size reduced to `32px` (tabular-nums) for balanced scaling.
 
-### 4.1 Dashboard (The Control Center)
-The dashboard is the most critical view and must provide immediate value and control.
-*   **CLI Status Cards (Top Row):**
-    *   Redesigned to be the primary control surface.
-    *   Removed redundant text ("运行中" / "已停止"), relying solely on the colored status dot for cleaner UI.
-    *   Integrated **"Proxy vs. Direct Mode" Segmented Control** directly inside the card. The segmented control has no border, using a slightly darker grey background (`#e2e8f0`) to frame the pure white active pill.
-    *   Integrated friendly iOS-style toggle switches for the master Enabled/Disabled state.
-*   **KPI Overview (Middle Row):**
-    *   4 distinct cards (Requests, Success Rate, Tokens, Active Providers).
-    *   **Clean Typography Only:** Icons removed. Focus is entirely on the large, bold numbers and concise labels.
-    *   Primary metric uses accent blue; success rate uses emerald green.
-*   **Data & Charts (Bottom Row):**
-    *   Tables lose their borders and zebra-striping in favor of clean white space and padded rows.
-    *   Charts use corresponding vibrant colors (Accent Blue for success, Rose for failure) to match the global theme.
-
-### 5. Implementation Strategy
-1.  **CSS Foundation:** Define all custom CSS variables (`--bg-app`, `--accent-blue`, etc.) in a global stylesheet.
-2.  **Element Plus Overrides:** Aggressively override Element Plus variables to match the new border-radiuses, shadows, and vibrant colors. Remove all default borders from `el-card` and `el-table`.
-3.  **Dashboard Rewrite:** Rewrite `frontend/src/views/dashboard/index.vue` to match the new HTML/CSS mockup (implementing the custom segmented controls for mode switching).
-4.  **Global Rollout:** Apply the new card and table styles to Logs, Sessions, Providers, and MCP views.
-
-## 6. Success Criteria
-*   The application feels "expensive" but approachable (Notion/Vercel vibes).
-*   Users can switch between Proxy and Direct modes directly from the Dashboard.
-*   The UI feels alive with smooth, bouncy hover states and vibrant colors.
+### 3.3 Data & Charts (Bottom Row)
+*   **Layout:** A two-column split (`flex: 2` vs `flex: 1`).
+*   **Left Pane - 请求统计与成功率趋势 (Implementation Strategy):**
+    *   **Library:** Apache ECharts (`vue-echarts`).
+    *   **Design:** A dual-axis smooth line/area chart (`smooth: true`).
+    *   **Series 1 (Requests):** Filled area chart using standard Accent Blue (`#0ea5e9`) with a vertical transparency gradient for an "Ethereal" feeling. Mapped to the left Y-axis.
+    *   **Series 2 (Success Rate):** Solid smooth line in Emerald Green (`#10b981`). Mapped to the right Y-axis (Percentage).
+    *   **Grid:** Hide all vertical grid lines, use only subtle dashed horizontal lines (`#e2e8f0`).
+*   **Right Pane - 最近失败记录:** Contains a spaced-out list or table displaying the recent failure logs without heavy borders (`border: 1px dashed #cbd5e1` for empty/loading states).
