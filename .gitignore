@@ -1,38 +1,19 @@
 # Rust / Tauri
-/target/
 src-tauri/target/
+src-tauri/WixTools
 **/*.rs.bk
-Cargo.lock
 
 # Node.js / Frontend
-node_modules/
 frontend/node_modules/
-dist/
 frontend/dist/
 .vite/
 
 # IDE
 .idea/
 .vscode/
-*.swp
-*.swo
-*.iml
 
 # System
 .DS_Store
-Thumbs.db
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-data/
-
-# Project specific
-.ace-tool/
-.claude/
-.env
-*.env.*
 
 # Build artifacts
 *.msi
@@ -40,22 +21,3 @@ data/
 *.dmg
 *.app
 *.deb
-
-# Tauri specific
-src-tauri/WixTools
-src-tauri/target/
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Testing
-coverage/
-.nyc_output/
-
-# Temporary files
-tmpclaude-*
-tmp/
