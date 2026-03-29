@@ -158,13 +158,8 @@
     </div>
 
     <!-- WebDAV Backup List Dialog -->
-    <div class="modal-overlay" :class="{ active: webdavListVisible }" @click.self="webdavListVisible = false">
-      <div class="modal-content">
-        <div style="padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-          <div style="font-size: 20px; font-weight: 500; color: #0f172a;">管理 WebDAV 备份</div>
-          <div style="cursor: pointer; color: #94a3b8; font-size: 20px; font-weight: bold;" @click="webdavListVisible = false">×</div>
-        </div>
-        <div class="table-container" v-loading="loadingWebdavList" style="border: none; box-shadow: none; border-radius: 0 0 20px 20px; max-height: 70vh; overflow: hidden auto; padding: 0;">
+    <AppModal v-model="webdavListVisible" title="管理 WebDAV 备份" width="720px" :show-footer="false">
+        <div class="table-container" v-loading="loadingWebdavList" style="border: none; box-shadow: none; border-radius: 12px; max-height: 60vh; overflow: hidden auto; padding: 0;">
             <table class="flat-table">
               <thead>
                 <tr>
@@ -190,8 +185,7 @@
               </tbody>
             </table>
           </div>
-      </div>
-    </div>
+    </AppModal>
   </div>
 </template>
 
@@ -201,6 +195,7 @@ import { ElMessageBox } from 'element-plus'
 import { notify } from '@/utils/notification'
 import { useSettingsStore } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
+import AppModal from '@/components/AppModal.vue'
 import CliSettingsForm from './components/CliSettingsForm.vue'
 import * as backupApi from '@/api/backup'
 import type { WebdavSettings, WebdavBackup } from '@/api/backup'
@@ -475,11 +470,6 @@ onMounted(() => {
 /* CLI Column adjustment */
 .cli-settings-card { flex: 1; }
 .cli-form-container { flex: 1; min-height: 400px; display: flex; flex-direction: column; }
-
-/* Modal Styles */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.4); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000; }
-.modal-overlay.active { opacity: 1; pointer-events: auto; }
-.modal-content { background: white; border-radius: 20px; width: 720px; max-width: 95vw; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; }
 
 /* Flat Table (matching logs page style) */
 .table-container { background: #ffffff; border-radius: 12px; padding: 0; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.02); overflow: hidden; }
