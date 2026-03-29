@@ -632,9 +632,9 @@ onMounted(loadAll)
 
 .search-box { position: relative; }
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
-.c-input { 
-  width: 100%; padding: 8px 12px 8px 36px; background: #ffffff; border: 1px solid #e2e8f0; 
-  border-radius: 8px; font-size: 13px; color: #0f172a; outline: none; transition: all 0.2s; 
+.c-input {
+  width: 100%; padding: 12px 16px; background: #ffffff; border: 1px solid #e2e8f0;
+  border-radius: 10px; font-size: 14px; color: #0f172a; outline: none; transition: all 0.2s;
 }
 .c-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
 
