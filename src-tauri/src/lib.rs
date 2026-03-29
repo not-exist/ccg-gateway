@@ -178,6 +178,7 @@ pub fn run() {
             commands::get_system_logs,
             commands::clear_system_logs,
             commands::get_system_status,
+            commands::toggle_devtools,
             commands::get_mcps,
             commands::get_mcp,
             commands::create_mcp,
