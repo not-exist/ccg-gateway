@@ -79,6 +79,10 @@ sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" src-tauri/Cargo.toml
 echo "[3/6] Updating package.json ..."
 sed -i "0,/\"version\": \"[^\"]*\"/{s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/}" frontend/package.json
 
+# Sync Cargo.lock
+echo "    Syncing Cargo.lock ..."
+cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
 # Git commit
 echo "[4/6] Committing version change ..."
 git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock frontend/package.json
