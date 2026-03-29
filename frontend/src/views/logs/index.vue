@@ -333,7 +333,11 @@ onMounted(() => {
   document.addEventListener('click', closeAllSelects)
   fetchLogSettings()
   fetchProviders()
-  fetchRequestLogs()
+  if (activeTab.value === 'request') {
+    fetchRequestLogs()
+  } else {
+    fetchSystemLogs()
+  }
 })
 
 onUnmounted(() => {
