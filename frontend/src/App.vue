@@ -23,16 +23,29 @@ html, body, #app {
   font-family: "JetBrains Mono", monospace !important;
 }
 
-.el-textarea__inner::-webkit-scrollbar {
+/* Global Ethereal Scrollbar */
+::-webkit-scrollbar {
   width: 14px;
+  height: 14px;
 }
-.el-textarea__inner::-webkit-scrollbar-thumb {
-  background: #c0c4cc;
-  border-radius: 4px;
+
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
   border: 4px solid transparent;
   background-clip: padding-box;
 }
-.el-textarea__inner::-webkit-scrollbar-track {
-  background: transparent;
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Element Plus Specific Overrides */
+.el-textarea__inner::-webkit-scrollbar {
+  width: 14px;
 }
 </style>

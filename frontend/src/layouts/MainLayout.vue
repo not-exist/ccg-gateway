@@ -303,25 +303,4 @@ body {
   display: flex;
   flex-direction: column;
 }
-
-.view-content::-webkit-scrollbar {
-  width: 20px;
-  height: 20px;
-}
-
-.view-content::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 10px;
-  border: 6px solid transparent;
-  background-clip: padding-box;
-}
-
-.view-content::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
-}
-
-.view-content::-webkit-scrollbar-track {
-  background-color: transparent;
-  margin: 0;
-}
 </style>
