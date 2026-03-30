@@ -42,31 +42,33 @@
     </div>
 
     <!-- Project List View -->
-    <div v-if="!currentProject" class="project-list" style="margin-top: 16px;">
-      <div v-loading="sessionStore.loading">
+    <div v-if="!currentProject" class="project-list">
+      <div v-loading="sessionStore.loading" class="list-container">
         <template v-if="sessionStore.projects.length === 0">
           <el-empty description="暂无项目" />
         </template>
-        <div v-else class="project-grid">
-          <div
-            v-for="project in sessionStore.projects"
-            :key="project.name"
-            class="project-card"
-            @click="handleProjectClick(project)"
-          >
-            <div class="project-icon-box">
-              <svg width="24" height="24"><use href="#icon-folder"/></svg>
-            </div>
-            <div class="project-info">
-              <div class="project-name">{{ project.display_name }}</div>
-              <div class="project-path">{{ project.full_path }}</div>
-              <div class="project-meta">
-                <div class="mono" style="font-size: 11px; color: #94a3b8;">{{ project.session_count }} 个会话</div>
-                <span class="mono" style="font-size: 11px; color: #94a3b8;">{{ formatSize(project.total_size) }}</span>
+        <div v-else class="scroll-area">
+          <div class="project-grid">
+            <div
+              v-for="project in sessionStore.projects"
+              :key="project.name"
+              class="project-card"
+              @click="handleProjectClick(project)"
+            >
+              <div class="project-icon-box">
+                <svg width="24" height="24"><use href="#icon-folder"/></svg>
               </div>
-            </div>
-            <div class="ghost-delete" @click.stop="handleDeleteProject(project)">
-              <svg width="16" height="16"><use href="#icon-trash"/></svg>
+              <div class="project-info">
+                <div class="project-name">{{ project.display_name }}</div>
+                <div class="project-path">{{ project.full_path }}</div>
+                <div class="project-meta">
+                  <div class="mono" style="font-size: 11px; color: #94a3b8;">{{ project.session_count }} 个会话</div>
+                  <span class="mono" style="font-size: 11px; color: #94a3b8;">{{ formatSize(project.total_size) }}</span>
+                </div>
+              </div>
+              <div class="ghost-delete" @click.stop="handleDeleteProject(project)">
+                <svg width="16" height="16"><use href="#icon-trash"/></svg>
+              </div>
             </div>
           </div>
         </div>
@@ -91,41 +93,43 @@
         </div>
       </div>
 
-      <div v-loading="sessionStore.loading">
+      <div v-loading="sessionStore.loading" class="list-container">
         <template v-if="filteredSessions.length === 0">
           <el-empty description="暂无会话" />
         </template>
-        <div v-else style="display: flex; flex-direction: column;">
-          <div
-            v-for="session in filteredSessions"
-            :key="session.session_id"
-            class="session-card"
-            @click="handleSessionClick(session)"
-          >
-            <div class="session-icon">
-              <svg width="20" height="20"><use href="#icon-chat"/></svg>
-            </div>
-            
-            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;">
-              <div style="display: flex; align-items: center; gap: 12px; margin-top: 2px;">
-                <span class="mono" style="font-weight: 600; font-size: 14px; color: #0f172a;">{{ session.session_id }}</span>
-                <div v-if="session.git_branch" class="pill pill-blue mono">
-                  <svg width="12" height="12"><use href="#icon-branch"/></svg> {{ session.git_branch }}
+        <div v-else class="scroll-area">
+          <div style="display: flex; flex-direction: column;">
+            <div
+              v-for="session in filteredSessions"
+              :key="session.session_id"
+              class="session-card"
+              @click="handleSessionClick(session)"
+            >
+              <div class="session-icon">
+                <svg width="20" height="20"><use href="#icon-chat"/></svg>
+              </div>
+              
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 2px;">
+                  <span class="mono" style="font-weight: 600; font-size: 14px; color: #0f172a;">{{ session.session_id }}</span>
+                  <div v-if="session.git_branch" class="pill pill-blue mono">
+                    <svg width="12" height="12"><use href="#icon-branch"/></svg> {{ session.git_branch }}
+                  </div>
+                </div>
+                
+                <div v-if="session.first_message" style="font-size: 13px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 32px;">
+                  "{{ truncateText(session.first_message, 200) }}"
+                </div>
+
+                <div class="mono" style="display: flex; gap: 20px; font-size: 12px; color: #94a3b8;">
+                  <span>{{ formatTime(session.mtime) }}</span>
+                  <span>{{ formatSize(session.size) }}</span>
                 </div>
               </div>
               
-              <div v-if="session.first_message" style="font-size: 13px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 32px;">
-                "{{ truncateText(session.first_message, 200) }}"
+              <div class="ghost-delete" @click.stop="handleDeleteSession(session)">
+                <svg width="16" height="16"><use href="#icon-trash"/></svg>
               </div>
-
-              <div class="mono" style="display: flex; gap: 20px; font-size: 12px; color: #94a3b8;">
-                <span>{{ formatTime(session.mtime) }}</span>
-                <span>{{ formatSize(session.size) }}</span>
-              </div>
-            </div>
-            
-            <div class="ghost-delete" @click.stop="handleDeleteSession(session)">
-              <svg width="16" height="16"><use href="#icon-trash"/></svg>
             </div>
           </div>
         </div>
@@ -337,16 +341,40 @@ onMounted(() => {
 .sessions-page {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Tab Underlines */
-.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; }
+.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; flex-shrink: 0; }
 .tab-item { padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer; position: relative; transition: color 0.2s; }
 .tab-item:hover { color: #475569; }
 .tab-item.active { color: #0f172a; font-weight: 600; border-bottom: 2px solid #0f172a; }
 
+.project-list, .session-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
+}
+
 /* Headers & Inputs */
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-shrink: 0; }
 .page-title { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.5px; color: #0f172a; }
 
 .search-box { position: relative; width: 320px; }

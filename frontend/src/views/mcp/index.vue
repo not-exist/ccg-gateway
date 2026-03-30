@@ -29,56 +29,58 @@
       </button>
     </div>
 
-    <div v-loading="loading">
+    <div v-loading="loading" class="list-container">
       <template v-if="mcpList.length === 0">
         <div class="empty-state">
           <svg width="64" height="64" color="#e2e8f0"><use href="#icon-boxes"/></svg>
           <p>暂无 MCP，点击上方按钮开始添加</p>
         </div>
       </template>
-      <div v-else class="mcp-grid">
-        <div v-for="mcp in mcpList" :key="mcp.id" class="mcp-card">
-          <div class="card-top">
-            <div class="mcp-icon">
-              <svg width="24" height="24"><use href="#icon-boxes"/></svg>
-            </div>
-            <div class="mcp-info">
-              <h3 class="mcp-name">{{ mcp.name }}</h3>
-              <div class="mcp-actions">
-                <button class="action-btn" title="编辑" @click="handleEdit(mcp)">
-                  <svg width="16" height="16"><use href="#icon-edit"/></svg>
-                </button>
-                <button class="action-btn delete" title="删除" @click="handleDelete(mcp)">
-                  <svg width="16" height="16"><use href="#icon-trash"/></svg>
-                </button>
+      <div v-else class="scroll-area">
+        <div class="mcp-grid">
+          <div v-for="mcp in mcpList" :key="mcp.id" class="mcp-card">
+            <div class="card-top">
+              <div class="mcp-icon">
+                <svg width="24" height="24"><use href="#icon-boxes"/></svg>
+              </div>
+              <div class="mcp-info">
+                <h3 class="mcp-name">{{ mcp.name }}</h3>
+                <div class="mcp-actions">
+                  <button class="action-btn" title="编辑" @click="handleEdit(mcp)">
+                    <svg width="16" height="16"><use href="#icon-edit"/></svg>
+                  </button>
+                  <button class="action-btn delete" title="删除" @click="handleDelete(mcp)">
+                    <svg width="16" height="16"><use href="#icon-trash"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="cli-toggles">
-            <div class="toggle-item">
-              <span class="toggle-label">Claude Code</span>
-              <el-switch
-                size="small"
-                :model-value="mcp.cli_flags?.claude_code"
-                @change="handleCliToggle(mcp, 'claude_code', $event)"
-              />
-            </div>
-            <div class="toggle-item">
-              <span class="toggle-label">Codex</span>
-              <el-switch
-                size="small"
-                :model-value="mcp.cli_flags?.codex"
-                @change="handleCliToggle(mcp, 'codex', $event)"
-              />
-            </div>
-            <div class="toggle-item">
-              <span class="toggle-label">Gemini</span>
-              <el-switch
-                size="small"
-                :model-value="mcp.cli_flags?.gemini"
-                @change="handleCliToggle(mcp, 'gemini', $event)"
-              />
+            
+            <div class="cli-toggles">
+              <div class="toggle-item">
+                <span class="toggle-label">Claude Code</span>
+                <el-switch
+                  size="small"
+                  :model-value="mcp.cli_flags?.claude_code"
+                  @change="handleCliToggle(mcp, 'claude_code', $event)"
+                />
+              </div>
+              <div class="toggle-item">
+                <span class="toggle-label">Codex</span>
+                <el-switch
+                  size="small"
+                  :model-value="mcp.cli_flags?.codex"
+                  @change="handleCliToggle(mcp, 'codex', $event)"
+                />
+              </div>
+              <div class="toggle-item">
+                <span class="toggle-label">Gemini</span>
+                <el-switch
+                  size="small"
+                  :model-value="mcp.cli_flags?.gemini"
+                  @change="handleCliToggle(mcp, 'gemini', $event)"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -258,6 +260,9 @@ onMounted(fetchList)
 <style scoped>
 .mcp-page {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header */
@@ -266,7 +271,23 @@ onMounted(fetchList)
   justify-content: space-between;
   align-items: center;
   margin-bottom: 32px;
+  flex-shrink: 0;
 }
+
+.list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  margin: -8px;
+}
+
 .page-subtitle {
   font-size: 14px;
   color: #64748b;

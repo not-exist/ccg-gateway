@@ -58,135 +58,138 @@
     </div>
 
     <!-- PROXY MODE LIST -->
-    <div v-if="viewMode === 'proxy'" class="b-card" style="padding: 0; overflow: hidden;" v-loading="providerStore.loading">
+    <div v-if="viewMode === 'proxy'" class="b-card list-container" v-loading="providerStore.loading">
       <div v-if="providerStore.providers.length === 0" style="padding: 40px; text-align: center; color: #94a3b8;">
         暂无服务商
       </div>
       
-      <draggable
-        v-model="providerStore.providers"
-        item-key="id"
-        handle=".drag-handle"
-        @end="handleDragEnd"
-      >
-        <template #item="{ element, index }">
-          <div :style="{
-            padding: '24px',
-            borderBottom: index === providerStore.providers.length - 1 ? 'none' : '1px solid #f1f5f9',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: element.is_blacklisted ? 'rgba(244, 63, 94, 0.02)' : '#ffffff'
-          }">
-            <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0;">
-              <div class="drag-handle" aria-label="拖拽排序" style="flex-shrink: 0;">
-                 <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+      <div v-else class="scroll-area">
+        <draggable
+          v-model="providerStore.providers"
+          item-key="id"
+          handle=".drag-handle"
+          @end="handleDragEnd"
+        >
+          <template #item="{ element, index }">
+            <div :style="{
+              padding: '24px',
+              borderBottom: index === providerStore.providers.length - 1 ? 'none' : '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: element.is_blacklisted ? 'rgba(244, 63, 94, 0.02)' : '#ffffff'
+            }">
+              <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0;">
+                <div class="drag-handle" aria-label="拖拽排序" style="flex-shrink: 0;">
+                  <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+                </div>
+                
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="font-weight: 500; font-size: 16px; white-space: nowrap;" :style="{ color: !element.enabled ? '#94a3b8' : '#0f172a' }">
+                      {{ element.name }}
+                    </div>
+                    <div v-if="element.is_blacklisted" class="tag" style="background: rgba(244, 63, 94, 0.1); color: #f43f5e; white-space: nowrap;">
+                      {{ getUnblacklistTime(element) }}
+                    </div>
+                    <div v-else-if="!element.enabled" class="tag" style="background: #f1f5f9; color: #64748b; white-space: nowrap;">
+                      已禁用
+                    </div>
+                    <div v-if="element.model_maps.length > 0" class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981; white-space: nowrap;">
+                      {{ element.model_maps.length }}个模型映射
+                    </div>
+                    <div v-if="element.model_blacklist && element.model_blacklist.length > 0" class="tag" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; white-space: nowrap;">
+                      {{ element.model_blacklist.length }}个黑名单配置
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              <div style="flex: 1; min-width: 0;">
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                  <div style="font-weight: 500; font-size: 16px; white-space: nowrap;" :style="{ color: !element.enabled ? '#94a3b8' : '#0f172a' }">
-                    {{ element.name }}
+              <div style="display: flex; align-items: center; gap: 40px; flex-shrink: 0; margin-left: 24px;">
+                <div style="display: flex; gap: 24px;">
+                  <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
+                    <div style="font-size: 12px; margin-bottom: 2px; white-space: nowrap;" :style="{ color: element.consecutive_failures >= element.failure_threshold ? '#ef4444' : '#94a3b8' }">失败次数</div>
+                    <div :style="{ color: element.consecutive_failures >= element.failure_threshold ? '#ef4444' : '#0f172a', fontWeight: 500, fontSize: '15px' }">
+                      {{ element.consecutive_failures }}
+                    </div>
                   </div>
-                  <div v-if="element.is_blacklisted" class="tag" style="background: rgba(244, 63, 94, 0.1); color: #f43f5e; white-space: nowrap;">
-                    {{ getUnblacklistTime(element) }}
+                  <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px; white-space: nowrap;">失败阈值</div>
+                    <div style="color: #64748b; font-weight: 500; font-size: 15px;">{{ element.failure_threshold }}</div>
                   </div>
-                  <div v-else-if="!element.enabled" class="tag" style="background: #f1f5f9; color: #64748b; white-space: nowrap;">
-                    已禁用
-                  </div>
-                  <div v-if="element.model_maps.length > 0" class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981; white-space: nowrap;">
-                    {{ element.model_maps.length }}个模型映射
-                  </div>
-                  <div v-if="element.model_blacklist && element.model_blacklist.length > 0" class="tag" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; white-space: nowrap;">
-                    {{ element.model_blacklist.length }}个黑名单配置
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 24px;">
+                  <el-switch v-model="element.enabled" @change="handleToggle(element)" />
+                  
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="action-icon" @click="handleEdit(element)" title="编辑">
+                      <svg width="18" height="18"><use href="#icon-edit"/></svg>
+                    </div>
+                    
+                    <div class="action-icon" @click="handleReset(element)" title="重置并解除拉黑">
+                      <svg width="18" height="18"><use href="#icon-refresh"/></svg>
+                    </div>
+
+                    <div class="action-icon delete" @click="handleCommand('delete', element)" title="删除">
+                      <svg width="18" height="18"><use href="#icon-trash"/></svg>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div style="display: flex; align-items: center; gap: 40px; flex-shrink: 0; margin-left: 24px;">
-               <div style="display: flex; gap: 24px;">
-                 <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
-                   <div style="font-size: 12px; margin-bottom: 2px; white-space: nowrap;" :style="{ color: element.consecutive_failures >= element.failure_threshold ? '#ef4444' : '#94a3b8' }">失败次数</div>
-                   <div :style="{ color: element.consecutive_failures >= element.failure_threshold ? '#ef4444' : '#0f172a', fontWeight: 500, fontSize: '15px' }">
-                     {{ element.consecutive_failures }}
-                   </div>
-                 </div>
-                 <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
-                   <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px; white-space: nowrap;">失败阈值</div>
-                   <div style="color: #64748b; font-weight: 500; font-size: 15px;">{{ element.failure_threshold }}</div>
-                 </div>
-               </div>
-               
-               <div style="display: flex; align-items: center; gap: 24px;">
-                 <el-switch v-model="element.enabled" @change="handleToggle(element)" />
-                 
-                 <div style="display: flex; align-items: center; gap: 8px;">
-                   <div class="action-icon" @click="handleEdit(element)" title="编辑">
-                     <svg width="18" height="18"><use href="#icon-edit"/></svg>
-                   </div>
-                   
-                   <div class="action-icon" @click="handleReset(element)" title="重置并解除拉黑">
-                     <svg width="18" height="18"><use href="#icon-refresh"/></svg>
-                   </div>
-
-                   <div class="action-icon delete" @click="handleCommand('delete', element)" title="删除">
-                     <svg width="18" height="18"><use href="#icon-trash"/></svg>
-                   </div>
-                 </div>
-               </div>
-            </div>
-          </div>
-        </template>
-      </draggable>
+          </template>
+        </draggable>
+      </div>
     </div>
 
     <!-- DIRECT MODE -->
-    <div v-else class="b-card" style="padding: 0; overflow: hidden;" v-loading="credentialStore.loading">
+    <div v-else class="b-card list-container" v-loading="credentialStore.loading">
       <div v-if="credentialStore.credentials.length === 0" style="padding: 40px; text-align: center; color: #94a3b8;">
         暂无凭证
       </div>
       
-      <draggable
-        v-else
-        v-model="credentialStore.credentials"
-        item-key="id"
-        handle=".drag-handle"
-        @end="handleCredentialDragEnd"
-      >
-        <template #item="{ element, index }">
-          <div :style="{
-            padding: '24px',
-            borderBottom: index === credentialStore.credentials.length - 1 ? 'none' : '1px solid #f1f5f9',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: '#ffffff'
-          }">
-            <div style="display: flex; align-items: center; gap: 16px;">
-              <div class="drag-handle" aria-label="拖拽排序">
-                 <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+      <div v-else class="scroll-area">
+        <draggable
+          v-model="credentialStore.credentials"
+          item-key="id"
+          handle=".drag-handle"
+          @end="handleCredentialDragEnd"
+        >
+          <template #item="{ element, index }">
+            <div :style="{
+              padding: '24px',
+              borderBottom: index === credentialStore.credentials.length - 1 ? 'none' : '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#ffffff'
+            }">
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div class="drag-handle" aria-label="拖拽排序">
+                  <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+                </div>
+                
+                <div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-weight: 500; font-size: 16px; color: #0f172a;">{{ element.name }}</div>
+                    <div v-if="element.is_active" class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">激活中</div>
+                  </div>
+                </div>
               </div>
               
-              <div>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <div style="font-weight: 500; font-size: 16px; color: #0f172a;">{{ element.name }}</div>
-                  <div v-if="element.is_active" class="tag" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">激活中</div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="action-icon" @click="handleEditCredential(element)" title="编辑">
+                  <svg width="18" height="18"><use href="#icon-edit"/></svg>
+                </div>
+                <div class="action-icon delete" @click="handleDeleteCredential(element)" title="删除">
+                  <svg width="18" height="18"><use href="#icon-trash"/></svg>
                 </div>
               </div>
             </div>
-            
-            <div style="display: flex; align-items: center; gap: 12px;">
-               <div class="action-icon" @click="handleEditCredential(element)" title="编辑">
-                 <svg width="18" height="18"><use href="#icon-edit"/></svg>
-               </div>
-               <div class="action-icon delete" @click="handleDeleteCredential(element)" title="删除">
-                 <svg width="18" height="18"><use href="#icon-trash"/></svg>
-               </div>
-            </div>
-          </div>
-        </template>
-      </draggable>
+          </template>
+        </draggable>
+      </div>
     </div>
 
     <!-- Add/Edit Provider Modal -->
@@ -602,12 +605,33 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.providers-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 24px; transition: border-color 0.2s; border: 1px solid transparent; }
 .b-card:hover { border-color: #e2e8f0; }
 
-.b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
+.b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; flex-shrink: 0; }
 .b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s ease; }
 .b-seg-btn.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+.page-header { flex-shrink: 0; }
 
 .b-button { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
 .b-button:hover { background: #0284c7; }

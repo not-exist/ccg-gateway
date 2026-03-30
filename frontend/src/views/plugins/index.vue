@@ -57,75 +57,77 @@
           </div>
         </div>
 
-        <div v-loading="loading">
+        <div v-loading="loading" class="list-container">
           <template v-if="filteredPlugins.length === 0">
             <div class="empty-state">
               <svg width="64" height="64" color="#e2e8f0"><use href="#icon-puzzle"/></svg>
               <p>暂无插件，尝试刷新或添加新市场</p>
             </div>
           </template>
-          <div v-else class="plugin-grid">
-            <div v-for="plugin in filteredPlugins" :key="getPluginId(plugin)" class="plugin-card" :class="{ 'not-installed': !plugin.is_installed }">
-              <div class="card-header">
-                <div class="plugin-icon-box" :class="{ disabled: plugin.is_installed && !plugin.is_enabled }">
-                  <svg width="20" height="20"><use href="#icon-puzzle"/></svg>
-                </div>
-                <div class="header-main">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <h3 class="plugin-name">{{ plugin.name }}</h3>
-                    <span v-if="plugin.version" class="plugin-ver mono">v{{ plugin.version }}</span>
+          <div v-else class="scroll-area">
+            <div class="plugin-grid">
+              <div v-for="plugin in filteredPlugins" :key="getPluginId(plugin)" class="plugin-card" :class="{ 'not-installed': !plugin.is_installed }">
+                <div class="card-header">
+                  <div class="plugin-icon-box" :class="{ disabled: plugin.is_installed && !plugin.is_enabled }">
+                    <svg width="20" height="20"><use href="#icon-puzzle"/></svg>
                   </div>
-                  <div class="plugin-market">@{{ plugin.marketplace_name }}</div>
+                  <div class="header-main">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <h3 class="plugin-name">{{ plugin.name }}</h3>
+                      <span v-if="plugin.version" class="plugin-ver mono">v{{ plugin.version }}</span>
+                    </div>
+                    <div class="plugin-market">@{{ plugin.marketplace_name }}</div>
+                  </div>
+                  <div class="header-star" @click="favoriteIds.has(getPluginId(plugin)) ? handleRemoveFavorite(plugin) : handleAddFavorite(plugin)">
+                    <svg width="18" height="18" :style="favoriteIds.has(getPluginId(plugin)) ? 'fill: #f59e0b; color: #f59e0b;' : 'color: #cbd5e1;'"><use href="#icon-star"/></svg>
+                  </div>
                 </div>
-                <div class="header-star" @click="favoriteIds.has(getPluginId(plugin)) ? handleRemoveFavorite(plugin) : handleAddFavorite(plugin)">
-                  <svg width="18" height="18" :style="favoriteIds.has(getPluginId(plugin)) ? 'fill: #f59e0b; color: #f59e0b;' : 'color: #cbd5e1;'"><use href="#icon-star"/></svg>
-                </div>
-              </div>
 
-              <div class="plugin-body">
-                <el-tooltip
-                  v-if="plugin.description"
-                  effect="light"
-                  placement="top"
-                  :enterable="true"
-                  :show-after="200"
-                >
-                  <template #content>
-                    <div style="max-width: 350px; line-height: 1.6; font-size: 13px; word-break: break-word; user-select: text; color: #334155;">
+                <div class="plugin-body">
+                  <el-tooltip
+                    v-if="plugin.description"
+                    effect="light"
+                    placement="top"
+                    :enterable="true"
+                    :show-after="200"
+                  >
+                    <template #content>
+                      <div style="max-width: 350px; line-height: 1.6; font-size: 13px; word-break: break-word; user-select: text; color: #334155;">
+                        {{ plugin.description }}
+                      </div>
+                    </template>
+                    <div class="plugin-desc" @click="copyDescription(plugin.description)">
                       {{ plugin.description }}
                     </div>
-                  </template>
-                  <div class="plugin-desc" @click="copyDescription(plugin.description)">
-                    {{ plugin.description }}
+                  </el-tooltip>
+                  <div v-else class="plugin-desc">
+                    该插件暂无详细描述信息。
                   </div>
-                </el-tooltip>
-                <div v-else class="plugin-desc">
-                  该插件暂无详细描述信息。
                 </div>
-              </div>
 
-              <div class="plugin-footer">
-                <div class="status-zone">
-                  <div v-if="plugin.is_installed" class="status-pill" :class="plugin.is_enabled ? 'active' : 'inactive'">
-                    {{ plugin.is_enabled ? '已启用' : '已停用' }}
+                <div class="plugin-footer">
+                  <div class="status-zone">
+                    <div v-if="plugin.is_installed" class="status-pill" :class="plugin.is_enabled ? 'active' : 'inactive'">
+                      {{ plugin.is_enabled ? '已启用' : '已停用' }}
+                    </div>
+                    <div v-else class="status-pill none">未安装</div>
                   </div>
-                  <div v-else class="status-pill none">未安装</div>
-                </div>
-                
-                <div class="actions-zone">
-                  <template v-if="plugin.is_installed">
-                    <button class="btn-sm" :class="plugin.is_enabled ? 'danger' : 'primary'" @click="plugin.is_enabled ? handleDisable(plugin) : handleEnable(plugin)">
-                      {{ plugin.is_enabled ? '停用' : '启用' }}
-                    </button>
-                    <button class="btn-sm outline" @click="handleUpdate(plugin)">更新</button>
-                    <button class="btn-sm outline danger-text" @click="handleUninstall(plugin)">卸载</button>
-                  </template>
-                  <template v-else>
-                    <button class="btn-sm primary" @click="handleInstall(plugin)">
-                      <svg width="14" height="14" style="margin-right: 4px;"><use href="#icon-download"/></svg>
-                      安装
-                    </button>
-                  </template>
+                  
+                  <div class="actions-zone">
+                    <template v-if="plugin.is_installed">
+                      <button class="btn-sm" :class="plugin.is_enabled ? 'danger' : 'primary'" @click="plugin.is_enabled ? handleDisable(plugin) : handleEnable(plugin)">
+                        {{ plugin.is_enabled ? '停用' : '启用' }}
+                      </button>
+                      <button class="btn-sm outline" @click="handleUpdate(plugin)">更新</button>
+                      <button class="btn-sm outline danger-text" @click="handleUninstall(plugin)">卸载</button>
+                    </template>
+                    <template v-else>
+                      <button class="btn-sm primary" @click="handleInstall(plugin)">
+                        <svg width="14" height="14" style="margin-right: 4px;"><use href="#icon-download"/></svg>
+                        安装
+                      </button>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
@@ -142,39 +144,41 @@
           </button>
         </div>
 
-        <div v-loading="loadingMarketplaces">
+        <div v-loading="loadingMarketplaces" class="list-container">
           <div v-if="marketplaceList.length === 0" class="empty-state">
              <svg width="64" height="64" color="#e2e8f0"><use href="#icon-store"/></svg>
              <p>暂无配置市场，请点击上方按钮添加</p>
           </div>
-          <div v-else class="market-grid">
-            <div v-for="market in marketplaceList" :key="market.name" class="market-card">
-              <div class="market-icon">
-                <svg width="24" height="24"><use href="#icon-store"/></svg>
-              </div>
-              <div class="market-info">
-                <div class="market-name">{{ market.name }}</div>
-                <el-tooltip
-                  effect="light"
-                  placement="top"
-                  :enterable="true"
-                  :show-after="200"
-                >
-                  <template #content>
-                    <div style="max-width: 350px; line-height: 1.6; font-size: 13px; word-break: break-all; user-select: text; color: #334155;">
-                      {{ market.marketplace_source || '内建市场' }}
-                    </div>
-                  </template>
-                  <div class="market-url mono" @click="copyDescription(market.marketplace_source || '内建市场')" style="cursor: pointer;">{{ market.marketplace_source || '内建市场' }}</div>
-                </el-tooltip>
-              </div>
-              <div class="market-actions">
-                <button class="btn-icon" title="同步市场" @click="handleUpdateMarketplace(market)">
-                  <svg width="16" height="16"><use href="#icon-refresh"/></svg>
-                </button>
-                <button class="btn-icon danger" title="删除市场" @click="handleRemoveMarketplace(market)">
-                  <svg width="16" height="16"><use href="#icon-trash"/></svg>
-                </button>
+          <div v-else class="scroll-area">
+            <div class="market-grid">
+              <div v-for="market in marketplaceList" :key="market.name" class="market-card">
+                <div class="market-icon">
+                  <svg width="24" height="24"><use href="#icon-store"/></svg>
+                </div>
+                <div class="market-info">
+                  <div class="market-name">{{ market.name }}</div>
+                  <el-tooltip
+                    effect="light"
+                    placement="top"
+                    :enterable="true"
+                    :show-after="200"
+                  >
+                    <template #content>
+                      <div style="max-width: 350px; line-height: 1.6; font-size: 13px; word-break: break-all; user-select: text; color: #334155;">
+                        {{ market.marketplace_source || '内建市场' }}
+                      </div>
+                    </template>
+                    <div class="market-url mono" @click="copyDescription(market.marketplace_source || '内建市场')" style="cursor: pointer;">{{ market.marketplace_source || '内建市场' }}</div>
+                  </el-tooltip>
+                </div>
+                <div class="market-actions">
+                  <button class="btn-icon" title="同步市场" @click="handleUpdateMarketplace(market)">
+                    <svg width="16" height="16"><use href="#icon-refresh"/></svg>
+                  </button>
+                  <button class="btn-icon danger" title="删除市场" @click="handleRemoveMarketplace(market)">
+                    <svg width="16" height="16"><use href="#icon-trash"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -187,29 +191,31 @@
           <p class="page-subtitle">收藏的插件会同步到云端或随数据库备份，方便快速安装</p>
         </div>
 
-        <div v-loading="loading">
+        <div v-loading="loading" class="list-container">
           <div v-if="favoriteList.length === 0" class="empty-state">
             <svg width="64" height="64" color="#e2e8f0"><use href="#icon-star"/></svg>
             <p>暂无收藏插件</p>
           </div>
-          <div v-else class="favorite-grid">
-             <div v-for="fav in favoriteList" :key="fav.plugin_id" class="fav-card">
-                <div class="fav-main">
-                  <div class="fav-info">
-                     <div class="fav-name">{{ fav.plugin_name }}</div>
-                     <div class="fav-market">来自市场: {{ fav.marketplace_name }}</div>
+          <div v-else class="scroll-area">
+            <div class="favorite-grid">
+              <div v-for="fav in favoriteList" :key="fav.plugin_id" class="fav-card">
+                  <div class="fav-main">
+                    <div class="fav-info">
+                      <div class="fav-name">{{ fav.plugin_name }}</div>
+                      <div class="fav-market">来自市场: {{ fav.marketplace_name }}</div>
+                    </div>
+                    <div class="fav-status">
+                      <span class="pill" :class="fav.is_installed ? 'pill-green' : 'pill-grey'">
+                        {{ fav.is_installed ? '已安装' : '未安装' }}
+                      </span>
+                    </div>
                   </div>
-                  <div class="fav-status">
-                     <span class="pill" :class="fav.is_installed ? 'pill-green' : 'pill-grey'">
-                       {{ fav.is_installed ? '已安装' : '未安装' }}
-                     </span>
+                  <div class="fav-footer">
+                    <button v-if="!fav.is_installed" class="btn-sm primary" @click="handleInstallFavorite(fav)">立即安装</button>
+                    <button class="btn-sm outline danger-text" @click="handleRemoveFavoriteById(fav)">移除收藏</button>
                   </div>
-                </div>
-                <div class="fav-footer">
-                  <button v-if="!fav.is_installed" class="btn-sm primary" @click="handleInstallFavorite(fav)">立即安装</button>
-                  <button class="btn-sm outline danger-text" @click="handleRemoveFavoriteById(fav)">移除收藏</button>
-                </div>
-             </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -534,16 +540,47 @@ onMounted(loadAll)
 <style scoped>
 .plugins-page {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Tab Underlines */
-.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; }
+.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; flex-shrink: 0; }
 .tab-item { padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer; position: relative; transition: color 0.2s; }
 .tab-item:hover { color: #475569; }
 .tab-item.active { color: #0f172a; font-weight: 600; border-bottom: 2px solid #0f172a; }
 
+.view-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tab-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  margin: -8px;
+}
+
 /* Header */
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-shrink: 0; }
 .page-subtitle { font-size: 14px; color: #64748b; margin: 0; }
 
 /* Plugin Grid & Cards */

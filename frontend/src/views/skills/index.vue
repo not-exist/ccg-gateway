@@ -52,68 +52,70 @@
       
       <!-- TAB: INSTALLED -->
       <div v-if="activeTab === 'installed'" class="tab-pane">
-        <div v-loading="loadingInstalled">
+        <div v-loading="loadingInstalled" class="list-container">
           <template v-if="installedList.length === 0">
             <div class="empty-state">
               <svg width="64" height="64" color="#e2e8f0"><use href="#icon-zap"/></svg>
               <p>暂无已安装技能</p>
             </div>
           </template>
-          <div v-else class="skill-grid">
-            <div v-for="skill in installedList" :key="skill.id" class="skill-card">
-              <div class="card-top">
-                <div class="skill-icon">
-                  <svg width="24" height="24"><use href="#icon-zap"/></svg>
-                </div>
-                <div class="skill-info">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <h3 class="skill-name">{{ skill.name }}</h3>
-                    <div v-if="!skill.exists_on_disk" class="tag tag-red">缺失文件</div>
+          <div v-else class="scroll-area">
+            <div class="skill-grid">
+              <div v-for="skill in installedList" :key="skill.id" class="skill-card">
+                <div class="card-top">
+                  <div class="skill-icon">
+                    <svg width="24" height="24"><use href="#icon-zap"/></svg>
                   </div>
-                  <div class="skill-market" v-if="skill.repo_owner">@{{ skill.repo_owner }}/{{ skill.repo_name }}</div>
-                  <div class="skill-source mono" v-else>本地安装</div>
+                  <div class="skill-info">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <h3 class="skill-name">{{ skill.name }}</h3>
+                      <div v-if="!skill.exists_on_disk" class="tag tag-red">缺失文件</div>
+                    </div>
+                    <div class="skill-market" v-if="skill.repo_owner">@{{ skill.repo_owner }}/{{ skill.repo_name }}</div>
+                    <div class="skill-source mono" v-else>本地安装</div>
+                  </div>
+                  <div class="card-actions">
+                    <template v-if="skill.exists_on_disk">
+                      <button class="action-btn" title="重装/更新" :disabled="installingSkillId === `installed-${skill.id}`" @click="handleReinstallFromInstalled(skill)">
+                        <svg width="16" height="16"><use href="#icon-refresh"/></svg>
+                      </button>
+                      <button class="action-btn delete" title="卸载" @click="handleUninstall(skill)">
+                        <svg width="16" height="16"><use href="#icon-trash"/></svg>
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button class="b-button-outline" style="font-size: 11px; padding: 4px 8px;" :disabled="installingSkillId === `installed-${skill.id}`" @click="handleInstallFromInstalled(skill)">
+                        安装技能
+                      </button>
+                    </template>
+                  </div>
                 </div>
-                <div class="card-actions">
-                  <template v-if="skill.exists_on_disk">
-                    <button class="action-btn" title="重装/更新" :disabled="installingSkillId === `installed-${skill.id}`" @click="handleReinstallFromInstalled(skill)">
-                      <svg width="16" height="16"><use href="#icon-refresh"/></svg>
-                    </button>
-                    <button class="action-btn delete" title="卸载" @click="handleUninstall(skill)">
-                      <svg width="16" height="16"><use href="#icon-trash"/></svg>
-                    </button>
-                  </template>
-                  <template v-else>
-                    <button class="b-button-outline" style="font-size: 11px; padding: 4px 8px;" :disabled="installingSkillId === `installed-${skill.id}`" @click="handleInstallFromInstalled(skill)">
-                      安装技能
-                    </button>
-                  </template>
-                </div>
-              </div>
 
-              <div class="cli-toggles">
-                <div class="toggle-item">
-                  <span class="toggle-label">Claude Code</span>
-                  <el-switch
-                    size="small"
-                    :model-value="skill.cli_flags?.claude_code"
-                    @change="handleCliToggle(skill, 'claude_code', $event as boolean)"
-                  />
-                </div>
-                <div class="toggle-item">
-                  <span class="toggle-label">Codex</span>
-                  <el-switch
-                    size="small"
-                    :model-value="skill.cli_flags?.codex"
-                    @change="handleCliToggle(skill, 'codex', $event as boolean)"
-                  />
-                </div>
-                <div class="toggle-item">
-                  <span class="toggle-label">Gemini</span>
-                  <el-switch
-                    size="small"
-                    :model-value="skill.cli_flags?.gemini"
-                    @change="handleCliToggle(skill, 'gemini', $event as boolean)"
-                  />
+                <div class="cli-toggles">
+                  <div class="toggle-item">
+                    <span class="toggle-label">Claude Code</span>
+                    <el-switch
+                      size="small"
+                      :model-value="skill.cli_flags?.claude_code"
+                      @change="handleCliToggle(skill, 'claude_code', $event as boolean)"
+                    />
+                  </div>
+                  <div class="toggle-item">
+                    <span class="toggle-label">Codex</span>
+                    <el-switch
+                      size="small"
+                      :model-value="skill.cli_flags?.codex"
+                      @change="handleCliToggle(skill, 'codex', $event as boolean)"
+                    />
+                  </div>
+                  <div class="toggle-item">
+                    <span class="toggle-label">Gemini</span>
+                    <el-switch
+                      size="small"
+                      :model-value="skill.cli_flags?.gemini"
+                      @change="handleCliToggle(skill, 'gemini', $event as boolean)"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -125,7 +127,7 @@
       <div v-else class="tab-pane">
         
         <!-- Repo List View -->
-        <div v-if="!currentRepo">
+        <div v-if="!currentRepo" class="repo-list-view">
           <div class="page-header">
             <p class="page-subtitle">从 GitHub 仓库发现并安装 Skill 扩展</p>
             <button class="b-button" style="padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" @click="showAddRepoDialog = true" title="添加仓库">
@@ -133,29 +135,31 @@
             </button>
           </div>
 
-          <div v-loading="loadingRepos">
+          <div v-loading="loadingRepos" class="list-container">
             <template v-if="repoList.length === 0">
               <div class="empty-state">
                 <svg width="64" height="64" color="#e2e8f0"><use href="#icon-store"/></svg>
                 <p>暂未添加仓库</p>
               </div>
             </template>
-            <div v-else class="repo-grid">
-              <div v-for="repo in repoList" :key="repo.name" class="repo-card" @click="handleRepoClick(repo)">
-                <div class="repo-icon-box">
-                  <svg width="24" height="24"><use href="#icon-store"/></svg>
-                </div>
-                <div class="repo-info-main">
-                  <div class="repo-name-title">{{ repo.name }}</div>
-                  <div class="repo-owner-subtitle mono">{{ repo.source }}</div>
-                </div>
-                <div class="repo-actions-overlay" @click.stop>
-                   <button class="action-btn" title="编辑" @click="handleEditRepo(repo)">
-                     <svg width="16" height="16"><use href="#icon-edit"/></svg>
-                   </button>
-                   <button class="action-btn delete" title="删除" @click="handleRemoveRepo(repo)">
-                     <svg width="16" height="16"><use href="#icon-trash"/></svg>
-                   </button>
+            <div v-else class="scroll-area">
+              <div class="repo-grid">
+                <div v-for="repo in repoList" :key="repo.name" class="repo-card" @click="handleRepoClick(repo)">
+                  <div class="repo-icon-box">
+                    <svg width="24" height="24"><use href="#icon-store"/></svg>
+                  </div>
+                  <div class="repo-info-main">
+                    <div class="repo-name-title">{{ repo.name }}</div>
+                    <div class="repo-owner-subtitle mono">{{ repo.source }}</div>
+                  </div>
+                  <div class="repo-actions-overlay" @click.stop>
+                    <button class="action-btn" title="编辑" @click="handleEditRepo(repo)">
+                      <svg width="16" height="16"><use href="#icon-edit"/></svg>
+                    </button>
+                    <button class="action-btn delete" title="删除" @click="handleRemoveRepo(repo)">
+                      <svg width="16" height="16"><use href="#icon-trash"/></svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -163,7 +167,7 @@
         </div>
 
         <!-- Repo Skills List View -->
-        <div v-else>
+        <div v-else class="repo-skills-view">
           <div class="page-header">
             <div style="display: flex; align-items: center; gap: 16px;">
               <button class="b-button-outline" style="border: none; background: transparent; box-shadow: none; padding: 6px; color: #64748b;" @click="handleBackToRepos">
@@ -185,58 +189,60 @@
             </div>
           </div>
 
-          <div v-loading="loadingSkills">
+          <div v-loading="loadingSkills" class="list-container">
             <template v-if="filteredSkillList.length === 0">
               <el-empty :description="skillSearchQuery ? '无匹配结果' : '该仓库暂无 Skills'" />
             </template>
-            <div v-else class="discover-list">
-              <div v-for="skill in filteredSkillList" :key="skill.key" class="discover-item">
-                <div class="discover-info">
-                  <div class="discover-name-row">
-                    <span class="discover-name">{{ skill.name }}</span>
-                    <span class="mono" style="font-size: 11px; color: #94a3b8;">/{{ skill.directory }}</span>
-                  </div>
-                  <el-tooltip
-                    v-if="skill.description"
-                    effect="light"
-                    placement="top"
-                    :enterable="true"
-                    :show-after="200"
-                  >
-                    <template #content>
-                      <div style="max-width: 350px; line-height: 1.6; font-size: 13px; word-break: break-word; user-select: text; color: #334155;">
+            <div v-else class="scroll-area">
+              <div class="discover-list">
+                <div v-for="skill in filteredSkillList" :key="skill.key" class="discover-item">
+                  <div class="discover-info">
+                    <div class="discover-name-row">
+                      <span class="discover-name">{{ skill.name }}</span>
+                      <span class="mono" style="font-size: 11px; color: #94a3b8;">/{{ skill.directory }}</span>
+                    </div>
+                    <el-tooltip
+                      v-if="skill.description"
+                      effect="light"
+                      placement="top"
+                      :enterable="true"
+                      :show-after="200"
+                    >
+                      <template #content>
+                        <div style="max-width: 350px; line-height: 1.6; font-size: 13px; word-break: break-word; user-select: text; color: #334155;">
+                          {{ skill.description }}
+                        </div>
+                      </template>
+                      <div class="discover-desc" @click="copyDescription(skill.description)">
                         {{ skill.description }}
                       </div>
-                    </template>
-                    <div class="discover-desc" @click="copyDescription(skill.description)">
-                      {{ skill.description }}
+                    </el-tooltip>
+                    <div v-else class="discover-desc">
+                      暂无描述
                     </div>
-                  </el-tooltip>
-                  <div v-else class="discover-desc">
-                    暂无描述
                   </div>
-                </div>
-                <div class="discover-actions">
-                  <button 
-                    v-if="isInstalled(skill.directory)"
-                    class="action-btn"
-                    style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"
-                    title="重装"
-                    :disabled="installingSkillId === skill.key" 
-                    @click="handleInstall(skill, true)"
-                  >
-                    <svg width="18" height="18"><use href="#icon-refresh"/></svg>
-                  </button>
-                  <button 
-                    v-else
-                    class="action-btn"
-                    style="color: #0ea5e9; background: rgba(14, 165, 233, 0.1);"
-                    title="安装技能"
-                    :disabled="installingSkillId === skill.key" 
-                    @click="handleInstall(skill, false)"
-                  >
-                    <svg width="18" height="18"><use href="#icon-plus"/></svg>
-                  </button>
+                  <div class="discover-actions">
+                    <button 
+                      v-if="isInstalled(skill.directory)"
+                      class="action-btn"
+                      style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"
+                      title="重装"
+                      :disabled="installingSkillId === skill.key" 
+                      @click="handleInstall(skill, true)"
+                    >
+                      <svg width="18" height="18"><use href="#icon-refresh"/></svg>
+                    </button>
+                    <button 
+                      v-else
+                      class="action-btn"
+                      style="color: #0ea5e9; background: rgba(14, 165, 233, 0.1);"
+                      title="安装技能"
+                      :disabled="installingSkillId === skill.key" 
+                      @click="handleInstall(skill, false)"
+                    >
+                      <svg width="18" height="18"><use href="#icon-plus"/></svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -583,16 +589,54 @@ onMounted(() => {
 <style scoped>
 .skills-page {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Tab Underlines */
-.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; }
+.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; flex-shrink: 0; }
 .tab-item { padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer; position: relative; transition: color 0.2s; }
 .tab-item:hover { color: #475569; }
 .tab-item.active { color: #0f172a; font-weight: 600; border-bottom: 2px solid #0f172a; }
 
+.view-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tab-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.repo-list-view, .repo-skills-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  margin: -8px;
+}
+
 /* Header */
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-shrink: 0; }
 .page-subtitle { font-size: 14px; color: #64748b; margin: 0; }
 
 /* Grid & Cards (Installed) */

@@ -298,7 +298,7 @@ body {
 
 .view-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0 40px;
   display: flex;
   flex-direction: column;

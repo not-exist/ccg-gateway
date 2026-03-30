@@ -82,43 +82,45 @@
 
       <!-- Super Clean Flat Table -->
       <div class="table-container" v-loading="requestLoading">
-        <table class="flat-table">
-          <thead>
-            <tr>
-              <th style="width: 60px;">ID</th>
-              <th style="width: 160px;">时间</th>
-              <th style="width: 100px;">终端</th>
-              <th style="width: 130px;">服务商</th>
-              <th style="width: 70px;">状态</th>
-              <th style="width: 80px;">耗时</th>
-              <th style="width: 120px;">Tokens</th>
-              <th style="width: 60px; text-align: right;">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in requestLogs" :key="row.id">
-              <td class="mono">{{ row.id }}</td>
-              <td class="mono">{{ formatTime(row.created_at) }}</td>
-              <td class="mono">{{ row.cli_type }}</td>
-              <td class="mono">{{ row.provider_name }}</td>
-              <td>
-                <span v-if="row.status_code" :class="['pill', getStatusCodePill(row.status_code)]">{{ row.status_code }}</span>
-                <span v-else>-</span>
-              </td>
-              <td class="mono" :class="{'text-danger': row.status_code && row.status_code >= 500}">
-                {{ row.elapsed_ms }}ms
-              </td>
-              <td class="mono">
-                <span v-if="row.input_tokens || row.output_tokens">{{ formatTokens(row.input_tokens) }} / {{ formatTokens(row.output_tokens) }}</span>
-                <span v-else>-</span>
-              </td>
-              <td style="text-align: right;"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
-            </tr>
-            <tr v-if="requestLogs.length === 0">
-              <td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无日志记录</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-wrapper">
+          <table class="flat-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">ID</th>
+                <th style="width: 160px;">时间</th>
+                <th style="width: 100px;">终端</th>
+                <th style="width: 130px;">服务商</th>
+                <th style="width: 70px;">状态</th>
+                <th style="width: 80px;">耗时</th>
+                <th style="width: 120px;">Tokens</th>
+                <th style="width: 60px; text-align: right;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in requestLogs" :key="row.id">
+                <td class="mono">{{ row.id }}</td>
+                <td class="mono">{{ formatTime(row.created_at) }}</td>
+                <td class="mono">{{ row.cli_type }}</td>
+                <td class="mono">{{ row.provider_name }}</td>
+                <td>
+                  <span v-if="row.status_code" :class="['pill', getStatusCodePill(row.status_code)]">{{ row.status_code }}</span>
+                  <span v-else>-</span>
+                </td>
+                <td class="mono" :class="{'text-danger': row.status_code && row.status_code >= 500}">
+                  {{ row.elapsed_ms }}ms
+                </td>
+                <td class="mono">
+                  <span v-if="row.input_tokens || row.output_tokens">{{ formatTokens(row.input_tokens) }} / {{ formatTokens(row.output_tokens) }}</span>
+                  <span v-else>-</span>
+                </td>
+                <td style="text-align: right;"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
+              </tr>
+              <tr v-if="requestLogs.length === 0">
+                <td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无日志记录</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         
         <div class="pagination-footer">
           <span style="font-size: 13px; color: #64748b;">总计 {{ requestTotal }}</span>
@@ -168,27 +170,29 @@
 
       <!-- Super Clean Flat Table -->
       <div class="table-container" v-loading="systemLoading">
-        <table class="flat-table">
-          <thead>
-            <tr>
-              <th style="width: 70px;">ID</th>
-              <th style="width: 170px;">时间</th>
-              <th style="width: 160px;">事件类型</th>
-              <th>消息脉络</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in systemLogs" :key="row.id">
-              <td class="mono">{{ row.id }}</td>
-              <td class="mono">{{ formatTime(row.created_at) }}</td>
-              <td>{{ formatEventType(row.event_type) }}</td>
-              <td>{{ row.message }}</td>
-            </tr>
-            <tr v-if="systemLogs.length === 0">
-              <td colspan="4" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无日志记录</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-wrapper">
+          <table class="flat-table">
+            <thead>
+              <tr>
+                <th style="width: 70px;">ID</th>
+                <th style="width: 170px;">时间</th>
+                <th style="width: 160px;">事件类型</th>
+                <th>消息脉络</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in systemLogs" :key="row.id">
+                <td class="mono">{{ row.id }}</td>
+                <td class="mono">{{ formatTime(row.created_at) }}</td>
+                <td>{{ formatEventType(row.event_type) }}</td>
+                <td>{{ row.message }}</td>
+              </tr>
+              <tr v-if="systemLogs.length === 0">
+                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无日志记录</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         
         <div class="pagination-footer">
           <span style="font-size: 13px; color: #64748b;">总计 {{ systemTotal }}</span>
@@ -547,16 +551,26 @@ watch(activeTab, (tab) => {
 /* Scoped overrides for flat ethereal UI */
 .logs-page {
   color: #0f172a;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Tab Underlines */
-.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; }
+.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px; flex-shrink: 0; }
 .tab-item { padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer; position: relative; transition: color 0.2s; }
 .tab-item:hover { color: #475569; }
 .tab-item.active { color: #0f172a; font-weight: 600; border-bottom: 2px solid #0f172a; }
 
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* Filter Container */
-.filters-row { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
+.filters-row { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; flex-shrink: 0; }
 .filter-group { display: flex; align-items: center; gap: 10px; margin-right: 8px; }
 .filter-label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
 
@@ -597,11 +611,37 @@ watch(activeTab, (tab) => {
 .pill-grey { background: #f1f5f9; color: #64748b; font-weight: normal; }
 
 /* Flat Glass Table - 1 Line Strict */
-.table-container { background: #ffffff; border-radius: 12px; padding: 0; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.02); overflow: hidden; }
+.table-container { 
+  background: #ffffff; 
+  border-radius: 12px; 
+  padding: 0; 
+  border: 1px solid #e2e8f0; 
+  box-shadow: 0 4px 15px rgba(0,0,0,0.02); 
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.table-wrapper {
+  flex: 1;
+  overflow: auto;
+}
 .flat-table { width: 100%; border-collapse: collapse; text-align: left; }
 .flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.flat-table th { padding: 12px 20px; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.flat-table th { 
+  padding: 12px 20px; 
+  font-size: 12px; 
+  font-weight: 600; 
+  color: #64748b; 
+  text-transform: uppercase; 
+  border-bottom: 1px solid #e2e8f0; 
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 .flat-table thead tr th:first-child { border-top-left-radius: 12px; }
 .flat-table thead tr th:last-child { border-top-right-radius: 12px; }
 .flat-table td { padding: 12px 20px; font-size: 13px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
@@ -613,7 +653,7 @@ watch(activeTab, (tab) => {
 .table-link { color: #0ea5e9; cursor: pointer; text-decoration: none; font-weight: 500; }
 .table-link:hover { text-decoration: underline; }
 
-.pagination-footer { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(226, 232, 240, 0.8); }
+.pagination-footer { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(226, 232, 240, 0.8); flex-shrink: 0; }
 .pagination-footer :deep(.el-pagination) { justify-content: flex-end; }
 .pagination-footer :deep(.el-pager li) { background: transparent !important; }
 .pagination-footer :deep(.el-pager li.is-active) { color: #0ea5e9; background: #f0f9ff !important; font-weight: 700; border-radius: 6px; }

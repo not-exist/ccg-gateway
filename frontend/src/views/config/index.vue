@@ -142,31 +142,33 @@
 
     <!-- WebDAV Backup List Dialog -->
     <AppModal v-model="webdavListVisible" title="管理 WebDAV 备份" width="720px" :show-footer="false">
-        <div class="table-container" v-loading="loadingWebdavList" style="border: none; box-shadow: none; border-radius: 12px; max-height: 60vh; overflow: hidden auto; padding: 0;">
-            <table class="flat-table">
-              <thead>
-                <tr>
-                  <th>文件名</th>
-                  <th style="width: 120px;">大小</th>
-                  <th style="width: 160px; text-align: right;">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="backup in webdavBackups" :key="backup.filename">
-                  <td class="mono">{{ backup.filename }}</td>
-                  <td class="mono">{{ formatSize(backup.size) }}</td>
-                  <td style="text-align: right;">
-                    <div style="display: inline-flex; gap: 12px;">
-                      <a class="table-link" @click="handleImportWebdav(backup.filename)">恢复</a>
-                      <a class="table-link danger" @click="handleDeleteWebdav(backup.filename)">删除</a>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="webdavBackups.length === 0">
-                  <td colspan="3" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无备份</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="table-container list-container" v-loading="loadingWebdavList" style="border: none; box-shadow: none; border-radius: 12px; max-height: 60vh; overflow: hidden; padding: 0; display: flex; flex-direction: column;">
+            <div class="scroll-area" style="flex: 1; overflow-y: auto;">
+              <table class="flat-table">
+                <thead>
+                  <tr style="position: sticky; top: 0; z-index: 10;">
+                    <th style="background: #f8fafc;">文件名</th>
+                    <th style="width: 120px; background: #f8fafc;">大小</th>
+                    <th style="width: 160px; text-align: right; background: #f8fafc;">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="backup in webdavBackups" :key="backup.filename">
+                    <td class="mono">{{ backup.filename }}</td>
+                    <td class="mono">{{ formatSize(backup.size) }}</td>
+                    <td style="text-align: right;">
+                      <div style="display: inline-flex; gap: 12px;">
+                        <a class="table-link" @click="handleImportWebdav(backup.filename)">恢复</a>
+                        <a class="table-link danger" @click="handleDeleteWebdav(backup.filename)">删除</a>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="webdavBackups.length === 0">
+                    <td colspan="3" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无备份</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
     </AppModal>
 
