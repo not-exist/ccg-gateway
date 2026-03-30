@@ -174,6 +174,7 @@ defineExpose({ handleSave })
   flex: 1; min-height: 240px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; 
   font-size: 13px; background: #f8fafc; color: #0f172a; resize: none; 
   outline: none; transition: all 0.2s; line-height: 1.6;
+  word-break: break-all;
 }
 .f-textarea:focus { border-color: #0ea5e9; background: #ffffff; }
 

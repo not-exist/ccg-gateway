@@ -375,6 +375,7 @@ onMounted(fetchList)
 textarea.c-input {
   resize: vertical;
   line-height: 1.6;
+  word-break: break-all;
 }
 .mono {
   font-family: "JetBrains Mono", monospace;
