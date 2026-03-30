@@ -82,20 +82,44 @@
 
       <!-- Super Clean Flat Table -->
       <div class="table-container" v-loading="requestLoading">
-        <div class="table-wrapper">
+        <div class="fixed-table-header">
           <table class="flat-table">
+            <colgroup>
+              <col style="width: 60px;">
+              <col style="width: 160px;">
+              <col style="width: 100px;">
+              <col style="width: 130px;">
+              <col style="width: 70px;">
+              <col style="width: 80px;">
+              <col style="width: 120px;">
+              <col style="width: 60px;">
+            </colgroup>
             <thead>
               <tr>
-                <th style="width: 60px;">ID</th>
-                <th style="width: 160px;">时间</th>
-                <th style="width: 100px;">终端</th>
-                <th style="width: 130px;">服务商</th>
-                <th style="width: 70px;">状态</th>
-                <th style="width: 80px;">耗时</th>
-                <th style="width: 120px;">Tokens</th>
-                <th style="width: 60px; text-align: right;">操作</th>
+                <th>ID</th>
+                <th>时间</th>
+                <th>终端</th>
+                <th>服务商</th>
+                <th>状态</th>
+                <th>耗时</th>
+                <th>Tokens</th>
+                <th style="text-align: right;">操作</th>
               </tr>
             </thead>
+          </table>
+        </div>
+        <div class="table-wrapper">
+          <table class="flat-table">
+            <colgroup>
+              <col style="width: 60px;">
+              <col style="width: 160px;">
+              <col style="width: 100px;">
+              <col style="width: 130px;">
+              <col style="width: 70px;">
+              <col style="width: 80px;">
+              <col style="width: 120px;">
+              <col style="width: 60px;">
+            </colgroup>
             <tbody>
               <tr v-for="row in requestLogs" :key="row.id">
                 <td class="mono">{{ row.id }}</td>
@@ -170,21 +194,37 @@
 
       <!-- Super Clean Flat Table -->
       <div class="table-container" v-loading="systemLoading">
-        <div class="table-wrapper">
+        <div class="fixed-table-header">
           <table class="flat-table">
+            <colgroup>
+              <col style="width: 70px;">
+              <col style="width: 170px;">
+              <col style="width: 160px;">
+              <col>
+            </colgroup>
             <thead>
               <tr>
-                <th style="width: 70px;">ID</th>
-                <th style="width: 170px;">时间</th>
-                <th style="width: 160px;">事件类型</th>
+                <th>ID</th>
+                <th>时间</th>
+                <th>事件类型</th>
                 <th>消息脉络</th>
               </tr>
             </thead>
+          </table>
+        </div>
+        <div class="table-wrapper">
+          <table class="flat-table">
+            <colgroup>
+              <col style="width: 70px;">
+              <col style="width: 170px;">
+              <col style="width: 160px;">
+              <col>
+            </colgroup>
             <tbody>
               <tr v-for="row in systemLogs" :key="row.id">
                 <td class="mono">{{ row.id }}</td>
                 <td class="mono">{{ formatTime(row.created_at) }}</td>
-                <td>{{ formatEventType(row.event_type) }}</td>
+                <td style="width: 160px;">{{ formatEventType(row.event_type) }}</td>
                 <td>{{ row.message }}</td>
               </tr>
               <tr v-if="systemLogs.length === 0">
@@ -623,12 +663,17 @@ watch(activeTab, (tab) => {
   flex-direction: column;
   min-height: 0;
 }
+.fixed-table-header {
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
 .table-wrapper {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
 }
-.flat-table { width: 100%; border-collapse: collapse; text-align: left; }
-.flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flat-table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
+.flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
 
 .flat-table th { 
   padding: 12px 20px; 
@@ -636,14 +681,8 @@ watch(activeTab, (tab) => {
   font-weight: 600; 
   color: #64748b; 
   text-transform: uppercase; 
-  border-bottom: 1px solid #e2e8f0; 
   background: #f8fafc;
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
-.flat-table thead tr th:first-child { border-top-left-radius: 12px; }
-.flat-table thead tr th:last-child { border-top-right-radius: 12px; }
 .flat-table td { padding: 12px 20px; font-size: 13px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
 .flat-table tr:last-child td { border-bottom: none; }
 .flat-table tr:hover td { background: #f8fafc; }

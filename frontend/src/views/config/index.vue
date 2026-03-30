@@ -27,112 +27,114 @@
       </defs>
     </svg>
 
-    <div class="config-layout">
-      <!-- Left Column: CLI Settings -->
-      <div class="config-column">
-        <div class="frost-card cli-settings-card">
-          <div class="card-header-simple">
-            <svg width="20" height="20" class="header-icon"><use href="#icon-terminal"/></svg>
-            <span class="card-label">CLI 运行配置</span>
-            <div style="flex: 1;"></div>
-            <button class="b-button" style="padding: 6px 14px;" @click="cliFormRef?.handleSave()">
-              <svg width="16" height="16" style="margin-right: 6px;"><use href="#icon-save"/></svg>
-              保存
-            </button>
-          </div>
-          <div class="card-body" style="flex: 1; display: flex; flex-direction: column;">
-            <div class="frost-segmented" style="margin-bottom: 24px;">
-              <div class="seg-item" :class="{ active: activeCliTab === 'claude_code' }" @click="activeCliTab = 'claude_code'">Claude Code</div>
-              <div class="seg-item" :class="{ active: activeCliTab === 'codex' }" @click="activeCliTab = 'codex'">Codex</div>
-              <div class="seg-item" :class="{ active: activeCliTab === 'gemini' }" @click="activeCliTab = 'gemini'">Gemini</div>
+    <div class="scroll-area">
+      <div class="config-layout">
+        <!-- Left Column: CLI Settings -->
+        <div class="config-column">
+          <div class="frost-card cli-settings-card">
+            <div class="card-header-simple">
+              <svg width="20" height="20" class="header-icon"><use href="#icon-terminal"/></svg>
+              <span class="card-label">CLI 运行配置</span>
+              <div style="flex: 1;"></div>
+              <button class="b-button" style="padding: 6px 14px;" @click="cliFormRef?.handleSave()">
+                <svg width="16" height="16" style="margin-right: 6px;"><use href="#icon-save"/></svg>
+                保存
+              </button>
             </div>
-
-            <div class="cli-form-container">
-              <CliSettingsForm
-                ref="cliFormRef"
-                :key="activeCliTab"
-                :cli-type="activeCliTab"
-                :settings="settingsStore.settings?.cli_settings?.[activeCliTab]"
-                @save="saveCli"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Column: Core & Backup -->
-      <div class="config-column">
-
-        <!-- Timeout Card -->
-        <div class="frost-card">
-          <div class="card-header-simple">
-            <svg width="20" height="20" class="header-icon"><use href="#icon-activity"/></svg>
-            <span class="card-label">基础配置</span>
-            <div style="flex: 1;"></div>
-            <button class="b-button" style="padding: 6px 14px;" @click="saveTimeouts">
-              <svg width="16" height="16" style="margin-right: 6px;"><use href="#icon-save"/></svg>
-              保存
-            </button>
-          </div>
-          <div class="card-body">
-            <div class="input-item">
-              <label class="item-label">流式首字节超时</label>
-              <div class="input-with-unit">
-                <input type="number" v-model.number="timeoutForm.stream_first_byte_timeout" class="f-input">
-                <span class="unit">秒</span>
+            <div class="card-body" style="flex: 1; display: flex; flex-direction: column;">
+              <div class="frost-segmented" style="margin-bottom: 24px;">
+                <div class="seg-item" :class="{ active: activeCliTab === 'claude_code' }" @click="activeCliTab = 'claude_code'">Claude Code</div>
+                <div class="seg-item" :class="{ active: activeCliTab === 'codex' }" @click="activeCliTab = 'codex'">Codex</div>
+                <div class="seg-item" :class="{ active: activeCliTab === 'gemini' }" @click="activeCliTab = 'gemini'">Gemini</div>
               </div>
-            </div>
-            <div class="input-item">
-              <label class="item-label">流式空闲超时</label>
-              <div class="input-with-unit">
-                <input type="number" v-model.number="timeoutForm.stream_idle_timeout" class="f-input">
-                <span class="unit">秒</span>
-              </div>
-            </div>
-            <div class="input-item">
-              <label class="item-label">非流式超时</label>
-              <div class="input-with-unit">
-                <input type="number" v-model.number="timeoutForm.non_stream_timeout" class="f-input">
-                <span class="unit">秒</span>
+
+              <div class="cli-form-container">
+                <CliSettingsForm
+                  ref="cliFormRef"
+                  :key="activeCliTab"
+                  :cli-type="activeCliTab"
+                  :settings="settingsStore.settings?.cli_settings?.[activeCliTab]"
+                  @save="saveCli"
+                />
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Backup Card -->
-        <div class="frost-card">
-          <div class="card-header-simple">
-            <svg width="20" height="20" class="header-icon"><use href="#icon-cloud"/></svg>
-            <span class="card-label">备份与同步</span>
-          </div>
-          <div class="card-body">
-            <div class="backup-row">
-              <div class="frost-segmented backup-segmented">
-                <div class="seg-item" :class="{ active: activeBackupTab === 'local' }" @click="activeBackupTab = 'local'">本地备份</div>
-                <div class="seg-item" :class="{ active: activeBackupTab === 'webdav' }" @click="activeBackupTab = 'webdav'">WebDAV</div>
+        <!-- Right Column: Core & Backup -->
+        <div class="config-column">
+
+          <!-- Timeout Card -->
+          <div class="frost-card">
+            <div class="card-header-simple">
+              <svg width="20" height="20" class="header-icon"><use href="#icon-activity"/></svg>
+              <span class="card-label">基础配置</span>
+              <div style="flex: 1;"></div>
+              <button class="b-button" style="padding: 6px 14px;" @click="saveTimeouts">
+                <svg width="16" height="16" style="margin-right: 6px;"><use href="#icon-save"/></svg>
+                保存
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="input-item">
+                <label class="item-label">流式首字节超时</label>
+                <div class="input-with-unit">
+                  <input type="number" v-model.number="timeoutForm.stream_first_byte_timeout" class="f-input">
+                  <span class="unit">秒</span>
+                </div>
               </div>
-              <div class="backup-actions">
-                <template v-if="activeBackupTab === 'local'">
-                  <div class="action-icon" @click="!exportingLocal && handleExportLocal()" title="导出" :class="{ disabled: exportingLocal }">
-                    <svg width="18" height="18"><use href="#icon-upload"/></svg>
-                  </div>
-                  <el-upload :show-file-list="false" :before-upload="handleImportLocal" accept=".db" :disabled="importingLocal">
-                    <div class="action-icon" title="导入" :class="{ disabled: importingLocal }">
+              <div class="input-item">
+                <label class="item-label">流式空闲超时</label>
+                <div class="input-with-unit">
+                  <input type="number" v-model.number="timeoutForm.stream_idle_timeout" class="f-input">
+                  <span class="unit">秒</span>
+                </div>
+              </div>
+              <div class="input-item">
+                <label class="item-label">非流式超时</label>
+                <div class="input-with-unit">
+                  <input type="number" v-model.number="timeoutForm.non_stream_timeout" class="f-input">
+                  <span class="unit">秒</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Backup Card -->
+          <div class="frost-card">
+            <div class="card-header-simple">
+              <svg width="20" height="20" class="header-icon"><use href="#icon-cloud"/></svg>
+              <span class="card-label">备份与同步</span>
+            </div>
+            <div class="card-body">
+              <div class="backup-row">
+                <div class="frost-segmented backup-segmented">
+                  <div class="seg-item" :class="{ active: activeBackupTab === 'local' }" @click="activeBackupTab = 'local'">本地备份</div>
+                  <div class="seg-item" :class="{ active: activeBackupTab === 'webdav' }" @click="activeBackupTab = 'webdav'">WebDAV</div>
+                </div>
+                <div class="backup-actions">
+                  <template v-if="activeBackupTab === 'local'">
+                    <div class="action-icon" @click="!exportingLocal && handleExportLocal()" title="导出" :class="{ disabled: exportingLocal }">
+                      <svg width="18" height="18"><use href="#icon-upload"/></svg>
+                    </div>
+                    <el-upload :show-file-list="false" :before-upload="handleImportLocal" accept=".db" :disabled="importingLocal">
+                      <div class="action-icon" title="导入" :class="{ disabled: importingLocal }">
+                        <svg width="18" height="18"><use href="#icon-download"/></svg>
+                      </div>
+                    </el-upload>
+                  </template>
+                  <template v-else>
+                    <div class="action-icon" @click="showWebdavSettings" title="WebDAV设置">
+                      <svg width="18" height="18"><use href="#icon-settings"/></svg>
+                    </div>
+                    <div class="action-icon" @click="!exportingWebdav && handleExportWebdav()" title="导出" :class="{ disabled: exportingWebdav }">
+                      <svg width="18" height="18"><use href="#icon-upload"/></svg>
+                    </div>
+                    <div class="action-icon" @click="handleShowWebdavList" title="导入">
                       <svg width="18" height="18"><use href="#icon-download"/></svg>
                     </div>
-                  </el-upload>
-                </template>
-                <template v-else>
-                  <div class="action-icon" @click="showWebdavSettings" title="WebDAV设置">
-                    <svg width="18" height="18"><use href="#icon-settings"/></svg>
-                  </div>
-                  <div class="action-icon" @click="!exportingWebdav && handleExportWebdav()" title="导出" :class="{ disabled: exportingWebdav }">
-                    <svg width="18" height="18"><use href="#icon-upload"/></svg>
-                  </div>
-                  <div class="action-icon" @click="handleShowWebdavList" title="导入">
-                    <svg width="18" height="18"><use href="#icon-download"/></svg>
-                  </div>
-                </template>
+                  </template>
+                </div>
               </div>
             </div>
           </div>
@@ -400,10 +402,20 @@ onMounted(() => {
 <style scoped>
 .config-page {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
 }
 
 /* Header */
-.page-header { margin-bottom: 32px; }
+.page-header { margin-bottom: 32px; flex-shrink: 0; }
 .page-title { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0; letter-spacing: -0.8px; }
 .page-subtitle { font-size: 14px; color: #64748b; margin: 0; }
 

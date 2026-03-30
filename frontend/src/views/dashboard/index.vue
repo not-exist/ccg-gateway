@@ -1,88 +1,87 @@
 <template>
   <div class="dashboard-page">
-
-
-    <!-- 顶部状态卡片区 -->
-    <div style="display: flex; gap: 24px; margin-bottom: 24px;">
-      <div v-for="cli in cliList" :key="cli.type" class="b-card" style="flex: 1; margin-bottom: 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div class="status-dot" :class="{ running: getCliEnabled(cli.type) }"></div>
-            <div style="font-size: 16px; font-weight: 600; color: #0f172a;">
-              {{ cli.label }} 
-              <span v-if="!getCliEnabled(cli.type)" style="color: #94a3b8; font-size: 13px; font-weight: 500;">(已禁用)</span>
+    <div class="scroll-area">
+      <!-- 顶部状态卡片区 -->
+      <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+        <div v-for="cli in cliList" :key="cli.type" class="b-card" style="flex: 1; margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div class="status-dot" :class="{ running: getCliEnabled(cli.type) }"></div>
+              <div style="font-size: 16px; font-weight: 600; color: #0f172a;">
+                {{ cli.label }} 
+                <span v-if="!getCliEnabled(cli.type)" style="color: #94a3b8; font-size: 13px; font-weight: 500;">(已禁用)</span>
+              </div>
             </div>
+            <el-switch :model-value="getCliEnabled(cli.type)" @change="(val: boolean) => handleCliToggle(cli.type, val)" :loading="cliLoading[cli.type]" />
           </div>
-          <el-switch :model-value="getCliEnabled(cli.type)" @change="(val: boolean) => handleCliToggle(cli.type, val)" :loading="cliLoading[cli.type]" />
+          
+          <div class="b-segmented" style="width: 100%;">
+            <div class="b-seg-btn" :class="{ active: getCliMode(cli.type) === 'proxy' }" @click="handleModeSwitch(cli.type, 'proxy')" style="flex: 1;">中转模式</div>
+            <div class="b-seg-btn" :class="{ active: getCliMode(cli.type) === 'direct' }" @click="handleModeSwitch(cli.type, 'direct')" style="flex: 1;">官方模式</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中部关键指标 KPI -->
+      <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+        <div class="b-card kpi-card">
+          <div class="kpi-title">请求总数</div>
+          <div class="kpi-value mono text-blue">{{ kpiData.requests }}</div>
+        </div>
+        <div class="b-card kpi-card">
+          <div class="kpi-title">全局成功率</div>
+          <div class="kpi-value mono text-green">{{ kpiData.successRate }}</div>
+        </div>
+        <div class="b-card kpi-card">
+          <div class="kpi-title">Token消耗</div>
+          <div class="kpi-value mono">{{ kpiData.tokens }}</div>
+        </div>
+        <div class="b-card kpi-card">
+          <div class="kpi-title">活跃服务商</div>
+          <div class="kpi-value mono">{{ kpiData.providers }}</div>
+        </div>
+      </div>
+
+      <!-- 底部图表与日志 -->
+      <div style="display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px;">
+        <!-- 图表区 -->
+        <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; min-width: 450px;">
+          <div class="b-card-title">请求统计趋势</div>
+          <div style="height: 240px; width: 100%;">
+            <v-chart class="chart" :option="chartOption" autoresize />
+          </div>
         </div>
         
-        <div class="b-segmented" style="width: 100%;">
-          <div class="b-seg-btn" :class="{ active: getCliMode(cli.type) === 'proxy' }" @click="handleModeSwitch(cli.type, 'proxy')" style="flex: 1;">中转模式</div>
-          <div class="b-seg-btn" :class="{ active: getCliMode(cli.type) === 'direct' }" @click="handleModeSwitch(cli.type, 'direct')" style="flex: 1;">官方模式</div>
+        <!-- 服务商统计 -->
+        <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column; min-width: 400px; padding: 24px;">
+          <div class="b-card-title" style="margin-bottom: 16px;">服务商统计</div>
+          <div style="flex: 1; min-height: 240px;">
+            <el-table :data="providerStats" style="width: 100%" :max-height="240">
+              <el-table-column prop="provider_name" label="服务商" min-width="120" show-overflow-tooltip>
+                <template #default="scope">
+                  <span style="color: #475569; font-size: 14px; font-weight: 500;">{{ scope.row.provider_name }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="total_requests" label="请求" width="90" align="right">
+                <template #default="scope">
+                  <span class="mono" style="color: #64748b; font-size: 14px;">{{ scope.row.total_requests }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="成功率" width="100" align="right">
+                <template #default="scope">
+                  <span class="mono" style="color: #64748b; font-size: 14px;">{{ scope.row.success_rate.toFixed(1) }}%</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="Token" width="110" align="right">
+                <template #default="scope">
+                  <span class="mono" style="color: #64748b; font-size: 14px; font-weight: 500;">{{ formatTokens(scope.row.total_tokens) }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- 中部关键指标 KPI -->
-    <div style="display: flex; gap: 24px; margin-bottom: 24px;">
-      <div class="b-card kpi-card">
-        <div class="kpi-title">请求总数</div>
-        <div class="kpi-value mono text-blue">{{ kpiData.requests }}</div>
-      </div>
-      <div class="b-card kpi-card">
-        <div class="kpi-title">全局成功率</div>
-        <div class="kpi-value mono text-green">{{ kpiData.successRate }}</div>
-      </div>
-      <div class="b-card kpi-card">
-        <div class="kpi-title">Token消耗</div>
-        <div class="kpi-value mono">{{ kpiData.tokens }}</div>
-      </div>
-      <div class="b-card kpi-card">
-        <div class="kpi-title">活跃服务商</div>
-        <div class="kpi-value mono">{{ kpiData.providers }}</div>
-      </div>
-    </div>
-
-    <!-- 底部图表与日志 -->
-    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
-      <!-- 图表区 -->
-      <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; min-width: 450px;">
-        <div class="b-card-title">请求统计趋势</div>
-        <div style="height: 240px; width: 100%;">
-          <v-chart class="chart" :option="chartOption" autoresize />
-        </div>
-      </div>
-      
-      <!-- 服务商统计 -->
-      <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column; min-width: 400px; padding: 24px;">
-        <div class="b-card-title" style="margin-bottom: 16px;">服务商统计</div>
-        <div style="flex: 1; overflow-y: auto;">
-          <el-table :data="providerStats" style="width: 100%" :max-height="240">
-            <el-table-column prop="provider_name" label="服务商" min-width="120" show-overflow-tooltip>
-              <template #default="scope">
-                <span style="color: #475569; font-size: 14px; font-weight: 500;">{{ scope.row.provider_name }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="total_requests" label="请求" width="90" align="right">
-              <template #default="scope">
-                <span class="mono" style="color: #64748b; font-size: 14px;">{{ scope.row.total_requests }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="成功率" width="100" align="right">
-              <template #default="scope">
-                <span class="mono" style="color: #64748b; font-size: 14px;">{{ scope.row.success_rate.toFixed(1) }}%</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="Token" width="110" align="right">
-              <template #default="scope">
-                <span class="mono" style="color: #64748b; font-size: 14px; font-weight: 500;">{{ formatTokens(scope.row.total_tokens) }}</span>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </div>
-    </div>
-
   </div>
 </template>
 
@@ -300,7 +299,20 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.dashboard-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
+}
+
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-shrink: 0; }
 .page-title { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
 
 .b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: border-color 0.2s; border: 1px solid transparent; }
