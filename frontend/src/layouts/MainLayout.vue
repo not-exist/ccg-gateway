@@ -3,22 +3,24 @@
     <div class="sidebar">
       <div class="logo">CCG Gateway</div>
       
-      <div class="nav-group">
-        <div class="nav-group-title">总览</div>
-        <div class="nav-item" :class="{ active: route.path === '/' }" @click="router.push('/')">仪表盘</div>
-        <div class="nav-item" :class="{ active: route.path === '/config' }" @click="router.push('/config')">全局设置</div>
-        <div class="nav-item" :class="{ active: route.path === '/logs' }" @click="router.push('/logs')">日志记录</div>
-        <div class="nav-item" :class="{ active: route.path === '/sessions' }" @click="router.push('/sessions')">会话记录</div>
-      </div>
-      
-      <div class="nav-group">
-        <div class="nav-group-title">核心资源</div>
-        <!-- Note: Made the original menu paths consistent with old code, keeping '服务商管理' instead of '服务商' to match perfectly if desired, but spec says '服务商'. I'll stick to simple '服务商' -->
-        <div class="nav-item" :class="{ active: route.path === '/providers' }" @click="router.push('/providers')">服务商</div>
-        <div class="nav-item" :class="{ active: route.path === '/mcp' }" @click="router.push('/mcp')">MCP</div>
-        <div class="nav-item" :class="{ active: route.path === '/prompts' }" @click="router.push('/prompts')">提示词</div>
-        <div class="nav-item" :class="{ active: route.path === '/skills' }" @click="router.push('/skills')">Skill</div>
-        <div class="nav-item" :class="{ active: route.path === '/plugins' }" @click="router.push('/plugins')">Plugin</div>
+      <div class="sidebar-scrollable">
+        <div class="nav-group">
+          <div class="nav-group-title">总览</div>
+          <div class="nav-item" :class="{ active: route.path === '/' }" @click="router.push('/')">仪表盘</div>
+          <div class="nav-item" :class="{ active: route.path === '/config' }" @click="router.push('/config')">全局设置</div>
+          <div class="nav-item" :class="{ active: route.path === '/logs' }" @click="router.push('/logs')">日志记录</div>
+          <div class="nav-item" :class="{ active: route.path === '/sessions' }" @click="router.push('/sessions')">会话记录</div>
+        </div>
+        
+        <div class="nav-group">
+          <div class="nav-group-title">核心资源</div>
+          <!-- Note: Made the original menu paths consistent with old code, keeping '服务商管理' instead of '服务商' to match perfectly if desired, but spec says '服务商'. I'll stick to simple '服务商' -->
+          <div class="nav-item" :class="{ active: route.path === '/providers' }" @click="router.push('/providers')">服务商</div>
+          <div class="nav-item" :class="{ active: route.path === '/mcp' }" @click="router.push('/mcp')">MCP</div>
+          <div class="nav-item" :class="{ active: route.path === '/prompts' }" @click="router.push('/prompts')">提示词</div>
+          <div class="nav-item" :class="{ active: route.path === '/skills' }" @click="router.push('/skills')">Skill</div>
+          <div class="nav-item" :class="{ active: route.path === '/plugins' }" @click="router.push('/plugins')">Plugin</div>
+        </div>
       </div>
       
       <div class="sidebar-footer">
@@ -194,13 +196,24 @@ body {
   padding-top: 12px;  display: flex; 
   flex-direction: column;
   position: relative;
+  height: 100%;
 }
 
 .logo { 
-  font-size: 22px; font-weight: 700; margin-bottom: 40px; color: #0ea5e9; padding-left: 16px; letter-spacing: -0.5px; 
+  font-size: 22px; font-weight: 700; margin-bottom: 24px; color: #0ea5e9; padding-left: 16px; letter-spacing: -0.5px; 
+  flex-shrink: 0;
 }
 
-.nav-group { margin-bottom: 32px; }
+.sidebar-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sidebar-scrollable::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-group { margin-bottom: 24px; }
 
 .nav-group-title { 
   font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 12px; letter-spacing: 1px; padding-left: 16px; 
@@ -226,6 +239,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .footer-actions {
