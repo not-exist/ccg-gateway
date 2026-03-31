@@ -144,29 +144,22 @@
 
     <!-- WebDAV Backup List Dialog -->
     <AppModal v-model="webdavListVisible" title="管理 WebDAV 备份" width="720px" :show-footer="false">
-        <div class="table-container list-container" v-loading="loadingWebdavList" style="border: none; box-shadow: none; border-radius: 12px; max-height: 60vh; overflow: hidden; padding: 0; display: flex; flex-direction: column;">
-            <div class="scroll-area" style="flex: 1; overflow-y: auto;">
-              <table class="flat-table">
-                <thead>
-                  <tr style="position: sticky; top: 0; z-index: 10;">
-                    <th style="background: #f8fafc;">文件名</th>
-                    <th style="width: 120px; background: #f8fafc;">大小</th>
-                    <th style="width: 160px; text-align: right; background: #f8fafc;">操作</th>
-                  </tr>
-                </thead>
+        <div v-loading="loadingWebdavList" style="max-height: 60vh; display: flex; flex-direction: column; margin: -32px;">
+            <div class="scroll-area" style="flex: 1; overflow-y: auto; padding: 32px;">
+              <table class="flat-table" style="width: 100%;">
                 <tbody>
                   <tr v-for="backup in webdavBackups" :key="backup.filename">
-                    <td class="mono">{{ backup.filename }}</td>
-                    <td class="mono">{{ formatSize(backup.size) }}</td>
-                    <td style="text-align: right;">
-                      <div style="display: inline-flex; gap: 12px;">
+                    <td class="mono" style="padding: 16px 0; border-bottom: 1px solid #f1f5f9;">{{ backup.filename }}</td>
+                    <td class="mono" style="width: 120px; padding: 16px 20px; border-bottom: 1px solid #f1f5f9;">{{ formatSize(backup.size) }}</td>
+                    <td style="width: 140px; text-align: right; padding: 16px 0; border-bottom: 1px solid #f1f5f9;">
+                      <div style="display: inline-flex; gap: 16px;">
                         <a class="table-link" @click="handleImportWebdav(backup.filename)">恢复</a>
                         <a class="table-link danger" @click="handleDeleteWebdav(backup.filename)">删除</a>
                       </div>
                     </td>
                   </tr>
                   <tr v-if="webdavBackups.length === 0">
-                    <td colspan="3" style="text-align: center; color: #94a3b8; padding: 40px; font-size: 13px;">暂无备份</td>
+                    <td colspan="3" style="text-align: center; color: #94a3b8; padding: 60px; font-size: 13px;">暂无备份</td>
                   </tr>
                 </tbody>
               </table>
@@ -517,6 +510,21 @@ onMounted(() => {
 .table-link:hover { text-decoration: underline; }
 .table-link.danger { color: #ef4444; }
 .table-link.danger:hover { color: #dc2626; }
+
+/* Custom Scrollbar for Modal */
+.scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
 
 /* Backup Row */
 .backup-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
