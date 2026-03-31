@@ -115,6 +115,9 @@ impl From<Provider> for ProviderResponse {
     fn from(p: Provider) -> Self {
         let now = chrono::Utc::now().timestamp();
         let is_blacklisted = p.blacklisted_until.map(|t| t > now).unwrap_or(false);
+        let blacklist_expired = p.blacklisted_until.map(|t| t <= now).unwrap_or(false);
+        let failures = if blacklist_expired { 0 } else { p.consecutive_failures };
+        
         Self {
             id: p.id,
             cli_type: p.cli_type,
@@ -124,7 +127,7 @@ impl From<Provider> for ProviderResponse {
             enabled: p.enabled != 0,
             failure_threshold: p.failure_threshold,
             blacklist_minutes: p.blacklist_minutes,
-            consecutive_failures: p.consecutive_failures,
+            consecutive_failures: failures,
             blacklisted_until: p.blacklisted_until,
             sort_order: p.sort_order,
             custom_useragent: p.custom_useragent,

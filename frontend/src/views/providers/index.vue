@@ -598,10 +598,13 @@ async function handleCredentialDragEnd() {
   notify('排序已保存')
 }
 
+const now = ref(Date.now())
+let timer: any = null
+
 function getUnblacklistTime(provider: Provider): string {
   if (!provider.is_blacklisted || !provider.blacklisted_until) return '已拉黑'
-  const diffSeconds = provider.blacklisted_until - (Date.now() / 1000)
-  if (diffSeconds <= 0) return '已拉黑'
+  const diffSeconds = provider.blacklisted_until - (now.value / 1000)
+  if (diffSeconds <= 0) return '已解除'
   const mins = Math.floor(diffSeconds / 60)
   return mins === 0 ? `${Math.ceil(diffSeconds)}秒后解除` : `${mins}分${Math.ceil(diffSeconds % 60)}秒后解除`
 }
@@ -609,6 +612,28 @@ function getUnblacklistTime(provider: Provider): string {
 onMounted(() => {
   providerStore.fetchProviders(activeCliType.value as CliType)
   credentialStore.fetchCredentials(activeCliType.value as CliType)
+  
+  // 每秒更新一次时间，触发倒计时重绘
+  timer = setInterval(() => {
+    const oldNow = now.value
+    now.value = Date.now()
+    
+    // 检查是否有服务商的拉黑时间刚刚到期
+    const hasExpired = providerStore.providers.some(p => {
+      if (p.is_blacklisted && p.blacklisted_until) {
+        return p.blacklisted_until > (oldNow / 1000) && p.blacklisted_until <= (now.value / 1000)
+      }
+      return false
+    })
+    
+    if (hasExpired) {
+      providerStore.fetchProviders(activeCliType.value as CliType)
+    }
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 </script>
 

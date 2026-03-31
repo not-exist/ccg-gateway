@@ -20,6 +20,7 @@ pub async fn record_success(db: &SqlitePool, provider_id: i64) -> Result<bool, s
         r#"
         UPDATE providers
         SET consecutive_failures = 0,
+            blacklisted_until = NULL,
             updated_at = ?
         WHERE id = ?
         "#,
@@ -106,7 +107,7 @@ pub async fn record_failure(db: &SqlitePool, provider_id: i64) -> Result<(bool, 
             r#"
             UPDATE providers
             SET consecutive_failures = ?,
-                blacklisted_until = CASE WHEN blacklisted_until IS NOT NULL AND blacklisted_until < ? THEN NULL ELSE blacklisted_until END,
+                blacklisted_until = CASE WHEN blacklisted_until IS NOT NULL AND blacklisted_until <= ? THEN NULL ELSE blacklisted_until END,
                 updated_at = ?
             WHERE id = ?
             "#,
