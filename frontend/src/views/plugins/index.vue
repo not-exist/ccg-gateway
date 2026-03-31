@@ -235,7 +235,7 @@
           </div>
 
       <template #footer>
-        <button class="b-button" @click="handleAddMarketplace" :disabled="savingMarket">保存</button>
+        <button class="b-button" @click="handleAddMarketplace">保存</button>
       </template>
     </AppModal>
 
@@ -465,19 +465,22 @@ async function handleAddMarketplace() {
     notify('请输入市场地址', 'error')
     return
   }
-  savingMarket.value = true
+  
+  const url = marketForm.value.url.trim()
+  showAddMarketDialog.value = false
+  marketForm.value = { url: '' }
+  
+  loadingMarketplaces.value = true
   try {
-    const result = await pluginsApi.addMarketplace(marketForm.value.url.trim())
+    const result = await pluginsApi.addMarketplace(url)
     allPlugins.value = result.plugins
     marketplaceList.value = result.marketplaces
     favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
-    showAddMarketDialog.value = false
-    marketForm.value = { url: '' }
   } catch (error: any) {
     showCliOutput(error?.message || '添加失败', true)
   } finally {
-    savingMarket.value = false
+    loadingMarketplaces.value = false
   }
 }
 

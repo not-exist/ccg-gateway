@@ -273,7 +273,7 @@
           </div>
 
       <template #footer>
-        <button class="b-button" @click="handleAddRepo" :disabled="savingRepo">保存</button>
+        <button class="b-button" @click="handleAddRepo">保存</button>
       </template>
     </AppModal>
 
@@ -298,7 +298,7 @@
           </div>
 
       <template #footer>
-        <button class="b-button" @click="handleUpdateRepo" :disabled="savingRepo">保存</button>
+        <button class="b-button" @click="handleUpdateRepo">保存</button>
       </template>
     </AppModal>
 
@@ -519,32 +519,39 @@ async function handleAddRepo() {
     notify('请输入仓库地址', 'error')
     return
   }
-  savingRepo.value = true
+  
+  const payload = {
+    url: repoForm.value.url.trim(),
+    branch: repoForm.value.branch.trim() || undefined
+  }
+  
+  showAddRepoDialog.value = false
+  repoForm.value = { url: '', branch: '' }
+  
+  loadingRepos.value = true
   try {
-    await skillsApi.addRepo({
-      url: repoForm.value.url.trim(),
-      branch: repoForm.value.branch.trim() || undefined
-    })
+    await skillsApi.addRepo(payload)
     notify('添加成功')
-    showAddRepoDialog.value = false
-    repoForm.value = { url: '', branch: '' }
     await fetchRepos()
   } catch (error: any) {
     notify(error?.message || '添加失败', 'error')
-  } finally {
-    savingRepo.value = false
+    loadingRepos.value = false
   }
 }
 
 async function handleRemoveRepo(repo: SkillRepo) {
   try {
     await ElMessageBox.confirm(`确定删除仓库 "${repo.name}"?`, '确认删除')
+    loadingRepos.value = true
     await skillsApi.removeRepo(repo.name)
     notify('已删除')
     await fetchRepos()
   } catch (error: any) {
     if (error !== 'cancel' && error?.toString() !== 'cancel') {
       notify(error?.message || '删除失败', 'error')
+      loadingRepos.value = false
+    } else {
+      loadingRepos.value = false
     }
   }
 }
@@ -563,20 +570,27 @@ async function handleUpdateRepo() {
     notify('请输入仓库地址', 'error')
     return
   }
-  savingRepo.value = true
+  
+  const payload = {
+    oldName: editRepoForm.value.oldName,
+    url: editRepoForm.value.url.trim(),
+    branch: editRepoForm.value.branch.trim()
+  }
+  
+  showEditRepoDialog.value = false
+  
+  loadingRepos.value = true
   try {
     await skillsApi.updateRepo(
-      editRepoForm.value.oldName,
-      editRepoForm.value.url.trim(),
-      editRepoForm.value.branch.trim()
+      payload.oldName,
+      payload.url,
+      payload.branch
     )
     notify('更新成功')
-    showEditRepoDialog.value = false
     await fetchRepos()
   } catch (error: any) {
     notify(error?.message || '更新失败', 'error')
-  } finally {
-    savingRepo.value = false
+    loadingRepos.value = false
   }
 }
 
