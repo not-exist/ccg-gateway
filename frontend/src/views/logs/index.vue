@@ -462,10 +462,19 @@ function resetRequestFilters() {
 async function clearRequestLogs() {
   try {
     await ElMessageBox.confirm('确定要清空所有请求日志吗？', '清理确认')
+  } catch {
+    return
+  }
+
+  requestLoading.value = true
+  try {
     await logsApi.clearRequestLogs()
     notify('请求日志已清空')
-    fetchRequestLogs()
-  } catch {}
+    await fetchRequestLogs()
+  } catch (e: any) {
+    notify(e?.message || '清空失败', 'error')
+    requestLoading.value = false
+  }
 }
 
 async function showRequestDetail(id: number) {
@@ -502,10 +511,19 @@ function resetSystemFilters() {
 async function clearSystemLogs() {
   try {
     await ElMessageBox.confirm('确定要清空所有系统日志吗？', '清理确认')
+  } catch {
+    return
+  }
+
+  systemLoading.value = true
+  try {
     await logsApi.clearSystemLogs()
     notify('系统日志已清空')
-    fetchSystemLogs()
-  } catch {}
+    await fetchSystemLogs()
+  } catch (e: any) {
+    notify(e?.message || '清空失败', 'error')
+    systemLoading.value = false
+  }
 }
 
 function formatTime(timestamp: number): string {

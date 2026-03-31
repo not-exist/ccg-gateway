@@ -14,13 +14,13 @@
       </defs>
     </svg>
     
-    <!-- Tab Headers (Top Line) -->
-    <div style="display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 24px; padding-top: 8px;">
+    <!-- Top Level Tabs -->
+    <div class="top-tabs">
       <div 
         v-for="cli in [{id: 'claude_code', label: 'Claude Code'}, {id: 'codex', label: 'Codex'}, {id: 'gemini', label: 'Gemini'}]"
         :key="cli.id"
+        :class="['tab-item', { active: activeCliType === cli.id }]"
         @click="activeCliType = cli.id"
-        :style="activeCliType === cli.id ? 'padding-bottom: 12px; color: #0f172a; font-weight: 600; font-size: 15px; border-bottom: 2px solid #0f172a; cursor: pointer;' : 'padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer;'"
       >
         {{ cli.label }}
       </div>
@@ -610,6 +610,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
+
+/* Tab Underlines */
+.top-tabs { display: flex; gap: 32px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin: 0 40px 24px 40px; padding-top: 8px; flex-shrink: 0; }
+.tab-item { padding-bottom: 12px; color: #94a3b8; font-weight: 500; font-size: 15px; cursor: pointer; position: relative; transition: color 0.2s; }
+.tab-item:hover { color: #475569; }
+.tab-item.active { color: #0f172a; font-weight: 600; border-bottom: 2px solid #0f172a; }
 
 .page-header { flex-shrink: 0; margin: 0 40px 32px 40px; }
 
