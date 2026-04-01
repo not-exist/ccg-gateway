@@ -62,7 +62,7 @@
                 <el-switch
                   size="small"
                   :model-value="mcp.cli_flags?.claude_code"
-                  @change="handleCliToggle(mcp, 'claude_code', $event)"
+                  @change="handleCliToggle(mcp, 'claude_code', $event as boolean)"
                 />
               </div>
               <div class="toggle-item">
@@ -70,7 +70,7 @@
                 <el-switch
                   size="small"
                   :model-value="mcp.cli_flags?.codex"
-                  @change="handleCliToggle(mcp, 'codex', $event)"
+                  @change="handleCliToggle(mcp, 'codex', $event as boolean)"
                 />
               </div>
               <div class="toggle-item">
@@ -78,7 +78,7 @@
                 <el-switch
                   size="small"
                   :model-value="mcp.cli_flags?.gemini"
-                  @change="handleCliToggle(mcp, 'gemini', $event)"
+                  @change="handleCliToggle(mcp, 'gemini', $event as boolean)"
                 />
               </div>
             </div>
@@ -125,7 +125,7 @@ import { ElMessageBox } from 'element-plus'
 import { notify } from '@/utils/notification'
 import AppModal from '@/components/AppModal.vue'
 import { mcpApi } from '@/api/mcp'
-import type { Mcp } from '@/types/models'
+import type { CliFlagItem, CliType, Mcp } from '@/types/models'
 import { validateJson, formatJson as formatJsonUtil } from '@/utils/json'
 
 const mcpList = ref<Mcp[]>([])
@@ -222,9 +222,9 @@ async function handleSave() {
   }
 }
 
-async function handleCliToggle(mcp: Mcp, cliType: string, enabled: boolean) {
+async function handleCliToggle(mcp: Mcp, cliType: CliType, enabled: boolean) {
   try {
-    const cli_flags = [
+    const cli_flags: CliFlagItem[] = [
       { cli_type: 'claude_code', enabled: cliType === 'claude_code' ? enabled : (mcp.cli_flags?.claude_code ?? false) },
       { cli_type: 'codex', enabled: cliType === 'codex' ? enabled : (mcp.cli_flags?.codex ?? false) },
       { cli_type: 'gemini', enabled: cliType === 'gemini' ? enabled : (mcp.cli_flags?.gemini ?? false) }

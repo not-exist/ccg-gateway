@@ -59,7 +59,7 @@
                 <el-switch
                   size="small"
                   :model-value="prompt.cli_flags?.claude_code"
-                  @change="handleCliToggle(prompt, 'claude_code', $event)"
+                  @change="handleCliToggle(prompt, 'claude_code', $event as boolean)"
                 />
               </div>
               <div class="toggle-item">
@@ -67,7 +67,7 @@
                 <el-switch
                   size="small"
                   :model-value="prompt.cli_flags?.codex"
-                  @change="handleCliToggle(prompt, 'codex', $event)"
+                  @change="handleCliToggle(prompt, 'codex', $event as boolean)"
                 />
               </div>
               <div class="toggle-item">
@@ -75,7 +75,7 @@
                 <el-switch
                   size="small"
                   :model-value="prompt.cli_flags?.gemini"
-                  @change="handleCliToggle(prompt, 'gemini', $event)"
+                  @change="handleCliToggle(prompt, 'gemini', $event as boolean)"
                 />
               </div>
             </div>
@@ -114,7 +114,7 @@ import { ElMessageBox } from 'element-plus'
 import { notify } from '@/utils/notification'
 import AppModal from '@/components/AppModal.vue'
 import { promptsApi } from '@/api/prompts'
-import type { Prompt } from '@/types/models'
+import type { CliFlagItem, CliType, Prompt } from '@/types/models'
 
 const promptList = ref<Prompt[]>([])
 const loading = ref(false)
@@ -186,9 +186,9 @@ async function handleSave() {
   }
 }
 
-async function handleCliToggle(prompt: Prompt, cliType: string, enabled: boolean) {
+async function handleCliToggle(prompt: Prompt, cliType: CliType, enabled: boolean) {
   try {
-    const cli_flags = [
+    const cli_flags: CliFlagItem[] = [
       { cli_type: 'claude_code', enabled: cliType === 'claude_code' ? enabled : (prompt.cli_flags?.claude_code ?? false) },
       { cli_type: 'codex', enabled: cliType === 'codex' ? enabled : (prompt.cli_flags?.codex ?? false) },
       { cli_type: 'gemini', enabled: cliType === 'gemini' ? enabled : (prompt.cli_flags?.gemini ?? false) }

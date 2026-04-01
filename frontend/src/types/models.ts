@@ -135,6 +135,11 @@ export interface CliFlags {
   gemini: boolean
 }
 
+export interface CliFlagItem {
+  cli_type: CliType
+  enabled: boolean
+}
+
 export interface Mcp {
   id: number
   name: string
@@ -147,14 +152,14 @@ export interface McpCreate {
   name: string
   config_json: string
   enabled?: boolean
-  cli_flags?: CliFlags
+  cli_flags?: CliFlagItem[]
 }
 
 export interface McpUpdate {
   name?: string
   config_json?: string
   enabled?: boolean
-  cli_flags?: CliFlags
+  cli_flags?: CliFlagItem[]
 }
 
 // Prompt types
@@ -170,14 +175,14 @@ export interface PromptCreate {
   name: string
   content: string
   enabled?: boolean
-  cli_flags?: CliFlags
+  cli_flags?: CliFlagItem[]
 }
 
 export interface PromptUpdate {
   name?: string
   content?: string
   enabled?: boolean
-  cli_flags?: CliFlags
+  cli_flags?: CliFlagItem[]
 }
 
 // Skill Repo (仓库配置)
