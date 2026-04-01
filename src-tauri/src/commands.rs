@@ -17,12 +17,295 @@ use crate::db::models::{
     MarketplaceInfo, PluginItem, PluginFavoriteItem,
 };
 use crate::LogDb;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use tauri::{Manager, State};
 use std::io::Read;
 
 type Result<T> = std::result::Result<T, String>;
+
+#[derive(Debug, Serialize)]
+struct CodexGatewayConfig {
+    model_provider: String,
+    model_providers: BTreeMap<String, CodexModelProvider>,
+}
+
+impl CodexGatewayConfig {
+    fn gateway() -> Self {
+        let mut model_providers = BTreeMap::new();
+        model_providers.insert(
+            "ccg-gateway".to_string(),
+            CodexModelProvider {
+                name: "ccg-gateway".to_string(),
+                base_url: "http://127.0.0.1:7788".to_string(),
+                wire_api: "responses".to_string(),
+                requires_openai_auth: false,
+            },
+        );
+
+        Self {
+            model_provider: "ccg-gateway".to_string(),
+            model_providers,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct CodexModelProvider {
+    name: String,
+    base_url: String,
+    wire_api: String,
+    requires_openai_auth: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CodexMcpServer {
+    #[serde(rename = "type", skip_serializing)]
+    transport: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    args: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    env: Option<BTreeMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    env_vars: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cwd: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bearer_token_env_var: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    http_headers: Option<BTreeMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    env_http_headers: Option<BTreeMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    startup_timeout_sec: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_timeout_sec: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    required: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enabled_tools: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    disabled_tools: Option<Vec<String>>,
+}
+
+impl CodexMcpServer {
+    fn from_json(mcp_config_json: &str) -> Result<Self> {
+        let mut server = serde_json::from_str::<Self>(mcp_config_json)
+            .map_err(|e| format!("Codex MCP JSON 格式错误: {}", e))?;
+        server.normalize();
+        server.validate()?;
+        Ok(server)
+    }
+
+    fn normalize(&mut self) {
+        self.transport = normalize_string(self.transport.take())
+            .map(|transport| transport.to_ascii_lowercase());
+        self.command = normalize_string(self.command.take());
+        self.cwd = normalize_string(self.cwd.take());
+        self.url = normalize_string(self.url.take());
+        self.bearer_token_env_var = normalize_string(self.bearer_token_env_var.take());
+        self.args = normalize_vec(self.args.take());
+        self.env = normalize_map(self.env.take());
+        self.env_vars = normalize_vec(self.env_vars.take());
+        self.http_headers = normalize_map(self.http_headers.take());
+        self.env_http_headers = normalize_map(self.env_http_headers.take());
+        self.enabled_tools = normalize_vec(self.enabled_tools.take());
+        self.disabled_tools = normalize_vec(self.disabled_tools.take());
+    }
+
+    fn validate(&self) -> Result<()> {
+        let transport = match self.transport_kind()? {
+            CodexMcpTransport::Stdio => "stdio",
+            CodexMcpTransport::Http => "http",
+        };
+
+        match transport {
+            "stdio" => {
+                if self.command.is_none() {
+                    return Err("Codex stdio MCP 必须提供 command".to_string());
+                }
+                if self.url.is_some() {
+                    return Err("Codex stdio MCP 不能同时提供 url".to_string());
+                }
+                if self.bearer_token_env_var.is_some()
+                    || self.http_headers.is_some()
+                    || self.env_http_headers.is_some()
+                {
+                    return Err("Codex stdio MCP 不能包含 HTTP 专用字段".to_string());
+                }
+            }
+            "http" => {
+                if self.url.is_none() {
+                    return Err("Codex HTTP MCP 必须提供 url".to_string());
+                }
+                if self.command.is_some() {
+                    return Err("Codex HTTP MCP 不能同时提供 command".to_string());
+                }
+                if self.args.is_some()
+                    || self.env.is_some()
+                    || self.env_vars.is_some()
+                    || self.cwd.is_some()
+                {
+                    return Err("Codex HTTP MCP 不能包含 stdio 专用字段".to_string());
+                }
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(())
+    }
+
+    fn transport_kind(&self) -> Result<CodexMcpTransport> {
+        match self.transport.as_deref() {
+            Some("stdio") => Ok(CodexMcpTransport::Stdio),
+            Some("http") | Some("sse") => Ok(CodexMcpTransport::Http),
+            Some(other) => Err(format!("Codex MCP 不支持的 type: {}", other)),
+            None => match (self.command.is_some(), self.url.is_some()) {
+                (true, false) => Ok(CodexMcpTransport::Stdio),
+                (false, true) => Ok(CodexMcpTransport::Http),
+                (true, true) => Err("Codex MCP 配置同时包含 command 和 url，无法判断类型".to_string()),
+                (false, false) => Err("Codex MCP 配置缺少 command 或 url".to_string()),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CodexMcpTransport {
+    Stdio,
+    Http,
+}
+
+fn normalize_string(value: Option<String>) -> Option<String> {
+    value.and_then(|s| {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn normalize_vec<T>(value: Option<Vec<T>>) -> Option<Vec<T>> {
+    value.filter(|items| !items.is_empty())
+}
+
+fn normalize_map<K: Ord, V>(value: Option<BTreeMap<K, V>>) -> Option<BTreeMap<K, V>> {
+    value.filter(|items| !items.is_empty())
+}
+
+fn serialize_toml_document<T: Serialize>(value: &T, context: &str) -> Result<toml_edit::DocumentMut> {
+    toml_edit::ser::to_document(value)
+        .map_err(|e| format!("Failed to serialize {}: {}", context, e))
+}
+
+fn serialize_toml_table<T: Serialize>(value: &T, context: &str) -> Result<toml_edit::Table> {
+    Ok(serialize_toml_document(value, context)?.as_table().clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codex_stdio_mcp_serializes_nested_env() {
+        let server = CodexMcpServer::from_json(
+            r#"{
+                "type": "stdio",
+                "command": "auggie",
+                "args": ["--mcp"],
+                "env": {
+                    "AUGMENT_API_TOKEN": "token",
+                    "AUGMENT_API_URL": "https://ace-test.heroman.wtf/"
+                }
+            }"#,
+        )
+        .expect("stdio MCP should parse");
+
+        let rendered = serialize_toml_document(&server, "test stdio MCP")
+            .expect("stdio MCP should serialize")
+            .to_string();
+        let parsed = rendered
+            .parse::<toml::Value>()
+            .expect("serialized TOML should parse");
+
+        assert!(rendered.contains("command = \"auggie\""));
+        assert!(rendered.contains("args = [\"--mcp\"]"));
+        assert_eq!(
+            parsed
+                .get("env")
+                .and_then(|value| value.get("AUGMENT_API_TOKEN"))
+                .and_then(|value| value.as_str()),
+            Some("token")
+        );
+    }
+
+    #[test]
+    fn codex_http_mcp_serializes_headers() {
+        let server = CodexMcpServer::from_json(
+            r#"{
+                "type": "http",
+                "url": "https://example.com/mcp",
+                "bearer_token_env_var": "MCP_TOKEN",
+                "http_headers": {
+                    "x-api-version": "2026-04-01"
+                },
+                "env_http_headers": {
+                    "authorization": "MCP_AUTH_HEADER"
+                },
+                "enabled": false
+            }"#,
+        )
+        .expect("http MCP should parse");
+
+        let rendered = serialize_toml_document(&server, "test http MCP")
+            .expect("http MCP should serialize")
+            .to_string();
+        let parsed = rendered
+            .parse::<toml::Value>()
+            .expect("serialized TOML should parse");
+
+        assert!(rendered.contains("url = \"https://example.com/mcp\""));
+        assert!(rendered.contains("bearer_token_env_var = \"MCP_TOKEN\""));
+        assert!(rendered.contains("enabled = false"));
+        assert_eq!(
+            parsed
+                .get("http_headers")
+                .and_then(|value| value.get("x-api-version"))
+                .and_then(|value| value.as_str()),
+            Some("2026-04-01")
+        );
+        assert_eq!(
+            parsed
+                .get("env_http_headers")
+                .and_then(|value| value.get("authorization"))
+                .and_then(|value| value.as_str()),
+            Some("MCP_AUTH_HEADER")
+        );
+    }
+
+    #[test]
+    fn codex_mcp_rejects_mixed_transport_fields() {
+        let err = CodexMcpServer::from_json(
+            r#"{
+                "type": "stdio",
+                "command": "auggie",
+                "url": "https://example.com/mcp"
+            }"#,
+        )
+        .expect_err("mixed transport MCP should fail");
+
+        assert!(err.contains("url"));
+    }
+}
 
 fn map_db_error(e: sqlx::Error) -> String {
     let err_str = e.to_string();
@@ -1162,20 +1445,7 @@ async fn sync_codex_config(db: &SqlitePool, enabled: bool, default_config: &str)
         })?;
 
         // Build base config.toml pointing to gateway
-        let mut doc = toml_edit::DocumentMut::new();
-        doc["model_provider"] = toml_edit::value("ccg-gateway");
-
-        if !doc.contains_table("model_providers") {
-            doc["model_providers"] = toml_edit::table();
-        }
-
-        let mut gateway_table = toml_edit::Table::new();
-        gateway_table.insert("name", toml_edit::value("ccg-gateway"));
-        gateway_table.insert("base_url", toml_edit::value("http://127.0.0.1:7788"));
-        gateway_table.insert("wire_api", toml_edit::value("responses"));
-        gateway_table.insert("requires_openai_auth", toml_edit::value(false));
-
-        doc["model_providers"]["ccg-gateway"] = toml_edit::Item::Table(gateway_table);
+        let mut doc = serialize_toml_document(&CodexGatewayConfig::gateway(), "Codex gateway config")?;
 
         // Merge user's custom config if provided (TOML format)
         if !default_config.is_empty() {
@@ -1758,54 +2028,9 @@ fn sync_single_codex_mcp(
     }
 
     if is_enabled {
-        // Add or update this MCP
-        if let Ok(mcp_config) = serde_json::from_str::<serde_json::Value>(mcp_config_json) {
-            let mcp_type = mcp_config.get("type").and_then(|v| v.as_str()).unwrap_or("stdio");
-
-            // Create MCP server table
-            let mut server_table = toml_edit::Table::new();
-
-            // Handle STDIO type servers
-            if let Some(command) = mcp_config.get("command").and_then(|v| v.as_str()) {
-                server_table.insert("command", toml_edit::value(command));
-            }
-            if let Some(args) = mcp_config.get("args").and_then(|v| v.as_array()) {
-                let args_array: toml_edit::Array = args.iter()
-                    .filter_map(|v| v.as_str())
-                    .map(toml_edit::Value::from)
-                    .collect();
-                server_table.insert("args", toml_edit::Item::Value(args_array.into()));
-            }
-            if let Some(env) = mcp_config.get("env").and_then(|v| v.as_object()) {
-                let mut env_table = toml_edit::Table::new();
-                for (k, v) in env.iter() {
-                    if let Some(v_str) = v.as_str() {
-                        env_table.insert(k, toml_edit::value(v_str));
-                    }
-                }
-                server_table.insert("env", toml_edit::Item::Table(env_table));
-            }
-            if let Some(cwd) = mcp_config.get("cwd").and_then(|v| v.as_str()) {
-                server_table.insert("cwd", toml_edit::value(cwd));
-            }
-
-            // Handle HTTP/SSE type servers
-            if mcp_type == "sse" || mcp_type == "http" {
-                if let Some(url) = mcp_config.get("url").and_then(|v| v.as_str()) {
-                    server_table.insert("url", toml_edit::value(url));
-                }
-            }
-
-            // Optional fields
-            if let Some(timeout) = mcp_config.get("startup_timeout_sec").and_then(|v| v.as_i64()) {
-                server_table.insert("startup_timeout_sec", toml_edit::value(timeout));
-            }
-            if let Some(timeout) = mcp_config.get("tool_timeout_sec").and_then(|v| v.as_i64()) {
-                server_table.insert("tool_timeout_sec", toml_edit::value(timeout));
-            }
-
-            doc["mcp_servers"][mcp_name] = toml_edit::Item::Table(server_table);
-        }
+        let server = CodexMcpServer::from_json(mcp_config_json)?;
+        let server_table = serialize_toml_table(&server, "Codex MCP config")?;
+        doc["mcp_servers"][mcp_name] = toml_edit::Item::Table(server_table);
     } else {
         // Remove this MCP by name
         if let Some(table) = doc.get_mut("mcp_servers").and_then(|v| v.as_table_mut()) {
