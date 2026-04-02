@@ -22,7 +22,6 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use std::collections::{BTreeMap, HashMap};
 use tauri::{Manager, State};
-use std::io::Read;
 
 type Result<T> = std::result::Result<T, String>;
 
@@ -4127,18 +4126,6 @@ fn get_ssot_dir() -> std::path::PathBuf {
     skill::get_ssot_dir()
 }
 
-fn read_cached_zip(owner: &str, name: &str, branch: &str) -> Option<Vec<u8>> {
-    skill::read_cached_zip(owner, name, branch)
-}
-
-fn save_zip_to_cache(owner: &str, name: &str, branch: &str, bytes: &[u8]) -> Result<()> {
-    skill::save_zip_to_cache(owner, name, branch, bytes)
-}
-
-fn delete_cached_repo_zip(owner: &str, name: &str) {
-    skill::delete_cached_repo_zip(owner, name)
-}
-
 // 获取 CLI 的 skills 目录（异步版本，支持自定义配置目录）
 async fn get_skill_cli_dir_async(db: &SqlitePool, cli_type: &str) -> Option<std::path::PathBuf> {
     let config_dir = get_cli_config_dir_path(db, cli_type).await;
@@ -4367,192 +4354,125 @@ async fn load_installed_skill_responses(db: &SqlitePool) -> Result<Vec<Installed
 
 // ==================== 仓库管理命令 ====================
 
-// 解析 GitHub 仓库 URL，返回 (owner, name)
-// 支持格式:
-//   https://github.com/owner/name
-//   https://github.com/owner/name.git
-//   github.com/owner/name
-//   owner/name
-fn parse_github_url(url: &str) -> Result<(String, String)> {
-    let url = url.trim();
-    
-    // 移除 .git 后缀
-    let url = url.strip_suffix(".git").unwrap_or(url);
-    
-    // 尝试解析不同格式
-    let parts: Vec<&str> = if url.contains("github.com") {
-        // https://github.com/owner/name 或 github.com/owner/name
-        url.split("github.com/")
-            .last()
-            .unwrap_or("")
-            .split('/')
-            .collect()
-    } else if url.contains('/') {
-        // owner/name 格式
-        url.split('/').collect()
-    } else {
-        return Err("Invalid GitHub URL format".to_string());
-    };
-    
-    if parts.len() >= 2 && !parts[0].is_empty() && !parts[1].is_empty() {
-        Ok((parts[0].to_string(), parts[1].to_string()))
-    } else {
-        Err("Invalid GitHub URL: cannot extract owner/name".to_string())
-    }
-}
-
-fn github_source_parts(source: &str) -> Result<(String, String)> {
-    parse_github_url(source)
-}
-
 #[tauri::command]
 pub async fn get_skill_repos() -> Result<Vec<SkillRepo>> {
     skill::load_skill_repos()
 }
 
+/// 从 source 提取仓库名称
+fn extract_repo_name(source: &str) -> String {
+    let source = source.trim().strip_suffix(".git").unwrap_or(source.trim());
+
+    // 本地路径：取最后一段
+    if source.contains(':') && source.contains('\\') || source.starts_with('/') {
+        return std::path::Path::new(source)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or(source.to_string());
+    }
+
+    // URL：取最后一段路径
+    source.split('/').filter(|s| !s.is_empty()).last().unwrap_or(source).to_string()
+}
+
+/// 执行 git clone（浅克隆，自动使用主分支）
+fn git_clone_repo(source: &str) -> Result<std::path::PathBuf> {
+    let cache_dir = skill::get_cached_repo_dir(source);
+
+    // 如果已存在，直接返回
+    if cache_dir.exists() {
+        return Ok(cache_dir);
+    }
+
+    // 补全 URL：owner/repo 格式转为 https://github.com/owner/repo
+    let git_url = if source.contains("://") || source.contains("git@") {
+        source.to_string()
+    } else if source.split('/').filter(|s| !s.is_empty()).count() == 2 {
+        format!("https://github.com/{}", source)
+    } else {
+        source.to_string()
+    };
+
+    let output = std::process::Command::new("git")
+        .args(["clone", "--depth", "1", &git_url, cache_dir.to_str().unwrap_or("")])
+        .output()
+        .map_err(|e| format!("git clone 执行失败: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git clone 失败: {}", stderr));
+    }
+
+    tracing::info!("git clone 成功: {} -> {}", git_url, cache_dir.display());
+    Ok(cache_dir)
+}
+
 #[tauri::command]
 pub async fn add_skill_repo(input: SkillRepoCreate) -> Result<SkillRepo> {
     let url = input.url.trim();
-    
-    // 1. 尝试解析为本地目录
+
+    // 1. 本地目录：直接存储
     let path = std::path::Path::new(url);
     if skill::is_local_repo_source(url) && path.exists() && path.is_dir() {
-        let name = path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("local_repo")
-            .to_string();
-
         let repo = SkillRepo {
-            name,
+            name: extract_repo_name(url),
             source: url.to_string(),
-            branch: None,
         };
         skill::upsert_skill_repo(repo.clone())?;
         return Ok(repo);
     }
 
-    // 2. 尝试解析为 GitHub 仓库
-    let (owner, repo_name) = parse_github_url(url)?;
-    let user_branch = input.branch.unwrap_or_else(|| "main".to_string());
-    
-    // 检测实际分支
-    let client = reqwest::Client::new();
-    let actual_branch = detect_repo_branch(&client, &owner, &repo_name, &user_branch).await?;
-    
-    // 如果用户指定的分支不存在，返回错误提示
-    if actual_branch != user_branch {
-        return Err(format!(
-            "分支 '{}' 不存在，该仓库使用的是 '{}' 分支",
-            user_branch, actual_branch
-        ));
-    }
-    
-    let source = format!("{}/{}", owner, repo_name);
+    // 2. 远程仓库：尝试 git clone 验证
+    git_clone_repo(url)?;
+
     let repo = SkillRepo {
-        name: repo_name,
-        source,
-        branch: Some(actual_branch),
+        name: extract_repo_name(url),
+        source: url.to_string(),
     };
     skill::upsert_skill_repo(repo.clone())?;
     Ok(repo)
-}
-
-// 检测仓库实际分支
-async fn detect_repo_branch(
-    client: &reqwest::Client,
-    owner: &str,
-    name: &str,
-    preferred_branch: &str,
-) -> Result<String> {
-    // 尝试的分支顺序
-    let branches = if preferred_branch.is_empty() {
-        vec!["main", "master"]
-    } else {
-        vec![preferred_branch, "main", "master"]
-    };
-    
-    for br in branches {
-        let url = format!("https://github.com/{}/{}/archive/refs/heads/{}.zip", owner, name, br);
-        match client.head(&url).send().await {
-            Ok(response) if response.status().is_success() => {
-                return Ok(br.to_string());
-            }
-            _ => continue,
-        }
-    }
-    Err(format!("无法访问仓库 {}/{}，请检查仓库地址是否正确", owner, name))
 }
 
 #[tauri::command]
 pub async fn remove_skill_repo(name: String) -> Result<()> {
     if let Some(repo) = skill::remove_skill_repo(&name)? {
         if !skill::is_local_repo_source(&repo.source) {
-            let (owner, repo_name) = github_source_parts(&repo.source)?;
-            delete_cached_repo_zip(&owner, &repo_name);
+            skill::delete_cached_repo_dir(&repo.source);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_skill_repo(old_name: String, new_url: String) -> Result<SkillRepo> {
+    let old_repo = skill::get_skill_repo(&old_name)?;
+
+    // 清理旧缓存
+    if let Some(old_repo) = &old_repo {
+        if !skill::is_local_repo_source(&old_repo.source) {
+            skill::delete_cached_repo_dir(&old_repo.source);
         }
     }
 
-    Ok(())
-}
-#[tauri::command]
-pub async fn update_skill_repo(
-    old_name: String,
-    new_url: String,
-    new_branch: String,
-) -> Result<SkillRepo> {
-    let old_repo = skill::get_skill_repo(&old_name)?;
-    // 1. 尝试解析为本地目录
+    // 1. 本地目录：直接存储
     let path = std::path::Path::new(&new_url);
     if skill::is_local_repo_source(&new_url) && path.exists() && path.is_dir() {
-        let name = path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("local_repo")
-            .to_string();
-
         let repo = SkillRepo {
-            name,
+            name: extract_repo_name(&new_url),
             source: new_url.to_string(),
-            branch: None,
         };
         skill::replace_skill_repo(&old_name, repo.clone())?;
-        if let Some(old_repo) = old_repo {
-            if !skill::is_local_repo_source(&old_repo.source) {
-                let (owner, repo_name) = github_source_parts(&old_repo.source)?;
-                delete_cached_repo_zip(&owner, &repo_name);
-            }
-        }
         return Ok(repo);
     }
 
-    // 2. 尝试解析为 GitHub 仓库
-    let (new_owner, new_repo_name) = parse_github_url(&new_url)?;
-    let user_branch = if new_branch.is_empty() { "main".to_string() } else { new_branch };
-    
-    // 检测实际分支
-    let client = reqwest::Client::new();
-    let actual_branch = detect_repo_branch(&client, &new_owner, &new_repo_name, &user_branch).await?;
-    
-    // 如果用户指定的分支不存在，返回错误提示
-    if actual_branch != user_branch {
-        return Err(format!(
-            "分支 '{}' 不存在，该仓库使用的是 '{}' 分支",
-            user_branch, actual_branch
-        ));
-    }
-    
-    let source = format!("{}/{}", new_owner, new_repo_name);
+    // 2. 远程仓库：尝试 git clone 验证
+    git_clone_repo(&new_url)?;
+
     let repo = SkillRepo {
-        name: new_repo_name,
-        source,
-        branch: Some(actual_branch),
+        name: extract_repo_name(&new_url),
+        source: new_url.to_string(),
     };
     skill::replace_skill_repo(&old_name, repo.clone())?;
-    if let Some(old_repo) = old_repo {
-        if !skill::is_local_repo_source(&old_repo.source) {
-            let (owner, repo_name) = github_source_parts(&old_repo.source)?;
-            delete_cached_repo_zip(&owner, &repo_name);
-        }
-    }
     Ok(repo)
 }
 
@@ -4563,205 +4483,92 @@ pub async fn discover_repo_skills(name: String) -> Result<Vec<DiscoverableSkill>
     let repo = skill::get_skill_repo(&name)?
         .ok_or_else(|| format!("未找到仓库 '{}'", name))?;
 
-    // 1. 如果是本地目录
+    // 1. 本地目录
     if skill::is_local_repo_source(&repo.source) {
         return scan_local_repo_skills(&repo).await;
     }
 
-    // 2. 如果是 GitHub 仓库
-    let (owner, repo_name) = github_source_parts(&repo.source)?;
-    let branch_to_use = repo.branch.as_deref().unwrap_or("main");
-
-    // 优先使用缓存
-    if let Some(bytes) = read_cached_zip(&owner, &repo_name, branch_to_use) {
-        tracing::info!("Using cached ZIP for {}/{}", owner, repo_name);
-        let mut skills = scan_zip_for_skills(&bytes, &repo, &owner, &repo_name, branch_to_use)?;
-        skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-        return Ok(skills);
-    }
-
-    // 没有缓存则下载
-    let client = reqwest::Client::new();
-    let bytes = download_repo_zip(&client, &owner, &repo_name, branch_to_use).await?;
-    
-    // 保存到缓存
-    let _ = save_zip_to_cache(&owner, &repo_name, branch_to_use, &bytes);
-    
-    let mut skills = scan_zip_for_skills(&bytes, &repo, &owner, &repo_name, branch_to_use)?;
-    skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    Ok(skills)
+    // 2. 远程仓库：git clone 或使用缓存
+    let cache_dir = git_clone_repo(&repo.source)?;
+    scan_cached_repo_skills(&cache_dir, &repo)
 }
 
-// 强制刷新仓库 skills（删除缓存后重新下载）
 #[tauri::command]
 pub async fn refresh_repo_skills(name: String) -> Result<Vec<DiscoverableSkill>> {
     let repo = skill::get_skill_repo(&name)?
         .ok_or_else(|| format!("未找到仓库 '{}'", name))?;
 
-    // 1. 如果是本地目录
+    // 1. 本地目录
     if skill::is_local_repo_source(&repo.source) {
         return scan_local_repo_skills(&repo).await;
     }
 
-    // 2. 如果是 GitHub 仓库
-    let (owner, repo_name) = github_source_parts(&repo.source)?;
-
-    // 删除旧缓存
-    delete_cached_repo_zip(&owner, &repo_name);
-
-    // 重新发现
-    discover_repo_skills(name).await
+    // 2. 远程仓库：删除缓存后重新 clone
+    skill::delete_cached_repo_dir(&repo.source);
+    let cache_dir = git_clone_repo(&repo.source)?;
+    scan_cached_repo_skills(&cache_dir, &repo)
 }
 
-async fn scan_local_repo_skills(repo: &SkillRepo) -> Result<Vec<DiscoverableSkill>> {
+/// 扫描缓存的仓库目录
+fn scan_cached_repo_skills(cache_dir: &std::path::Path, repo: &SkillRepo) -> Result<Vec<DiscoverableSkill>> {
     let mut skills = Vec::new();
-    let root_path = std::path::Path::new(&repo.source);
-    
-    if !root_path.exists() || !root_path.is_dir() {
-        return Err(format!("本地目录 {} 不存在", repo.source));
-    }
 
-    // 使用 walkdir 查找 SKILL.md
-    for entry in walkdir::WalkDir::new(root_path)
+    for entry in walkdir::WalkDir::new(cache_dir)
         .max_depth(5)
         .into_iter()
-        .filter_map(|e| e.ok()) {
+        .filter_map(|e| e.ok())
+    {
         if entry.file_name() == "SKILL.md" {
             let file_path = entry.path();
-            let parent_dir = file_path.parent().unwrap_or(root_path);
-            
-            // 获取相对路径
-            let relative_path = parent_dir.strip_prefix(root_path)
+            let parent_dir = file_path.parent().unwrap_or(cache_dir);
+
+            let relative_path = parent_dir
+                .strip_prefix(cache_dir)
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default();
-            
+
             let content = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
             let (skill_name, description) = parse_skill_metadata(&content);
-            
+
             let directory_name = if relative_path.is_empty() {
-                repo.name.clone()
+                cache_dir
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or("repo".to_string())
             } else {
-                parent_dir.file_name()
+                parent_dir
+                    .file_name()
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_else(|| relative_path.clone())
             };
 
+            let directory_str = if relative_path.is_empty() { ".".to_string() } else { relative_path };
+            let install_dir = skill_install_directory_name_from_parts(&directory_str, &repo.name);
             skills.push(DiscoverableSkill {
-                key: format!("{}:{}", repo.name, if relative_path.is_empty() { "." } else { &relative_path }),
+                key: format!("{}:{}", repo.name, &directory_str),
                 name: skill_name.unwrap_or_else(|| directory_name.clone()),
                 description: description.unwrap_or_default(),
-                directory: if relative_path.is_empty() { ".".to_string() } else { relative_path },
+                directory: directory_str,
+                install_directory: install_dir,
                 readme_url: None,
                 repo: repo.clone(),
             });
         }
     }
-    
+
     skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(skills)
 }
 
-// 下载仓库 ZIP
-async fn download_repo_zip(
-    client: &reqwest::Client,
-    owner: &str,
-    name: &str,
-    branch: &str,
-) -> Result<Vec<u8>> {
-    let url = format!("https://github.com/{}/{}/archive/refs/heads/{}.zip", owner, name, branch);
-    let response = client.get(&url).send().await.map_err(|e| e.to_string())?;
-    
-    if !response.status().is_success() {
-        return Err(format!("下载失败: HTTP {}", response.status()));
-    }
-    
-    response.bytes().await
-        .map(|b| b.to_vec())
-        .map_err(|e| e.to_string())
-}
+/// 扫描本地仓库目录
+async fn scan_local_repo_skills(repo: &SkillRepo) -> Result<Vec<DiscoverableSkill>> {
+    let root_path = std::path::Path::new(&repo.source);
 
-// 扫描 ZIP 中的 skills
-fn scan_zip_for_skills(
-    bytes: &[u8],
-    repo: &SkillRepo,
-    owner: &str,
-    repo_name: &str,
-    branch: &str,
-) -> Result<Vec<DiscoverableSkill>> {
-    let cursor = std::io::Cursor::new(bytes);
-    let mut archive = zip::ZipArchive::new(cursor).map_err(|e| e.to_string())?;
-
-    // 获取根目录名
-    let root_name = if !archive.is_empty() {
-        let first = archive.by_index(0).map_err(|e| e.to_string())?;
-        first.name().split('/').next().unwrap_or("").to_string()
-    } else {
-        return Ok(vec![]);
-    };
-
-    let mut skills = Vec::new();
-    let mut skill_dirs: std::collections::HashSet<String> = std::collections::HashSet::new();
-
-    // 查找所有 SKILL.md 文件
-    for i in 0..archive.len() {
-        let file = archive.by_index(i).map_err(|e| e.to_string())?;
-        let file_path = file.name().to_string();
-
-        if file_path.ends_with("SKILL.md") {
-            // 获取相对路径
-            let relative_path = file_path
-                .strip_prefix(&format!("{}/", root_name))
-                .unwrap_or(&file_path);
-
-            // 获取目录路径 (移除 SKILL.md)
-            let dir_path = std::path::Path::new(relative_path)
-                .parent()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default();
-
-            if !dir_path.is_empty() {
-                skill_dirs.insert(dir_path);
-            } else {
-                // SKILL.md 在根目录
-                skill_dirs.insert(repo_name.to_string());
-            }
-        }
+    if !root_path.exists() || !root_path.is_dir() {
+        return Err(format!("本地目录 {} 不存在", repo.source));
     }
 
-    // 为每个 skill 目录读取元数据
-    for dir in skill_dirs {
-        let skill_md_path = if dir == repo_name {
-            format!("{}/SKILL.md", root_name)
-        } else {
-            format!("{}/{}/SKILL.md", root_name, dir)
-        };
-
-        let mut content = String::new();
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-            if file.name() == skill_md_path {
-                file.read_to_string(&mut content).map_err(|e| e.to_string())?;
-                break;
-            }
-        }
-
-        let (name, description) = parse_skill_metadata(&content);
-        let directory_name = std::path::Path::new(&dir)
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| dir.clone());
-
-        skills.push(DiscoverableSkill {
-            key: format!("{}/{}:{}", owner, repo_name, dir),
-            name: name.unwrap_or_else(|| directory_name.clone()),
-            description: description.unwrap_or_default(),
-            directory: dir.clone(),
-            readme_url: Some(format!("https://github.com/{}/{}/tree/{}/{}", owner, repo_name, branch, dir)),
-            repo: repo.clone(),
-        });
-    }
-
-    Ok(skills)
+    scan_cached_repo_skills(root_path, repo)
 }
 
 // ==================== Skill 安装/卸载命令 ====================
@@ -4783,10 +4590,8 @@ async fn install_skill_inner(
     }
 
     // 如果是重装，先删除旧的 SSOT 目录
-    if reinstall {
-        if skill_path.exists() {
-            let _ = std::fs::remove_dir_all(&skill_path);
-        }
+    if reinstall && skill_path.exists() {
+        let _ = std::fs::remove_dir_all(&skill_path);
     }
 
     // 根据类型进行安装
@@ -4797,27 +4602,28 @@ async fn install_skill_inner(
         } else {
             source_path.join(&skill_item.directory)
         };
-        
+
         let dest_path = ssot_dir.join(&directory_name);
         if !skill_source_path.exists() {
             return Err(format!("技能目录不存在: {}", skill_source_path.display()));
         }
-        
+
         copy_dir_recursive(&skill_source_path, &dest_path)?;
     } else {
-        let (owner, repo_name) = github_source_parts(&skill_item.repo.source)?;
-        let branch_to_use = skill_item.repo.branch.as_deref().unwrap_or("main");
-        let bytes = if let Some(cached) = read_cached_zip(&owner, &repo_name, branch_to_use) {
-            tracing::info!("Using cached ZIP for install: {}/{}", owner, repo_name);
-            cached
+        // 从 git clone 缓存目录复制
+        let cache_dir = git_clone_repo(&skill_item.repo.source)?;
+        let skill_source_path = if skill_item.directory == "." {
+            cache_dir.to_path_buf()
         } else {
-            let client = reqwest::Client::new();
-            let downloaded = download_repo_zip(&client, &owner, &repo_name, branch_to_use).await?;
-            let _ = save_zip_to_cache(&owner, &repo_name, branch_to_use, &downloaded);
-            downloaded
+            cache_dir.join(&skill_item.directory)
         };
 
-        extract_skill_from_zip(&bytes, &skill_item.directory, &ssot_dir, &directory_name)?;
+        let dest_path = ssot_dir.join(&directory_name);
+        if !skill_source_path.exists() {
+            return Err(format!("技能目录不存在: {}", skill_source_path.display()));
+        }
+
+        copy_dir_recursive(&skill_source_path, &dest_path)?;
     }
 
     let now = chrono::Utc::now().timestamp();
@@ -4856,56 +4662,6 @@ pub async fn install_skill(
     reinstall: Option<bool>,
 ) -> Result<InstalledSkillResponse> {
     install_skill_inner(db.inner(), skill, reinstall.unwrap_or(false)).await
-}
-
-// 从 ZIP 中提取 skill 到 SSOT
-fn extract_skill_from_zip(
-    bytes: &[u8],
-    skill_dir: &str,
-    ssot_dir: &std::path::Path,
-    directory_name: &str,
-) -> Result<()> {
-    let cursor = std::io::Cursor::new(bytes);
-    let mut archive = zip::ZipArchive::new(cursor).map_err(|e| e.to_string())?;
-
-    // 获取根目录名
-    let root_name = if !archive.is_empty() {
-        let first = archive.by_index(0).map_err(|e| e.to_string())?;
-        first.name().split('/').next().unwrap_or("").to_string()
-    } else {
-        return Err("Empty archive".to_string());
-    };
-
-    let skill_prefix = format!("{}/{}/", root_name, skill_dir);
-    let dest_dir = ssot_dir.join(directory_name);
-
-    // 创建目标目录
-    std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
-
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-        let file_path = file.name().to_string();
-
-        if let Some(relative) = file_path.strip_prefix(&skill_prefix) {
-            if relative.is_empty() {
-                continue;
-            }
-
-            let out_path = dest_dir.join(relative);
-
-            if file.is_dir() {
-                std::fs::create_dir_all(&out_path).map_err(|e| e.to_string())?;
-            } else {
-                if let Some(parent) = out_path.parent() {
-                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                }
-                let mut out_file = std::fs::File::create(&out_path).map_err(|e| e.to_string())?;
-                std::io::copy(&mut file, &mut out_file).map_err(|e| e.to_string())?;
-            }
-        }
-    }
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -4970,7 +4726,6 @@ pub async fn get_skill_favorites(db: State<'_, SqlitePool>) -> Result<Vec<SkillF
             let repo = SkillRepo {
                 name: favorite.repo_name,
                 source: favorite.repo_source,
-                branch: favorite.repo_branch,
             };
             let installed_directory = skill_install_directory_name_from_parts(&favorite.directory, &repo.name);
             SkillFavoriteItem {
@@ -4999,7 +4754,7 @@ pub async fn add_skill_favorite(db: State<'_, SqlitePool>, skill_item: Discovera
     .bind(&skill_item.readme_url)
     .bind(&skill_item.repo.name)
     .bind(&skill_item.repo.source)
-    .bind(&skill_item.repo.branch)
+    .bind(None::<String>)  // repo_branch 不再使用
     .bind(now)
     .execute(db.inner())
     .await
@@ -5037,12 +4792,12 @@ pub async fn install_favorite_skill(
             key: favorite.skill_key,
             name: favorite.name,
             description: favorite.description.unwrap_or_default(),
-            directory: favorite.directory,
+            directory: favorite.directory.clone(),
+            install_directory: skill_install_directory_name_from_parts(&favorite.directory, &favorite.repo_name),
             readme_url: favorite.readme_url,
             repo: SkillRepo {
                 name: favorite.repo_name,
                 source: favorite.repo_source,
-                branch: favorite.repo_branch,
             },
         },
         false,

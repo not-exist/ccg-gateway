@@ -75,13 +75,7 @@ fn default_skill_repos() -> Vec<SkillRepo> {
     vec![
         SkillRepo {
             name: "skills".to_string(),
-            source: "anthropics/skills".to_string(),
-            branch: Some("main".to_string()),
-        },
-        SkillRepo {
-            name: "awesome-claude-skills".to_string(),
-            source: "ComposioHQ/awesome-claude-skills".to_string(),
-            branch: Some("master".to_string()),
+            source: "https://github.com/anthropics/skills".to_string(),
         },
     ]
 }
@@ -172,48 +166,24 @@ pub fn list_installed_skill_directories() -> Result<Vec<String>> {
     Ok(directories)
 }
 
-pub fn get_cached_repo_zip(owner: &str, name: &str, branch: &str) -> PathBuf {
-    get_skill_cache_dir().join(format!("{}_{}__{}.zip", owner, name, branch))
+/// 生成缓存目录名，从 URL 中提取仓库名
+pub fn get_cached_repo_dir(source: &str) -> PathBuf {
+    let repo_name = source
+        .trim()
+        .strip_suffix(".git")
+        .unwrap_or(source)
+        .split('/')
+        .last()
+        .unwrap_or("repo");
+    get_skill_cache_dir().join(repo_name)
 }
 
-fn get_legacy_cached_repo_zip(owner: &str, name: &str, branch: &str) -> PathBuf {
-    get_skill_repo_dir().join(format!("{}_{}__{}.zip", owner, name, branch))
-}
-
-pub fn read_cached_zip(owner: &str, name: &str, branch: &str) -> Option<Vec<u8>> {
-    let cache_path = get_cached_repo_zip(owner, name, branch);
-    if cache_path.exists() {
-        return std::fs::read(cache_path).ok();
-    }
-
-    let legacy_path = get_legacy_cached_repo_zip(owner, name, branch);
-    if legacy_path.exists() {
-        return std::fs::read(legacy_path).ok();
-    }
-
-    None
-}
-
-pub fn save_zip_to_cache(owner: &str, name: &str, branch: &str, bytes: &[u8]) -> Result<()> {
-    let path = get_cached_repo_zip(owner, name, branch);
-    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
-    tracing::info!("Saved repo ZIP to cache: {}", path.display());
-    Ok(())
-}
-
-pub fn delete_cached_repo_zip(owner: &str, name: &str) {
-    for cache_dir in [get_skill_cache_dir(), get_skill_repo_dir()] {
-        if let Ok(entries) = std::fs::read_dir(&cache_dir) {
-            let prefix = format!("{}_{}_", owner, name);
-            for entry in entries.flatten() {
-                if let Some(filename) = entry.file_name().to_str() {
-                    if filename.starts_with(&prefix) && filename.ends_with(".zip") {
-                        let _ = std::fs::remove_file(entry.path());
-                        tracing::info!("Deleted cached ZIP: {}", filename);
-                    }
-                }
-            }
-        }
+/// 删除缓存的仓库目录
+pub fn delete_cached_repo_dir(source: &str) {
+    let cache_dir = get_cached_repo_dir(source);
+    if cache_dir.exists() {
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        tracing::info!("Deleted cached repo dir: {}", cache_dir.display());
     }
 }
 

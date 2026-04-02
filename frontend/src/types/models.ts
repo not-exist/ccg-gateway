@@ -187,15 +187,12 @@ export interface PromptUpdate {
 
 // Skill Repo (仓库配置)
 export interface SkillRepo {
-  name: string
-  source: string
-  branch?: string
+  name: string    // 显示名称
+  source: string  // 来源（URL/repo/local path）
 }
 
-
 export interface SkillRepoCreate {
-  url: string      // GitHub 仓库 URL
-  branch?: string
+  url: string
 }
 
 export interface DiscoverableSkill {
@@ -203,6 +200,7 @@ export interface DiscoverableSkill {
   name: string
   description: string
   directory: string
+  install_directory: string // 安装后的目录名
   readme_url: string | null
   repo: SkillRepo
 }

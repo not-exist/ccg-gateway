@@ -170,7 +170,7 @@
                   </div>
                   <div class="repo-info-main">
                     <div class="repo-name-title">{{ repo.name }}</div>
-                    <div class="repo-owner-subtitle mono">{{ repo.source }}</div>
+                    <div class="repo-source-subtitle mono">{{ repo.source }}</div>
                   </div>
                   <div class="repo-actions-overlay" @click.stop>
                     <button class="action-btn" title="编辑" @click="handleEditRepo(repo)">
@@ -195,7 +195,7 @@
               </button>
               <div>
                 <h2 class="page-title" style="font-size: 20px; margin-bottom: 2px;">{{ currentRepo.name }}</h2>
-                <div style="font-size: 13px; color: #94a3b8;">源: {{ currentRepo.source }} <span v-if="currentRepo.branch">| 分支: {{ currentRepo.branch }}</span></div>
+                <div class="mono" style="font-size: 13px; color: #94a3b8;">{{ currentRepo.source }}</div>
               </div>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -219,7 +219,7 @@
                   <div class="discover-info">
                     <div class="discover-name-row">
                       <span class="discover-name">{{ skill.name }}</span>
-                      <span class="mono" style="font-size: 11px; color: #94a3b8;">/{{ skill.directory }}</span>
+                      <span class="mono" style="font-size: 11px; color: #94a3b8;">{{ skill.directory }}</span>
                     </div>
                     <el-tooltip
                       v-if="skill.description"
@@ -243,18 +243,19 @@
                   </div>
                   <div class="discover-actions">
                     <button
-                      class="action-btn star"
+                      class="action-btn"
+                      :style="favoriteKeys.has(skill.key) ? 'color: #f59e0b; background: rgba(245, 158, 11, 0.1);' : 'color: #cbd5e1; background: rgba(203, 213, 225, 0.1);'"
                       :title="favoriteKeys.has(skill.key) ? '取消收藏' : '收藏技能'"
                       @click="toggleRepoFavorite(skill)"
                     >
                       <svg
                         width="18"
                         height="18"
-                        :style="favoriteKeys.has(skill.key) ? 'fill: #f59e0b; color: #f59e0b;' : 'color: #cbd5e1;'"
+                        :style="favoriteKeys.has(skill.key) ? 'fill: #f59e0b;' : ''"
                       ><use href="#icon-star"/></svg>
                     </button>
                     <button 
-                      v-if="isInstalled(skill.directory)"
+                      v-if="isInstalled(skill.install_directory)"
                       class="action-btn"
                       style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"
                       title="重装"
@@ -299,15 +300,36 @@
                     <div class="fav-name">{{ favorite.name }}</div>
                     <div class="fav-market">来自仓库: {{ favorite.repo.source }}</div>
                   </div>
-                  <div class="fav-status">
-                    <span class="pill" :class="favorite.is_installed ? 'pill-green' : 'pill-grey'">
-                      {{ favorite.is_installed ? '已安装' : '未安装' }}
-                    </span>
+                  <div class="fav-actions">
+                    <button
+                      class="action-btn"
+                      style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"
+                      title="取消收藏"
+                      @click="handleRemoveFavoriteById(favorite)"
+                    >
+                      <svg width="18" height="18" style="fill: #f59e0b;"><use href="#icon-star"/></svg>
+                    </button>
+                    <button
+                      v-if="favorite.is_installed"
+                      class="action-btn"
+                      style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"
+                      title="重装"
+                      :disabled="installingSkillId === favorite.key"
+                      @click="handleInstallFavorite(favorite, true)"
+                    >
+                      <svg width="18" height="18"><use href="#icon-refresh"/></svg>
+                    </button>
+                    <button
+                      v-else
+                      class="action-btn"
+                      style="color: #0ea5e9; background: rgba(14, 165, 233, 0.1);"
+                      title="安装技能"
+                      :disabled="installingSkillId === favorite.key"
+                      @click="handleInstallFavorite(favorite, false)"
+                    >
+                      <svg width="18" height="18"><use href="#icon-plus"/></svg>
+                    </button>
                   </div>
-                </div>
-                <div class="fav-footer">
-                  <button v-if="!favorite.is_installed" class="btn-sm primary" @click="handleInstallFavorite(favorite)">立即安装</button>
-                  <button class="btn-sm outline danger-text" @click="handleRemoveFavoriteById(favorite)">移除收藏</button>
                 </div>
               </div>
             </div>
@@ -324,16 +346,7 @@
               type="text"
               v-model="repoForm.url"
               class="c-input"
-              placeholder="例如: owner/repo 或 GitHub 链接"
-            >
-          </div>
-          <div class="form-group">
-            <label class="c-label">分支</label>
-            <input
-              type="text"
-              v-model="repoForm.branch"
-              class="c-input"
-              placeholder="默认 main"
+              placeholder="仓库地址 、 owner/repo 、 本地目录"
             >
           </div>
 
@@ -349,16 +362,7 @@
               type="text"
               v-model="editRepoForm.url"
               class="c-input"
-              placeholder="例如: owner/repo 或 GitHub 链接"
-            >
-          </div>
-          <div class="form-group">
-            <label class="c-label">分支</label>
-            <input
-              type="text"
-              v-model="editRepoForm.branch"
-              class="c-input"
-              placeholder="默认 main"
+              placeholder="GitHub URL / owner/repo / 本地目录"
             >
           </div>
 
@@ -389,9 +393,9 @@ const installingSkillId = ref<string | null>(null)
 const repoList = ref<SkillRepo[]>([])
 const loadingRepos = ref(false)
 const showAddRepoDialog = ref(false)
-const repoForm = ref({ url: '', branch: '' })
+const repoForm = ref({ url: '' })
 const showEditRepoDialog = ref(false)
-const editRepoForm = ref({ oldName: '', url: '', branch: '' })
+const editRepoForm = ref({ oldName: '', url: '' })
 
 // Discovery
 const currentRepo = ref<SkillRepo | null>(null)
@@ -411,8 +415,8 @@ const sortedRepoSkillList = computed(() => {
     const bFavorited = favoriteKeys.value.has(b.key)
     if (aFavorited !== bFavorited) return aFavorited ? -1 : 1
 
-    const aInstalled = isInstalled(a.directory)
-    const bInstalled = isInstalled(b.directory)
+    const aInstalled = isInstalled(a.install_directory)
+    const bInstalled = isInstalled(b.install_directory)
     if (aInstalled !== bInstalled) return aInstalled ? -1 : 1
 
     return a.name.localeCompare(b.name, 'zh-CN')
@@ -430,11 +434,8 @@ const filteredSkillList = computed(() => {
 })
 
 const installedDirectories = computed(() => new Set(installedList.value.map(s => s.directory)))
-function isInstalled(directory: string): boolean {
-  const dirName = directory === '.'
-    ? (currentRepo.value?.name || directory)
-    : (directory.split('/').pop() || directory)
-  return installedDirectories.value.has(dirName)
+function isInstalled(installDirectory: string): boolean {
+  return installedDirectories.value.has(installDirectory)
 }
 
 function isLocalRepo(repo?: SkillRepo | null): boolean {
@@ -461,6 +462,7 @@ function toDiscoverableSkill(installed: InstalledSkill): DiscoverableSkill | nul
     name: installed.name,
     description: installed.description || '',
     directory: sourceDirectory,
+    install_directory: installed.directory,
     readme_url: installed.readme_url,
     repo: installed.repo
   }
@@ -660,16 +662,21 @@ async function toggleRepoFavorite(skill: DiscoverableSkill) {
   await toggleFavorite(skill)
 }
 
-async function handleInstallFavorite(favorite: SkillFavoriteItem) {
-  loadingFavorites.value = true
+async function handleInstallFavorite(favorite: SkillFavoriteItem, reinstall: boolean = false) {
+  installingSkillId.value = favorite.key
   try {
+    if (reinstall) {
+      await ElMessageBox.confirm(`确定重装 "${favorite.name}"? (将更新为最新版本)`, '确认重装')
+    }
     await skillsApi.installFavorite(favorite.key)
-    notify('安装成功')
+    notify(reinstall ? '重装成功' : '安装成功')
     await refreshInstallationState()
   } catch (error: any) {
-    notify(error?.message || '安装失败', 'error')
+    if (error !== 'cancel' && error?.toString() !== 'cancel') {
+      notify(error?.message || '安装失败', 'error')
+    }
   } finally {
-    loadingFavorites.value = false
+    installingSkillId.value = null
   }
 }
 
@@ -698,15 +705,12 @@ async function handleAddRepo() {
     notify('请输入仓库地址', 'error')
     return
   }
-  
-  const payload = {
-    url: repoForm.value.url.trim(),
-    branch: repoForm.value.branch.trim() || undefined
-  }
-  
+
+  const payload = { url: repoForm.value.url.trim() }
+
   showAddRepoDialog.value = false
-  repoForm.value = { url: '', branch: '' }
-  
+  repoForm.value = { url: '' }
+
   loadingRepos.value = true
   try {
     await skillsApi.addRepo(payload)
@@ -739,7 +743,6 @@ function handleEditRepo(repo: SkillRepo) {
   editRepoForm.value = {
     oldName: repo.name,
     url: repo.source,
-    branch: repo.branch || ''
   }
   showEditRepoDialog.value = true
 }
@@ -749,21 +752,14 @@ async function handleUpdateRepo() {
     notify('请输入仓库地址', 'error')
     return
   }
-  
-  const payload = {
-    oldName: editRepoForm.value.oldName,
-    url: editRepoForm.value.url.trim(),
-    branch: editRepoForm.value.branch.trim()
-  }
-  
+
   showEditRepoDialog.value = false
-  
+
   loadingRepos.value = true
   try {
     await skillsApi.updateRepo(
-      payload.oldName,
-      payload.url,
-      payload.branch
+      editRepoForm.value.oldName,
+      editRepoForm.value.url.trim()
     )
     notify('更新成功')
     await fetchRepos()
@@ -881,7 +877,7 @@ onMounted(() => {
 }
 .repo-info-main { flex: 1; min-width: 0; }
 .repo-name-title { font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; }
-.repo-owner-subtitle { font-size: 12px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-source-subtitle { font-size: 12px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .repo-actions-overlay { display: flex; gap: 4px; flex-shrink: 0; }
 
 /* Discover List */
@@ -903,35 +899,21 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.discover-actions { flex-shrink: 0; }
+.discover-actions { flex-shrink: 0; display: flex; gap: 4px; }
 
 /* Favorites */
 .favorite-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-.fav-card { background: white; border-radius: 16px; border: 1px solid #f1f5f9; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-.fav-main { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.fav-info { min-width: 0; }
+.fav-card { background: white; border-radius: 16px; border: 1px solid #f1f5f9; padding: 20px; }
+.fav-main { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.fav-info { min-width: 0; flex: 1; }
 .fav-name { font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 4px; }
 .fav-market { font-size: 12px; color: #94a3b8; word-break: break-all; }
-.fav-footer { display: flex; gap: 10px; padding-top: 12px; border-top: 1px dashed #f1f5f9; }
-.btn-sm { 
-  border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; 
-  cursor: pointer; transition: all 0.2s; display: flex; align-items: center; 
-}
-.btn-sm.primary { background: #0ea5e9; color: white; }
-.btn-sm.primary:hover { background: #0284c7; }
-.btn-sm.outline { background: white; border: 1px solid #e2e8f0; color: #475569; }
-.btn-sm.outline:hover { background: #f8fafc; color: #0f172a; }
-.btn-sm.danger-text { color: #f43f5e; }
-.btn-sm.danger-text:hover { background: #fef2f2; }
-
+.fav-actions { flex-shrink: 0; display: flex; gap: 4px; }
 
 /* Shared styles */
 .mono { font-family: "JetBrains Mono", monospace; }
 .tag { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .tag-red { background: #fef2f2; color: #f43f5e; }
-.pill { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-.pill-grey { background: #f1f5f9; color: #64748b; }
-.pill-green { background: #ecfdf5; color: #10b981; }
 
 .search-box { position: relative; }
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }

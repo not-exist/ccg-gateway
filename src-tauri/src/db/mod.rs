@@ -245,7 +245,6 @@ fn legacy_repo_to_file_repo(
         Some(owner) if !owner.is_empty() => Some(crate::db::models::SkillRepo {
             name: repo_name.clone(),
             source: format!("{}/{}", owner, repo_name),
-            branch: skill_config.repo_branch.clone(),
         }),
         _ => None,
     }

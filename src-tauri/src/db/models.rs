@@ -363,15 +363,13 @@ pub struct PromptUpdate {
 // Skill Repo (仓库配置 - 对应数据库表)
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct SkillRepo {
-    pub name: String,
-    pub source: String,
-    pub branch: Option<String>,
+    pub name: String,    // 显示名称（从 source 提取）
+    pub source: String,  // 用户输入的原值（URL/repo/local path）
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SkillRepoCreate {
-    pub url: String,           // GitHub 仓库 URL
-    pub branch: Option<String>,
+    pub url: String,
 }
 
 // Skill Config (已安装的 Skill - 对应数据库表)
@@ -395,6 +393,7 @@ pub struct DiscoverableSkill {
     pub name: String,
     pub description: String,
     pub directory: String,     // 目录路径
+    pub install_directory: String, // 安装后的目录名
     pub readme_url: Option<String>,
     pub repo: SkillRepo,
 }

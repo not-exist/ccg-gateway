@@ -35,8 +35,8 @@ export const skillsApi = {
     await invoke('remove_skill_repo', { name })
   },
 
-  updateRepo: async (oldName: string, newUrl: string, newBranch: string): Promise<SkillRepo> => {
-    return await invoke<SkillRepo>('update_skill_repo', { oldName, newUrl, newBranch })
+  updateRepo: async (oldName: string, newUrl: string): Promise<SkillRepo> => {
+    return await invoke<SkillRepo>('update_skill_repo', { oldName, newUrl })
   },
 
   // ==================== Skill 发现 ====================
