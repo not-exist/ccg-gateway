@@ -5093,10 +5093,10 @@ async fn install_skill_inner(
     let now = chrono::Utc::now().timestamp();
     skill::upsert_installed_skill_manifest_entry(InstalledSkillManifestEntry {
         directory: directory_name.clone(),
-        name: skill_item.name.clone(),
-        description: normalize_skill_text(&skill_item.description),
+        name: directory_name.clone(),
+        description: None,
         repo: Some(skill_item.repo.clone()),
-        readme_url: skill_item.readme_url.clone(),
+        readme_url: None,
         installed_at: now,
         source_directory: Some(skill_item.directory.clone()),
     })?;
@@ -5167,13 +5167,17 @@ pub async fn reinstall_installed_skill(
 
     let key = format!("{}:{}", repo.name, source_dir);
 
+    let (disk_name, disk_description) = read_installed_skill_metadata(&directory);
+    let name = disk_name.unwrap_or_else(|| entry.name.clone());
+    let description = disk_description.unwrap_or_default();
+
     let discoverable = DiscoverableSkill {
         key,
-        name: entry.name.clone(),
-        description: entry.description.clone().unwrap_or_default(),
+        name,
+        description,
         directory: source_dir.to_string(),
         install_directory: directory.clone(),
-        readme_url: entry.readme_url.clone(),
+        readme_url: None,
         repo: repo.clone(),
         is_favorited: false,
         is_installed: true,

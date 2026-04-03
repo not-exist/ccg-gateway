@@ -36,9 +36,6 @@ struct StoredSkillRepo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct StoredInstalledSkill {
     directory: String,
-    name: String,
-    description: Option<String>,
-    readme_url: Option<String>,
     installed_at: i64,
     source_directory: Option<String>,
 }
@@ -64,9 +61,6 @@ impl From<&InstalledSkillManifestEntry> for StoredInstalledSkill {
     fn from(entry: &InstalledSkillManifestEntry) -> Self {
         Self {
             directory: entry.directory.clone(),
-            name: entry.name.clone(),
-            description: entry.description.clone(),
-            readme_url: entry.readme_url.clone(),
             installed_at: entry.installed_at,
             source_directory: entry.source_directory.clone(),
         }
@@ -76,11 +70,11 @@ impl From<&InstalledSkillManifestEntry> for StoredInstalledSkill {
 impl StoredInstalledSkill {
     fn into_manifest(self, repo: SkillRepo) -> InstalledSkillManifestEntry {
         InstalledSkillManifestEntry {
-            directory: self.directory,
-            name: self.name,
-            description: self.description,
+            directory: self.directory.clone(),
+            name: self.directory,
+            description: None,
             repo: Some(repo),
-            readme_url: self.readme_url,
+            readme_url: None,
             installed_at: self.installed_at,
             source_directory: self.source_directory,
         }
@@ -146,8 +140,7 @@ fn default_skill_storage() -> SkillStorage {
 
 fn sort_storage(storage: &mut SkillStorage) {
     for repo in &mut storage.repos {
-        repo.skills
-            .sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        repo.skills.sort_by(|a, b| a.installed_at.cmp(&b.installed_at));
     }
     storage
         .repos

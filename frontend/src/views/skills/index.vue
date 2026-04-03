@@ -75,11 +75,17 @@
                     <svg width="24" height="24"><use href="#icon-zap"/></svg>
                   </div>
                   <div class="skill-info">
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                       <h3 class="skill-name">{{ skill.name }}</h3>
-                      <div v-if="!skill.exists_on_disk" class="tag tag-red">缺失文件</div>
+                      <div v-if="!skill.exists_on_disk" class="tag tag-red" style="flex-shrink: 0;">缺失文件</div>
                     </div>
-                    <div class="skill-market" v-if="skill.market_display">{{ skill.market_display }}</div>
+                    <div 
+                      class="skill-market" 
+                      v-if="skill.market_display" 
+                      :title="skill.market_display"
+                    >
+                      {{ skill.repo?.name ? `@${skill.repo.name}` : skill.market_display }}
+                    </div>
                     <div class="skill-source mono" v-else>本地安装</div>
                   </div>
                   <div class="card-actions">
@@ -290,7 +296,9 @@
                 <div class="fav-main">
                   <div class="fav-info">
                     <div class="fav-name">{{ favorite.name }}</div>
-                    <div class="fav-market">来自仓库: {{ favorite.repo.source }}</div>
+                    <div class="fav-market" :title="favorite.repo.source">
+                      来自仓库: {{ favorite.repo.name || favorite.repo.source }}
+                    </div>
                   </div>
                   <div class="fav-actions">
                     <button
@@ -637,7 +645,7 @@ async function handleRemoveFavoriteById(favorite: SkillFavoriteItem) {
   operationLoading.value = true
   try {
     await skillsApi.removeFavorite(favorite.key)
-    favoriteList.value = await skillsApi.getFavorites()
+    await Promise.all([fetchFavorites(), fetchInstalled()])
     notify('已移除')
   } catch (error: any) {
     notify(getErrorMessage(error, '操作失败'), 'error')
@@ -799,8 +807,14 @@ onMounted(() => {
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
 }
 .skill-info { flex: 1; min-width: 0; }
-.skill-name { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 4px 0; }
-.skill-market { font-size: 12px; color: #64748b; font-weight: 500; }
+.skill-name { 
+  font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 4px 0; 
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+}
+.skill-market { 
+  font-size: 12px; color: #64748b; font-weight: 500; 
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+}
 .skill-source { font-size: 12px; color: #94a3b8; }
 
 .card-actions { display: flex; gap: 4px; flex-shrink: 0; }
@@ -870,12 +884,18 @@ onMounted(() => {
 .discover-actions { flex-shrink: 0; display: flex; gap: 4px; }
 
 /* Favorites */
-.favorite-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+.favorite-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }
 .fav-card { background: white; border-radius: 16px; border: 1px solid #f1f5f9; padding: 20px; }
 .fav-main { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .fav-info { min-width: 0; flex: 1; }
-.fav-name { font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 4px; }
-.fav-market { font-size: 12px; color: #94a3b8; word-break: break-all; }
+.fav-name { 
+  font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 4px; 
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+}
+.fav-market { 
+  font-size: 12px; color: #94a3b8; 
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+}
 .fav-actions { flex-shrink: 0; display: flex; gap: 4px; }
 
 /* Shared styles */

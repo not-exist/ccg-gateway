@@ -657,7 +657,7 @@ onMounted(loadAll)
 .btn-icon.danger:hover { background: #fef2f2; color: #f43f5e; border-color: #fca5a5; }
 
 /* Favorites */
-.favorite-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+.favorite-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }
 .fav-card { background: white; border-radius: 16px; border: 1px solid #f1f5f9; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
 .fav-main { display: flex; justify-content: space-between; align-items: flex-start; }
 .fav-name { font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 4px; }
