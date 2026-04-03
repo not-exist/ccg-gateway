@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { Provider, ProviderCreate, ProviderUpdate } from '@/types/models'
+import type { Provider, ProviderCreate, ProviderUpdate, TestProviderResult } from '@/types/models'
 
 export const providersApi = {
   list: async (cliType?: string): Promise<{ data: Provider[] }> => {
@@ -33,5 +33,11 @@ export const providersApi = {
   unblacklist: async (id: number) => {
     await invoke('reset_provider_failures', { id })
     return { data: null }
+  },
+  testModels: async (modelName: string, providerIds: number[]): Promise<{ data: TestProviderResult[] }> => {
+    const data = await invoke<TestProviderResult[]>('test_provider_models', {
+      input: { model_name: modelName, provider_ids: providerIds }
+    })
+    return { data }
   }
 }

@@ -33,28 +33,40 @@
         <div class="b-seg-btn" :class="{ active: viewMode === 'direct' }" @click="handleSwitchDirect">官方模式</div>
       </div>
       
-      <button 
-        v-if="viewMode === 'proxy'" 
-        class="b-button" 
-        style="padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" 
-        @click="showAddDialog = true"
-        title="添加服务商"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14"/><path d="M12 5v14"/>
-        </svg>
-      </button>
-      <button 
-        v-else 
-        class="b-button" 
-        style="padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" 
-        @click="showAddCredentialDialog = true"
-        title="添加凭证"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14"/><path d="M12 5v14"/>
-        </svg>
-      </button>
+      <div v-if="viewMode === 'proxy'" style="display: flex; gap: 8px;">
+        <button
+          class="b-button-outline"
+          style="padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;"
+          @click="showDetectDialog = true"
+          title="检测模型可用性"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </button>
+        <button
+          class="b-button"
+          style="padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;"
+          @click="showAddDialog = true"
+          title="添加服务商"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="M12 5v14"/>
+          </svg>
+        </button>
+      </div>
+      <div v-else>
+        <button
+          class="b-button"
+          style="padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;"
+          @click="showAddCredentialDialog = true"
+          title="添加凭证"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="M12 5v14"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- PROXY MODE LIST -->
@@ -320,6 +332,133 @@
         <button class="b-button" @click="handleSaveCredential">保存</button>
       </template>
     </AppModal>
+
+    <!-- Model Detection Modal -->
+    <AppModal v-model="showDetectDialog" title="检测模型可用性" width="800px" :show-footer="true" cancel-text="关闭" confirm-text="开始检测" @confirm="handleStartDetect">
+      <!-- Model Input -->
+      <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px;">
+        <div style="flex: 1;">
+          <label class="c-label">检测模型</label>
+          <input type="text" v-model="detectModel" class="c-input" placeholder="输入模型名称">
+        </div>
+      </div>
+
+      <!-- Provider Checkboxes -->
+      <div style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <label class="c-label" style="margin-bottom: 0;">选择服务商</label>
+          <span style="font-size: 12px; color: #0ea5e9; cursor: pointer; font-weight: 500;" @click="toggleAllDetectProviders">
+            {{ isAllDetectSelected ? '取消全选' : '全选' }}
+          </span>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <label
+            v-for="p in detectProviderList"
+            :key="p.id"
+            style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.2s; user-select: none;"
+            :style="{
+              color: detectSelectedIds.includes(p.id) ? '#0f172a' : '#94a3b8',
+              border: detectSelectedIds.includes(p.id) ? '1px solid #0ea5e9' : '1px solid #e2e8f0',
+              background: detectSelectedIds.includes(p.id) ? 'rgba(14,165,233,0.04)' : '#fff'
+            }"
+            @click="toggleDetectProvider(p.id)"
+          >
+            <div
+              style="width: 16px; height: 16px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0;"
+              :style="{
+                border: detectSelectedIds.includes(p.id) ? '2px solid #0ea5e9' : '2px solid #e2e8f0',
+                background: detectSelectedIds.includes(p.id) ? '#0ea5e9' : 'transparent'
+              }"
+            >
+              <span v-if="detectSelectedIds.includes(p.id)" style="color: #fff; font-size: 10px; font-weight: bold;">✓</span>
+            </div>
+            {{ p.name }}
+          </label>
+        </div>
+        <div v-if="detectProviderList.length === 0" style="color: #94a3b8; font-size: 13px; padding: 8px 0;">
+          当前 CLI 类型无已启用的服务商
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div v-if="detectResults.length > 0 || detectLoading" style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+        <table class="flat-table">
+          <colgroup>
+            <col style="width: 22%;"><col style="width: 18%;"><col style="width: 10%;"><col style="width: 10%;"><col style="width: 30%;"><col style="width: 10%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>服务商</th><th>测试模型</th><th>状态码</th><th>耗时</th><th>响应</th><th style="text-align: right;">详情</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in detectResults" :key="r.provider_id">
+              <td style="font-weight: 500;">{{ r.provider_name }}</td>
+              <td class="mono">{{ r.actual_model }}</td>
+              <td>
+                <span v-if="r.status_code === null && r.elapsed_ms === 0" class="pill pill-grey">...</span>
+                <span v-else-if="r.status_code !== null" :class="['pill', getDetectPill(r.status_code)]">{{ r.status_code }}</span>
+                <span v-else class="pill pill-red">ERR</span>
+              </td>
+              <td class="mono">
+                <span v-if="r.status_code === null && r.elapsed_ms === 0">-</span>
+                <span v-else>{{ r.elapsed_ms }}ms</span>
+              </td>
+              <td :style="{ color: r.status_code !== null && r.status_code >= 200 && r.status_code < 300 ? '#64748b' : (r.status_code === null && r.elapsed_ms === 0 ? '#94a3b8' : '#f43f5e') }" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="r.response_text">
+                <span v-if="r.status_code === null && r.elapsed_ms === 0" style="font-style: italic;">Testing...</span>
+                <span v-else>{{ r.response_text }}</span>
+              </td>
+              <td style="text-align: right;">
+                <a v-if="r.request_url" class="table-link" @click="showDetectDetail(r)">查看</a>
+                <span v-else style="color: #94a3b8;">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </AppModal>
+
+    <!-- Detection Detail Modal -->
+    <AppModal v-model="detectDetailVisible" :title="detectDetailData?.provider_name + ' - 检测详情'" width="800px" :show-footer="false">
+      <div v-if="detectDetailData" style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Request -->
+        <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="padding: 12px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; font-size: 14px; color: #0f172a;">请求</span>
+            <span class="pill pill-grey">POST</span>
+          </div>
+          <div style="padding: 16px 20px;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #0ea5e9; word-break: break-all; padding: 8px 12px; background: #f0f9ff; border-radius: 6px; margin-bottom: 12px;">{{ detectDetailData.request_url }}</div>
+            <el-collapse>
+              <el-collapse-item title="Headers">
+                <pre class="code-block" @click="handleCopyDetect(detectDetailData.request_headers)">{{ formatDetectJson(detectDetailData.request_headers) }}</pre>
+              </el-collapse-item>
+              <el-collapse-item title="Body">
+                <pre class="code-block" @click="handleCopyDetect(detectDetailData.request_body)">{{ formatDetectJson(detectDetailData.request_body) }}</pre>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+        </div>
+
+        <!-- Response -->
+        <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="padding: 12px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; font-size: 14px; color: #0f172a;">响应</span>
+            <span :class="['pill', getDetectPill(detectDetailData.status_code)]">{{ detectDetailData.status_code || 'ERR' }}</span>
+          </div>
+          <div style="padding: 16px 20px;">
+            <el-collapse>
+              <el-collapse-item title="Headers">
+                <pre class="code-block" @click="handleCopyDetect(detectDetailData.response_headers)">{{ formatDetectJson(detectDetailData.response_headers) }}</pre>
+              </el-collapse-item>
+              <el-collapse-item title="Body">
+                <pre class="code-block" @click="handleCopyDetect(detectDetailData.response_body)">{{ formatDetectJson(detectDetailData.response_body) }}</pre>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>
 
@@ -334,7 +473,8 @@ import { useProviderStore } from '@/stores/providers'
 import { useCredentialStore } from '@/stores/credentials'
 import { useUiStore } from '@/stores/ui'
 import { credentialsApi } from '@/api/credentials'
-import type { Provider, ModelMap, ModelBlacklist, CliType, OfficialCredential, OfficialCredentialCreate } from '@/types/models'
+import { providersApi } from '@/api/providers'
+import type { Provider, ModelMap, ModelBlacklist, CliType, OfficialCredential, OfficialCredentialCreate, TestProviderResult } from '@/types/models'
 
 const providerStore = useProviderStore()
 const credentialStore = useCredentialStore()
@@ -416,6 +556,127 @@ function resetForm() {
 }
 function resetCredentialForm() {
   credentialForm.value = { name: '', claude_settings: '', codex_auth: '', gemini_oauth: '', gemini_accounts: '', gemini_settings: '' }
+}
+
+// ==================== Model Detection ====================
+const DEFAULT_DETECT_MODELS: Record<string, string> = {
+  claude_code: 'claude-opus-4-6',
+  codex: 'o3',
+  gemini: 'gemini-2.5-pro',
+}
+
+const showDetectDialog = ref(false)
+const detectLoading = ref(false)
+const detectModel = ref('')
+const detectSelectedIds = ref<number[]>([])
+const detectResults = ref<TestProviderResult[]>([])
+
+const detectProviderList = computed(() =>
+  providerStore.providers.filter(p => p.enabled)
+)
+
+const isAllDetectSelected = computed(() =>
+  detectProviderList.value.length > 0 && detectSelectedIds.value.length === detectProviderList.value.length
+)
+
+function toggleDetectProvider(id: number) {
+  const idx = detectSelectedIds.value.indexOf(id)
+  if (idx >= 0) detectSelectedIds.value.splice(idx, 1)
+  else detectSelectedIds.value.push(id)
+}
+
+function toggleAllDetectProviders() {
+  if (isAllDetectSelected.value) {
+    detectSelectedIds.value = []
+  } else {
+    detectSelectedIds.value = detectProviderList.value.map(p => p.id)
+  }
+}
+
+watch(showDetectDialog, (open) => {
+  if (open) {
+    const key = `detect_model_${activeCliType.value}`
+    detectModel.value = localStorage.getItem(key) || DEFAULT_DETECT_MODELS[activeCliType.value] || ''
+    detectSelectedIds.value = detectProviderList.value.map(p => p.id)
+    detectResults.value = []
+    detectLoading.value = false
+  }
+})
+
+async function handleStartDetect() {
+  if (!detectModel.value.trim()) {
+    notify('请输入检测模型名称', 'error')
+    return
+  }
+  if (detectSelectedIds.value.length === 0) {
+    notify('请至少选择一个服务商', 'error')
+    return
+  }
+
+  localStorage.setItem(`detect_model_${activeCliType.value}`, detectModel.value.trim())
+
+  detectResults.value = detectSelectedIds.value.map(id => {
+    const p = providerStore.providers.find(x => x.id === id)
+    return {
+      provider_id: id,
+      provider_name: p?.name || 'Unknown',
+      actual_model: '...',
+      status_code: null,
+      elapsed_ms: 0,
+      response_text: '',
+      request_url: '',
+      request_headers: '',
+      request_body: '',
+      response_headers: '',
+      response_body: '',
+    }
+  })
+  detectLoading.value = true
+
+  try {
+    const { data } = await providersApi.testModels(detectModel.value.trim(), detectSelectedIds.value)
+    detectResults.value = data
+  } catch (e: any) {
+    notify(getErrorMessage(e, '检测失败'), 'error')
+  } finally {
+    detectLoading.value = false
+  }
+}
+
+function getDetectPill(code: number | null): string {
+  if (!code) return 'pill-grey'
+  if (code >= 200 && code < 300) return 'pill-green'
+  if (code >= 400 && code < 500) return 'pill-grey'
+  if (code >= 500) return 'pill-red'
+  return 'pill-grey'
+}
+
+const detectDetailVisible = ref(false)
+const detectDetailData = ref<TestProviderResult | null>(null)
+
+function showDetectDetail(r: TestProviderResult) {
+  if (!r.response_body && !r.request_url) return
+  detectDetailData.value = r
+  detectDetailVisible.value = true
+}
+
+function formatDetectJson(str: string): string {
+  if (!str) return ''
+  try {
+    return JSON.stringify(JSON.parse(str), null, 2)
+  } catch {
+    return str
+  }
+}
+
+async function handleCopyDetect(content: string) {
+  if (!content) return
+  try {
+    await navigator.clipboard.writeText(formatDetectJson(content))
+    notify('已复制到剪贴板')
+  } catch {
+    notify('复制失败', 'error')
+  }
 }
 
 function addModelMap() { form.value.model_maps.push({ source_model: '', target_model: '', enabled: true }) }
@@ -712,4 +973,19 @@ onUnmounted(() => {
   background: #fee2e2;
   color: #ef4444;
 }
+
+/* Detection Table */
+.flat-table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
+.flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.flat-table th { padding: 12px 20px; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.flat-table td { padding: 12px 20px; font-size: 13px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
+.flat-table tr:last-child td { border-bottom: none; }
+.flat-table tr:hover td { background: #f8fafc; }
+.mono { font-family: "JetBrains Mono", monospace; color: #64748b; font-size: 12px; }
+.pill { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; letter-spacing: 0.3px; }
+.pill-green { background: #ecfdf5; color: #10b981; }
+.pill-red { background: #fff1f2; color: #f43f5e; }
+.pill-grey { background: #f1f5f9; color: #64748b; font-weight: normal; }
+.code-block { background: #f8fafc; padding: 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; margin: 0; cursor: pointer; border: 1px solid transparent; transition: border-color 0.2s; }
+.code-block:hover { border-color: #cbd5e1; }
 </style>

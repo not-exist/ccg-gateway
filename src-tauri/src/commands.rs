@@ -8,7 +8,8 @@ use crate::db::models::{
     PromptResponse, PromptUpdate, Provider, ProviderCreate, ProviderResponse,
     ProviderStatsResponse, ProviderStatsRow, ProviderUpdate, RequestLogDetail, RequestLogItem,
     SessionInfo, SessionMessage, SkillCliFlag, SkillFavorite, SkillFavoriteItem, SkillRepo,
-    SkillRepoCreate, SystemLogItem, SystemLogListResponse, SystemStatus, TimeoutSettings,
+    SkillRepoCreate, SystemLogItem, SystemLogListResponse, SystemStatus, TestProviderModelsInput,
+    TestProviderResult, TimeoutSettings,
     TimeoutSettingsUpdate, WebdavBackup, WebdavSettings, WebdavSettingsUpdate,
 };
 use crate::services::skill::{self, is_local_repo_source, InstalledSkillManifestEntry};
@@ -1026,6 +1027,39 @@ pub async fn reset_provider_failures(
     .await;
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn test_provider_models(
+    db: State<'_, SqlitePool>,
+    input: TestProviderModelsInput,
+) -> Result<Vec<TestProviderResult>> {
+    use crate::services::provider as provider_service;
+
+    let db_pool = db.inner().clone();
+    let model_name = input.model_name.clone();
+
+    let mut handles = Vec::new();
+    for provider_id in input.provider_ids {
+        let pool = db_pool.clone();
+        let model = model_name.clone();
+        let handle = tokio::spawn(async move {
+            provider_service::test_provider_model(&pool, provider_id, &model).await
+        });
+        handles.push(handle);
+    }
+
+    let mut results = Vec::new();
+    for handle in handles {
+        match handle.await {
+            Ok(result) => results.push(result),
+            Err(e) => {
+                tracing::error!(error = %e, "Test task panicked");
+            }
+        }
+    }
+
+    Ok(results)
 }
 
 // Settings commands

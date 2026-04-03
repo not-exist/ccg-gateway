@@ -57,6 +57,21 @@ export interface ProviderUpdate {
   model_blacklist?: ModelBlacklist[]
 }
 
+// Model Detection types
+export interface TestProviderResult {
+  provider_id: number
+  provider_name: string
+  actual_model: string
+  status_code: number | null
+  elapsed_ms: number
+  response_text: string
+  request_url: string
+  request_headers: string
+  request_body: string
+  response_headers: string
+  response_body: string
+}
+
 // Settings types
 export interface GatewaySettings {
   debug_log: boolean

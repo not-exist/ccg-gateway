@@ -142,6 +142,29 @@ impl From<Provider> for ProviderResponse {
     }
 }
 
+// ==================== Model Detection 相关实体 ====================
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TestProviderModelsInput {
+    pub model_name: String,
+    pub provider_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TestProviderResult {
+    pub provider_id: i64,
+    pub provider_name: String,
+    pub actual_model: String,
+    pub status_code: Option<u16>,
+    pub elapsed_ms: u64,
+    pub response_text: String,
+    pub request_url: String,
+    pub request_headers: String,
+    pub request_body: String,
+    pub response_headers: String,
+    pub response_body: String,
+}
+
 // ==================== Settings 相关实体 ====================
 
 // Gateway Settings (完整版 - 对应数据库表)

@@ -1,4 +1,5 @@
 use sqlx::SqlitePool;
+use crate::db::models::TestProviderResult;
 
 /// Record a successful request for a provider
 /// Resets consecutive_failures to 0
@@ -151,4 +152,306 @@ pub async fn reset_failures(db: &SqlitePool, provider_id: i64) -> Result<(), sql
     .await?;
 
     Ok(())
+}
+
+/// Test a single provider's model availability using streaming.
+/// Sends a lightweight request with stream=true, succeeds on first chunk received.
+pub async fn test_provider_model(
+    db: &SqlitePool,
+    provider_id: i64,
+    model_name: &str,
+) -> TestProviderResult {
+    // 1. Load provider
+    let provider = match sqlx::query_as::<_, crate::db::models::Provider>(
+        "SELECT * FROM providers WHERE id = ?",
+    )
+    .bind(provider_id)
+    .fetch_optional(db)
+    .await
+    {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            return TestProviderResult {
+                provider_id,
+                provider_name: "Unknown".to_string(),
+                actual_model: model_name.to_string(),
+                status_code: None,
+                elapsed_ms: 0,
+                response_text: "Provider not found".to_string(),
+                request_url: String::new(),
+                request_headers: String::new(),
+                request_body: String::new(),
+                response_headers: String::new(),
+                response_body: String::new(),
+            };
+        }
+        Err(e) => {
+            return TestProviderResult {
+                provider_id,
+                provider_name: "Unknown".to_string(),
+                actual_model: model_name.to_string(),
+                status_code: None,
+                elapsed_ms: 0,
+                response_text: format!("DB error: {}", e),
+                request_url: String::new(),
+                request_headers: String::new(),
+                request_body: String::new(),
+                response_headers: String::new(),
+                response_body: String::new(),
+            };
+        }
+    };
+
+    let provider_name = provider.name.clone();
+    let cli_type = provider.cli_type.clone();
+    let base_url = provider.base_url.trim_end_matches('/').to_string();
+    let api_key = provider.api_key.clone();
+    let custom_ua = provider.custom_useragent.clone();
+
+    // 2. Resolve model mapping
+    let model_maps = sqlx::query_as::<_, crate::db::models::ProviderModelMap>(
+        "SELECT * FROM provider_model_map WHERE provider_id = ? AND enabled = 1 ORDER BY id",
+    )
+    .bind(provider_id)
+    .fetch_all(db)
+    .await
+    .unwrap_or_default();
+
+    let mut actual_model = model_name.to_string();
+    for map in &model_maps {
+        if crate::services::proxy::wildcard_match(&map.source_model, model_name) {
+            actual_model = map.target_model.clone();
+            break;
+        }
+    }
+
+    // 3. Build request per CLI type (all use stream mode)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap_or_default();
+
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert("content-type", "application/json".parse().unwrap());
+    headers.insert("accept", "text/event-stream".parse().unwrap());
+    headers.insert("accept-encoding", "identity".parse().unwrap());
+
+    let (url, body_json) = match cli_type.as_str() {
+        "claude_code" => {
+            // Anthropic native: POST /v1/messages with stream
+            let url = format!("{}/v1/messages", base_url);
+            let body = serde_json::json!({
+                "model": actual_model,
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": true
+            });
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key)) {
+                headers.insert(reqwest::header::AUTHORIZATION, v);
+            }
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(&api_key) {
+                headers.insert("x-api-key", v);
+            }
+            headers.insert("anthropic-version", "2023-06-01".parse().unwrap());
+            (url, body)
+        }
+        "codex" => {
+            // OpenAI format: base_url already includes /v1
+            let url = format!("{}/chat/completions", base_url);
+            let body = serde_json::json!({
+                "model": actual_model,
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 1,
+                "stream": true
+            });
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key)) {
+                headers.insert(reqwest::header::AUTHORIZATION, v);
+            }
+            (url, body)
+        }
+        "gemini" => {
+            // Gemini streaming: streamGenerateContent with alt=sse
+            let url = format!(
+                "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
+                base_url, actual_model
+            );
+            let body = serde_json::json!({
+                "contents": [{"parts": [{"text": "hi"}]}],
+                "generationConfig": {"maxOutputTokens": 1}
+            });
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(&api_key) {
+                headers.insert("x-goog-api-key", v);
+            }
+            (url, body)
+        }
+        _ => {
+            // Fallback: OpenAI compatible
+            let url = format!("{}/v1/chat/completions", base_url);
+            let body = serde_json::json!({
+                "model": actual_model,
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 1,
+                "stream": true
+            });
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key)) {
+                headers.insert(reqwest::header::AUTHORIZATION, v);
+            }
+            (url, body)
+        }
+    };
+
+    // Apply custom UA if configured
+    if let Some(ref ua) = custom_ua {
+        if !ua.is_empty() {
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(ua) {
+                headers.insert(reqwest::header::USER_AGENT, v);
+            }
+        }
+    }
+
+    let request_body = serde_json::to_string_pretty(&body_json).unwrap_or_default();
+    let request_headers = headers_to_json(&headers);
+
+    // 4. Send request, measure time to first chunk
+    let start = std::time::Instant::now();
+    let response = client
+        .post(&url)
+        .headers(headers)
+        .json(&body_json)
+        .send()
+        .await;
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+
+    match response {
+        Ok(resp) => {
+            let status_code = resp.status().as_u16();
+            let response_headers = headers_to_json(resp.headers());
+            if status_code >= 200 && status_code < 300 {
+                // Stream mode: wait for first chunk only
+                use futures_util::StreamExt;
+                let mut stream = resp.bytes_stream();
+                let first_chunk = tokio::time::timeout(
+                    std::time::Duration::from_secs(30),
+                    stream.next(),
+                )
+                .await;
+                let first_chunk_ms = start.elapsed().as_millis() as u64;
+
+                let (response_text, raw_chunk) = match first_chunk {
+                    Ok(Some(Ok(bytes))) => {
+                        let text = String::from_utf8_lossy(&bytes).to_string();
+                        let summary = extract_stream_summary(&text);
+                        (summary, text)
+                    }
+                    Ok(Some(Err(e))) => (format!("Stream error: {}", e), String::new()),
+                    Ok(None) => ("Empty stream".to_string(), String::new()),
+                    Err(_) => ("Stream timeout".to_string(), String::new()),
+                };
+
+                TestProviderResult {
+                    provider_id,
+                    provider_name,
+                    actual_model,
+                    status_code: Some(status_code),
+                    elapsed_ms: first_chunk_ms,
+                    response_text,
+                    request_url: url,
+                    request_headers,
+                    request_body,
+                    response_headers,
+                    response_body: raw_chunk,
+                }
+            } else {
+                // Non-2xx: read error body
+                let body_text = resp.text().await.unwrap_or_default();
+                let response_text = extract_error_summary(&body_text);
+                TestProviderResult {
+                    provider_id,
+                    provider_name,
+                    actual_model,
+                    status_code: Some(status_code),
+                    elapsed_ms,
+                    response_text,
+                    request_url: url,
+                    request_headers,
+                    request_body,
+                    response_headers,
+                    response_body: body_text,
+                }
+            }
+        }
+        Err(e) => TestProviderResult {
+            provider_id,
+            provider_name,
+            actual_model,
+            status_code: None,
+            elapsed_ms,
+            response_text: format!("{}", e),
+            request_url: url,
+            request_headers,
+            request_body,
+            response_headers: String::new(),
+            response_body: String::new(),
+        },
+    }
+}
+
+/// Convert headers to formatted JSON string
+fn headers_to_json(headers: &reqwest::header::HeaderMap) -> String {
+    let mut map = serde_json::Map::new();
+    for (name, value) in headers.iter() {
+        let key = name.as_str().to_string();
+        let val = value.to_str().unwrap_or("<binary>").to_string();
+        map.insert(key, serde_json::Value::String(val));
+    }
+    serde_json::to_string_pretty(&map).unwrap_or_default()
+}
+
+/// Extract summary from the first SSE chunk
+fn extract_stream_summary(chunk: &str) -> String {
+    // SSE chunks start with "data: " — try to parse the JSON payload
+    for line in chunk.lines() {
+        let data = line.strip_prefix("data: ").unwrap_or(line).trim();
+        if data.is_empty() || data == "[DONE]" {
+            continue;
+        }
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+            // OpenAI streaming: choices[0].delta.content
+            if let Some(c) = json.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+                if !c.is_empty() {
+                    return truncate_string(c, 200);
+                }
+            }
+            // Anthropic streaming: check event type
+            if let Some(t) = json.get("type").and_then(|v| v.as_str()) {
+                return t.to_string();
+            }
+            // Gemini streaming: candidates[0].content.parts[0].text
+            if let Some(c) = json.pointer("/candidates/0/content/parts/0/text").and_then(|v| v.as_str()) {
+                return truncate_string(c, 200);
+            }
+        }
+    }
+    "Stream OK".to_string()
+}
+
+/// Extract error message from response body
+fn extract_error_summary(body: &str) -> String {
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(body) {
+        if let Some(msg) = json.pointer("/error/message").and_then(|v| v.as_str()) {
+            return truncate_string(msg, 200);
+        }
+        if let Some(msg) = json.pointer("/error/error/message").and_then(|v| v.as_str()) {
+            return truncate_string(msg, 200);
+        }
+    }
+    truncate_string(body, 200)
+}
+
+fn truncate_string(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len])
+    }
 }

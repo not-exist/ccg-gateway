@@ -164,6 +164,7 @@ pub fn run() {
             commands::delete_provider,
             commands::reorder_providers,
             commands::reset_provider_failures,
+            commands::test_provider_models,
             commands::get_gateway_settings,
             commands::update_gateway_settings,
             commands::get_timeout_settings,
