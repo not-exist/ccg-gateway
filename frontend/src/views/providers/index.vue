@@ -205,7 +205,7 @@
     </div>
 
     <!-- Add/Edit Provider Modal -->
-    <AppModal v-model="showDialog" :title="editingProvider ? '编辑服务商' : '添加服务商'" width="720px">
+    <AppModal v-model="showDialog" :title="editingProvider ? '编辑服务商' : '添加服务商'" width="720px" @confirm="handleSave">
       <div style="display: flex; gap: 32px; margin-bottom: 32px;">
             <div style="flex: 1;">
               <label class="c-label">服务商名称 <span style="color: #ef4444;">*</span></label>
@@ -280,15 +280,11 @@
               </div>
             </div>
           </div>
-
-      <template #footer>
-        <button class="b-button" @click="handleSave">保存</button>
-      </template>
     </AppModal>
     <!-- / Add Provider Modal -->
 
     <!-- Add/Edit Credential Modal -->
-    <AppModal v-model="showCredentialDialog" :title="editingCredential ? '编辑凭证' : '添加凭证'" width="720px">
+    <AppModal v-model="showCredentialDialog" :title="editingCredential ? '编辑凭证' : '添加凭证'" width="720px" @confirm="handleSaveCredential">
           <div style="margin-bottom: 32px;">
             <label class="c-label">凭证名称 <span style="color: #ef4444;">*</span></label>
             <input type="text" v-model="credentialForm.name" class="c-input" placeholder="例如: 个人主账号">
@@ -327,10 +323,6 @@
                <el-input type="textarea" :rows="4" v-model="credentialForm.gemini_settings" />
              </div>
           </template>
-
-      <template #footer>
-        <button class="b-button" @click="handleSaveCredential">保存</button>
-      </template>
     </AppModal>
 
     <!-- Model Detection Modal -->

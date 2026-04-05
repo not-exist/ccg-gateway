@@ -88,7 +88,7 @@
     </div>
 
     <!-- Add/Edit Modal -->
-    <AppModal v-model="showDialog" :title="editingMcp ? '编辑 MCP' : '添加 MCP'" width="640px">
+    <AppModal v-model="showDialog" :title="editingMcp ? '编辑 MCP' : '添加 MCP'" width="640px" @confirm="handleSave">
         <div class="form-group">
           <label class="c-label">MCP 名称 <span class="required">*</span></label>
           <input type="text" v-model="form.name" class="c-input" placeholder="例如: Google Maps Search">
@@ -111,10 +111,6 @@
           ></textarea>
           <div v-if="validationError" class="error-tip">{{ validationError }}</div>
         </div>
-
-      <template #footer>
-        <button class="b-button" @click="handleSave">保存</button>
-      </template>
     </AppModal>
   </div>
 </template>

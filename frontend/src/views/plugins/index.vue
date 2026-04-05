@@ -278,7 +278,7 @@
     </div>
 
     <!-- Modals -->
-    <AppModal v-model="showAddMarketDialog" title="添加插件市场" width="500px">
+    <AppModal v-model="showAddMarketDialog" title="添加插件市场" width="500px" @confirm="handleAddMarketplace">
         <div class="form-group">
             <label class="c-label">市场源地址 <span class="required">*</span></label>
             <input
@@ -288,10 +288,6 @@
               placeholder="支持 URL 地址、GitHub owner/repo、本地路径"
             >
           </div>
-
-      <template #footer>
-        <button class="b-button" @click="handleAddMarketplace">保存</button>
-      </template>
     </AppModal>
 
   </div>

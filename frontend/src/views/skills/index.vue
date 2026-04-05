@@ -324,7 +324,7 @@
     </div>
 
     <!-- Modals -->
-    <AppModal v-model="showAddRepoDialog" title="添加 Skill 仓库" width="500px">
+    <AppModal v-model="showAddRepoDialog" title="添加 Skill 仓库" width="500px" @confirm="handleAddRepo">
         <div class="form-group">
             <label class="c-label">仓库地址 <span class="required">*</span></label>
             <input
@@ -334,13 +334,9 @@
               placeholder="仓库地址 、 owner/repo 、 本地目录"
             >
           </div>
-
-      <template #footer>
-        <button class="b-button" @click="handleAddRepo">保存</button>
-      </template>
     </AppModal>
 
-    <AppModal v-model="showEditRepoDialog" title="编辑仓库" width="500px">
+    <AppModal v-model="showEditRepoDialog" title="编辑仓库" width="500px" @confirm="handleUpdateRepo">
         <div class="form-group">
             <label class="c-label">仓库地址 <span class="required">*</span></label>
             <input
@@ -350,10 +346,6 @@
               placeholder="GitHub URL / owner/repo / 本地目录"
             >
           </div>
-
-      <template #footer>
-        <button class="b-button" @click="handleUpdateRepo">保存</button>
-      </template>
     </AppModal>
 
   </div>

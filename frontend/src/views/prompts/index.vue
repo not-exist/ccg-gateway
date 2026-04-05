@@ -85,7 +85,7 @@
     </div>
 
     <!-- Add/Edit Modal -->
-    <AppModal v-model="showDialog" :title="editingPrompt ? '编辑提示词' : '添加提示词'" width="800px">
+    <AppModal v-model="showDialog" :title="editingPrompt ? '编辑提示词' : '添加提示词'" width="800px" @confirm="handleSave">
         <div class="form-group">
           <label class="c-label">提示词名称 <span class="required">*</span></label>
           <input type="text" v-model="form.name" class="c-input" placeholder="例如: 单元测试生成器">
@@ -100,10 +100,6 @@
             placeholder="请输入提示词内容..."
           ></textarea>
         </div>
-
-      <template #footer>
-        <button class="b-button" @click="handleSave">保存</button>
-      </template>
     </AppModal>
   </div>
 </template>
