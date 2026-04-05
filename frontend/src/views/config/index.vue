@@ -138,7 +138,7 @@
     </div>
 
     <!-- WebDAV Backup List Dialog -->
-    <AppModal v-model="webdavListVisible" title="管理 WebDAV 备份" width="720px" :show-footer="false">
+    <AppModal v-model="webdavListVisible" title="管理 WebDAV 备份" width="720px" @confirm="webdavListVisible = false" cancel-text="取消" confirm-text="关闭">
         <div v-loading="loadingWebdavList" style="max-height: 60vh; display: flex; flex-direction: column; margin: -32px;">
             <div class="scroll-area" style="flex: 1; overflow-y: auto; padding: 32px;">
               <table class="flat-table" style="width: 100%;">
@@ -163,7 +163,7 @@
     </AppModal>
 
     <!-- WebDAV Settings Dialog -->
-    <AppModal v-model="webdavSettingsVisible" title="WebDAV 设置" width="480px" :show-footer="false">
+    <AppModal v-model="webdavSettingsVisible" title="WebDAV 设置" width="480px" @confirm="handleSaveWebdavSettings">
       <div class="webdav-settings-form">
         <div class="input-item">
           <label class="item-label">服务器地址</label>
@@ -179,19 +179,19 @@
             <input type="password" v-model="webdavForm.password" class="f-input">
           </div>
         </div>
-        <div class="webdav-settings-footer">
-          <button class="f-button ghost-plain" @click="handleTestWebdav" :disabled="testingWebdav">
+      </div>
+      <template #footer>
+          <button class="b-button-outline" @click="webdavSettingsVisible = false">取消</button>
+          <button class="f-button ghost-plain" @click="handleTestWebdav" :disabled="testingWebdav" style="margin-right: auto;">
             {{ testingWebdav ? '测试中...' : '测试链接' }}
           </button>
           <button class="b-button" @click="handleSaveWebdav" :disabled="savingWebdav">
             {{ savingWebdav ? '保存中...' : '保存' }}
           </button>
-        </div>
-      </div>
-    </AppModal>
+        </template>
+      </AppModal>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
 import { ElMessageBox } from 'element-plus'

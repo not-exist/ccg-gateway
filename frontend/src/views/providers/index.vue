@@ -334,7 +334,7 @@
     </AppModal>
 
     <!-- Model Detection Modal -->
-    <AppModal v-model="showDetectDialog" title="检测模型可用性" width="800px" :show-footer="true" cancel-text="关闭" confirm-text="开始检测" @confirm="handleStartDetect">
+    <AppModal v-model="showDetectDialog" title="检测模型可用性" width="800px" :show-footer="true" confirm-text="开始检测" @confirm="handleStartDetect">
       <!-- Model Input -->
       <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px;">
         <div style="flex: 1;">

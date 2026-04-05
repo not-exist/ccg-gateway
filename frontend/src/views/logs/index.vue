@@ -227,7 +227,7 @@
 
 
     <!-- Request Detail Dialog -->
-    <AppModal v-model="requestDetailVisible" title="请求详情" width="900px" :show-footer="false">
+    <AppModal v-model="requestDetailVisible" title="请求详情" width="900px" @confirm="requestDetailVisible = false" cancel-text="取消" confirm-text="关闭">
         <div v-if="requestDetail" class="detail-content">
             <!-- Summary -->
         <el-descriptions :column="3" border size="small">
