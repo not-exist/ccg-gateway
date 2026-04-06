@@ -46,24 +46,6 @@ requires_openai_auth = false
     .map_err(|e| format!("Failed to build Codex gateway config: {}", e))
 }
 
-fn render_toml_document(document: &toml_edit::DocumentMut) -> Option<String> {
-    let rendered = document.to_string();
-    let trimmed = rendered.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn filter_toml_document_content(content: &str, keys_to_remove: &HashSet<String>) -> Option<String> {
-    let mut doc = content.parse::<toml_edit::DocumentMut>().ok()?;
-    for key in keys_to_remove {
-        doc.remove(key.as_str());
-    }
-    render_toml_document(&doc)
-}
-
 fn remove_file_if_exists(path: &std::path::Path, label: &str) -> Result<()> {
     if path.exists() {
         tracing::info!("删除直连模式文件: {:?}", path);
@@ -1924,25 +1906,27 @@ async fn sync_codex_config(
             None
         };
 
-        let gateway_doc = codex_gateway_document()?;
-        let mut parts =
-            vec![render_toml_document(&gateway_doc)
-                .expect("Codex gateway config should never be empty")];
-        let mut existing_keys_to_remove: HashSet<String> = ["model_provider", "model_providers"]
-            .into_iter()
-            .map(str::to_string)
-            .collect();
+        let mut final_doc = if let Some(ref content) = existing_content {
+            content.parse::<toml_edit::DocumentMut>().unwrap_or_else(|e| {
+                tracing::warn!("Failed to parse existing Codex config.toml: {}", e);
+                toml_edit::DocumentMut::new()
+            })
+        } else {
+            toml_edit::DocumentMut::new()
+        };
+
+        // 移除原有的 gateway 相关的配置
+        final_doc.remove("model_provider");
+        final_doc.remove("model_providers");
 
         if !default_config.is_empty() {
             match default_config.parse::<toml_edit::DocumentMut>() {
                 Ok(mut custom_doc) => {
                     custom_doc.remove("model_provider");
                     custom_doc.remove("model_providers");
-                    existing_keys_to_remove
-                        .extend(custom_doc.iter().map(|(key, _)| key.to_string()));
 
-                    if let Some(section) = render_toml_document(&custom_doc) {
-                        parts.push(section);
+                    for (k, v) in custom_doc.iter() {
+                        final_doc.insert(&k, v.clone());
                     }
                 }
                 Err(e) => {
@@ -1951,19 +1935,12 @@ async fn sync_codex_config(
             }
         }
 
-        if let Some(ref content) = existing_content {
-            match filter_toml_document_content(content, &existing_keys_to_remove) {
-                Some(section) => parts.push(section),
-                None if !content.trim().is_empty() => {
-                    tracing::warn!(
-                        "Failed to parse existing Codex config.toml, preserving only generated sections"
-                    );
-                }
-                None => {}
-            }
+        let gateway_doc = codex_gateway_document()?;
+        for (k, v) in gateway_doc.iter() {
+            final_doc.insert(&k, v.clone());
         }
 
-        let final_content = parts.join("\n\n") + "\n";
+        let final_content = final_doc.to_string();
 
         std::fs::write(&config_path, final_content).map_err(|e| {
             tracing::error!("Failed to write config.toml: {}", e);
@@ -6280,14 +6257,25 @@ async fn sync_credential_to_cli_async(
 
             // 处理 config.toml
             if !default_config.is_empty() {
-                let mut parts = Vec::new();
-                let mut existing_keys_to_remove = HashSet::new();
+                let existing_content = if use_merge && config_path.exists() {
+                    std::fs::read_to_string(&config_path).ok()
+                } else {
+                    None
+                };
+
+                let mut final_doc = if let Some(ref content) = existing_content {
+                    content.parse::<toml_edit::DocumentMut>().unwrap_or_else(|e| {
+                        tracing::warn!("Failed to parse existing Codex config.toml: {}", e);
+                        toml_edit::DocumentMut::new()
+                    })
+                } else {
+                    toml_edit::DocumentMut::new()
+                };
 
                 match default_config.parse::<toml_edit::DocumentMut>() {
-                    Ok(doc) => {
-                        existing_keys_to_remove.extend(doc.iter().map(|(key, _)| key.to_string()));
-                        if let Some(section) = render_toml_document(&doc) {
-                            parts.push(section);
+                    Ok(custom_doc) => {
+                        for (k, v) in custom_doc.iter() {
+                            final_doc.insert(&k, v.clone());
                         }
                     }
                     Err(e) => {
@@ -6298,25 +6286,7 @@ async fn sync_credential_to_cli_async(
                     }
                 }
 
-                if use_merge && config_path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&config_path) {
-                        match filter_toml_document_content(&content, &existing_keys_to_remove) {
-                            Some(section) => parts.push(section),
-                            None if !content.trim().is_empty() => {
-                                tracing::warn!(
-                                    "Failed to parse existing Codex config.toml, preserving only preset sections"
-                                );
-                            }
-                            None => {}
-                        }
-                    }
-                }
-
-                let final_content = if parts.is_empty() {
-                    String::new()
-                } else {
-                    parts.join("\n\n") + "\n"
-                };
+                let final_content = final_doc.to_string();
 
                 tracing::info!(
                     "写入 Codex config.toml（{}模式），路径: {:?}",
