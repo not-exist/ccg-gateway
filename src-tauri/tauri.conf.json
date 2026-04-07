@@ -14,7 +14,7 @@
     "windows": [
       {
         "title": "CCG Gateway",
-        "width": 1280,
+        "width": 1400,
         "height": 800,
         "resizable": true,
         "fullscreen": false,
