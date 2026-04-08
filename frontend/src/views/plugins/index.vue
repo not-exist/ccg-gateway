@@ -47,7 +47,7 @@
       
       <!-- TAB: INSTALLED PLUGINS -->
       <div v-if="activeTab === 'plugins'" class="tab-pane">
-        <div v-loading="loading" class="list-container">
+        <div v-loading="loadingInstalled" class="list-container">
           <template v-if="installedPlugins.length === 0">
             <div class="empty-state">
               <svg width="64" height="64" color="#e2e8f0"><use href="#icon-puzzle"/></svg>
@@ -91,7 +91,7 @@
                     <span class="toggle-label">Claude Code</span>
                     <el-switch
                       size="small"
-                      :model-value="plugin.is_enabled"
+                      :model-value="plugin.is_enabled ?? false"
                       @change="handleToggleEnable(plugin, $event as boolean)"
                     />
                   </div>
@@ -159,19 +159,19 @@
                 <svg class="search-icon" width="16" height="16" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; z-index: 1;"><use href="#icon-search"/></svg>
                 <input type="text" v-model="pluginSearchQuery" class="c-input" placeholder="搜索..." style="height: 38px; padding: 0 12px 0 36px; margin: 0;">
               </div>
-              <button class="action-icon" :disabled="loading" @click="handleUpdateMarketplace(currentMarket)" title="刷新市场">
+              <button class="action-icon" :disabled="loadingMarketPlugins" @click="handleUpdateMarketplace(currentMarket)" title="刷新市场">
                 <svg width="18" height="18"><use href="#icon-refresh"/></svg>
               </button>
             </div>
           </div>
 
-          <div v-loading="loading || operationLoading" class="list-container">
-            <template v-if="marketPlugins.length === 0">
+          <div v-loading="loadingMarketPlugins || operationLoading" class="list-container">
+            <template v-if="filteredMarketPlugins.length === 0">
               <el-empty :description="pluginSearchQuery ? '无匹配结果' : '该市场暂无插件'" />
             </template>
             <div v-else class="scroll-area">
               <div class="discover-list">
-                <div v-for="plugin in marketPlugins" :key="getPluginId(plugin)" class="discover-item">
+                <div v-for="plugin in filteredMarketPlugins" :key="getPluginId(plugin)" class="discover-item">
                   <div class="discover-info">
                     <div class="discover-name-row">
                       <span class="discover-name">{{ plugin.name }}</span>
@@ -228,7 +228,7 @@
           <p class="page-subtitle">收藏的插件会保留市场信息，方便后续快速安装</p>
         </div>
 
-        <div v-loading="loading || operationLoading" class="list-container">
+        <div v-loading="loadingFavorites || operationLoading" class="list-container">
           <div v-if="favoriteList.length === 0" class="empty-state">
             <svg width="64" height="64" color="#e2e8f0"><use href="#icon-star"/></svg>
             <p>暂无收藏插件</p>
@@ -239,7 +239,7 @@
                 <div class="fav-main">
                   <div class="fav-info">
                     <div class="fav-name">{{ fav.plugin_name }}</div>
-                    <div class="fav-market" :title="fav.marketplace_source">来自市场: {{ fav.marketplace_name }}</div>
+                    <div class="fav-market" :title="fav.marketplace_source ?? undefined">来自市场: {{ fav.marketplace_name }}</div>
                   </div>
                   <div class="fav-actions">
                     <button
@@ -303,43 +303,41 @@ import type { MarketplaceInfo, PluginItem, PluginFavoriteItem } from '@/types/mo
 
 const activeTab = ref('plugins')
 
-// Plugin State
-const allPlugins = ref<PluginItem[]>([])
-const loading = ref(false)
-const pluginSearchQuery = ref('')
+// Installed plugins (Tab 1)
+const installedPlugins = ref<PluginItem[]>([])
+const loadingInstalled = ref(false)
 
-// Marketplace State
+// Marketplaces (Tab 2)
 const marketplaceList = ref<MarketplaceInfo[]>([])
 const loadingMarketplaces = ref(false)
+const currentMarket = ref<MarketplaceInfo | null>(null)
+const marketPlugins = ref<PluginItem[]>([])
+const loadingMarketPlugins = ref(false)
+const pluginSearchQuery = ref('')
 const showAddMarketDialog = ref(false)
 const marketForm = ref({ url: '' })
 
-// Favorites State
+// Favorites (Tab 3)
 const favoriteList = ref<PluginFavoriteItem[]>([])
+const loadingFavorites = ref(false)
 
-// Operation State
-const currentMarket = ref<MarketplaceInfo | null>(null)
+// Operation state
 const operationLoading = ref(false)
 const installingPluginId = ref<string | null>(null)
 
-// Logic
-const installedPlugins = computed(() => allPlugins.value.filter(p => p.is_installed))
-
-const marketPlugins = computed(() => {
-  if (!currentMarket.value) return []
-  let list = allPlugins.value.filter(p => p.marketplace_name === currentMarket.value?.name)
-  if (pluginSearchQuery.value) {
-    const q = pluginSearchQuery.value.toLowerCase()
-    list = list.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.description?.toLowerCase().includes(q)
-    )
-  }
-  return list
-})
-
+// Computed
 const favoriteIds = computed(() => new Set(favoriteList.value.map(f => f.plugin_id)))
 
+const filteredMarketPlugins = computed(() => {
+  if (!pluginSearchQuery.value) return marketPlugins.value
+  const q = pluginSearchQuery.value.toLowerCase()
+  return marketPlugins.value.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    p.description?.toLowerCase().includes(q)
+  )
+})
+
+// Utils
 function getPluginId(plugin: PluginItem): string {
   return plugin.marketplace_name ? `${plugin.name}@${plugin.marketplace_name}` : plugin.name
 }
@@ -356,35 +354,78 @@ function showCliOutput(output: string, isError: boolean = false) {
   })
 }
 
-async function loadAll() {
-  loading.value = true
-  loadingMarketplaces.value = true
+function notify(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
+  ElNotification({
+    title: type === 'success' ? '成功' : type === 'error' ? '错误' : '提示',
+    message,
+    type,
+    duration: 3000,
+    position: 'top-right'
+  })
+}
+
+// --- Fetch functions ---
+
+async function fetchInstalled() {
+  loadingInstalled.value = true
   try {
-    const [plugins, marketplaces, favorites] = await Promise.all([
-      pluginsApi.getAll(),
-      pluginsApi.getMarketplaces(),
-      pluginsApi.getFavorites()
-    ])
-    allPlugins.value = plugins
-    marketplaceList.value = marketplaces
-    favoriteList.value = favorites
+    installedPlugins.value = await pluginsApi.getInstalled()
   } catch (error: any) {
     notify(getErrorMessage(error, '加载失败'), 'error')
   } finally {
-    loading.value = false
+    loadingInstalled.value = false
+  }
+}
+
+async function fetchMarketplaces() {
+  loadingMarketplaces.value = true
+  try {
+    marketplaceList.value = await pluginsApi.getMarketplaces()
+  } catch (error: any) {
+    notify(getErrorMessage(error, '加载失败'), 'error')
+  } finally {
     loadingMarketplaces.value = false
   }
 }
 
+async function fetchMarketplacePlugins() {
+  if (!currentMarket.value) return
+  loadingMarketPlugins.value = true
+  try {
+    marketPlugins.value = await pluginsApi.getMarketplacePlugins(currentMarket.value.name)
+  } catch (error: any) {
+    notify(getErrorMessage(error, '加载失败'), 'error')
+  } finally {
+    loadingMarketPlugins.value = false
+  }
+}
+
+async function fetchFavorites() {
+  loadingFavorites.value = true
+  try {
+    favoriteList.value = await pluginsApi.getFavorites()
+  } catch (error: any) {
+    notify(getErrorMessage(error, '加载失败'), 'error')
+  } finally {
+    loadingFavorites.value = false
+  }
+}
+
+// --- Marketplace navigation ---
+
 function handleMarketClick(market: MarketplaceInfo) {
   currentMarket.value = market
   pluginSearchQuery.value = ''
+  fetchMarketplacePlugins()
 }
 
 function handleBackToMarkets() {
   currentMarket.value = null
+  marketPlugins.value = []
   pluginSearchQuery.value = ''
 }
+
+// --- Plugin actions ---
 
 async function handleToggleEnable(plugin: PluginItem, enabled: boolean) {
   operationLoading.value = true
@@ -393,8 +434,9 @@ async function handleToggleEnable(plugin: PluginItem, enabled: boolean) {
     const result = enabled
       ? await pluginsApi.enable(pluginId)
       : await pluginsApi.disable(pluginId)
-    allPlugins.value = result.plugins
     showCliOutput(result.cli_output)
+    await fetchInstalled()
+    if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '操作失败'), true)
   } finally {
@@ -408,9 +450,9 @@ async function handleInstall(plugin: PluginItem) {
   installingPluginId.value = pluginId
   try {
     const result = await pluginsApi.install(pluginId)
-    allPlugins.value = result.plugins
-    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
+    await Promise.all([fetchInstalled(), fetchFavorites()])
+    if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '安装失败'), true)
   } finally {
@@ -425,9 +467,9 @@ async function handleUninstall(plugin: PluginItem) {
     await ElMessageBox.confirm(`确定卸载插件 "${plugin.name}"?`, '确认卸载')
     operationLoading.value = true
     const result = await pluginsApi.uninstall(pluginId)
-    allPlugins.value = result.plugins
-    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
+    await Promise.all([fetchInstalled(), fetchFavorites()])
+    if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
     if (error !== 'cancel' && error?.toString() !== 'cancel') {
       showCliOutput(getErrorMessage(error, '卸载失败'), true)
@@ -443,8 +485,9 @@ async function handleUpdate(plugin: PluginItem) {
   installingPluginId.value = pluginId
   try {
     const result = await pluginsApi.update(pluginId)
-    allPlugins.value = result.plugins
     showCliOutput(result.cli_output)
+    await fetchInstalled()
+    if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '更新失败'), true)
   } finally {
@@ -453,12 +496,14 @@ async function handleUpdate(plugin: PluginItem) {
   }
 }
 
+// --- Favorite actions ---
+
 async function handleAddFavorite(plugin: PluginItem) {
   operationLoading.value = true
   const pluginId = getPluginId(plugin)
   try {
     await pluginsApi.addFavorite(pluginId, plugin.name, plugin.marketplace_name)
-    favoriteList.value = await pluginsApi.getFavorites()
+    await fetchFavorites()
     notify('已收藏')
   } catch (error: any) {
     notify(getErrorMessage(error, '操作失败'), 'error')
@@ -472,7 +517,7 @@ async function handleRemoveFavorite(plugin: PluginItem) {
   const pluginId = getPluginId(plugin)
   try {
     await pluginsApi.removeFavorite(pluginId)
-    favoriteList.value = await pluginsApi.getFavorites()
+    await fetchFavorites()
     notify('已取消收藏')
   } catch (error: any) {
     notify(getErrorMessage(error, '操作失败'), 'error')
@@ -490,10 +535,9 @@ async function handleInstallFavorite(favorite: PluginFavoriteItem) {
       favorite.marketplace_name,
       favorite.marketplace_source ?? undefined
     )
-    allPlugins.value = result.plugins
-    marketplaceList.value = result.marketplaces
-    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
+    await Promise.all([fetchInstalled(), fetchFavorites(), fetchMarketplaces()])
+    if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '安装失败'), true)
   } finally {
@@ -506,7 +550,7 @@ async function handleRemoveFavoriteById(favorite: PluginFavoriteItem) {
   operationLoading.value = true
   try {
     await pluginsApi.removeFavorite(favorite.plugin_id)
-    favoriteList.value = await pluginsApi.getFavorites()
+    await fetchFavorites()
     notify('已移除')
   } catch (error: any) {
     notify(getErrorMessage(error, '操作失败'), 'error')
@@ -515,23 +559,23 @@ async function handleRemoveFavoriteById(favorite: PluginFavoriteItem) {
   }
 }
 
+// --- Marketplace actions ---
+
 async function handleAddMarketplace() {
   if (!marketForm.value.url.trim()) {
     notify('请输入市场地址', 'error')
     return
   }
-  
+
   const url = marketForm.value.url.trim()
   showAddMarketDialog.value = false
   marketForm.value = { url: '' }
-  
+
   loadingMarketplaces.value = true
   try {
     const result = await pluginsApi.addMarketplace(url)
-    allPlugins.value = result.plugins
-    marketplaceList.value = result.marketplaces
-    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
+    await fetchMarketplaces()
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '添加失败'), true)
   } finally {
@@ -544,10 +588,12 @@ async function handleRemoveMarketplace(market: MarketplaceInfo) {
     await ElMessageBox.confirm(`确定删除市场 "${market.name}"?`, '确认删除')
     loadingMarketplaces.value = true
     const result = await pluginsApi.removeMarketplace(market.name)
-    allPlugins.value = result.plugins
-    marketplaceList.value = result.marketplaces
-    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
+    if (currentMarket.value?.name === market.name) {
+      handleBackToMarkets()
+    }
+    // CLI 删除市场时会自动卸载其中的插件
+    await Promise.all([fetchMarketplaces(), fetchInstalled(), fetchFavorites()])
   } catch (error: any) {
     if (error !== 'cancel' && error?.toString() !== 'cancel') {
       showCliOutput(getErrorMessage(error, '删除失败'), true)
@@ -558,19 +604,20 @@ async function handleRemoveMarketplace(market: MarketplaceInfo) {
 }
 
 async function handleUpdateMarketplace(market: MarketplaceInfo) {
-  loadingMarketplaces.value = true
+  loadingMarketPlugins.value = true
   try {
     const result = await pluginsApi.updateMarketplace(market.name)
-    allPlugins.value = result.plugins
-    marketplaceList.value = result.marketplaces
-    favoriteList.value = await pluginsApi.getFavorites()
     showCliOutput(result.cli_output)
+    await fetchMarketplaces()
+    if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '更新失败'), true)
   } finally {
-    loadingMarketplaces.value = false
+    loadingMarketPlugins.value = false
   }
 }
+
+// --- Misc ---
 
 async function copyDescription(text: string) {
   if (!text) return
@@ -582,17 +629,11 @@ async function copyDescription(text: string) {
   }
 }
 
-function notify(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
-  ElNotification({
-    title: type === 'success' ? '成功' : type === 'error' ? '错误' : '提示',
-    message,
-    type,
-    duration: 3000,
-    position: 'top-right'
-  })
-}
-
-onMounted(loadAll)
+onMounted(() => {
+  fetchInstalled()
+  fetchMarketplaces()
+  fetchFavorites()
+})
 </script>
 
 <style scoped>

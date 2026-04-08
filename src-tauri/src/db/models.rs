@@ -735,7 +735,7 @@ pub struct PluginItem {
     pub version: Option<String>,
     pub description: Option<String>,
     pub marketplace_name: String,
-    pub is_installed: bool,
+    pub is_installed: Option<bool>,
     pub is_enabled: Option<bool>,
-    pub is_favorited: bool,
+    pub is_favorited: Option<bool>,
 }

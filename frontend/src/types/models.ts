@@ -347,9 +347,9 @@ export interface PluginItem {
   version: string | null
   description: string | null
   marketplace_name: string
-  is_installed: boolean
+  is_installed: boolean | null
   is_enabled: boolean | null
-  is_favorited: boolean
+  is_favorited: boolean | null
 }
 
 export interface PluginFavoriteItem {
@@ -363,12 +363,9 @@ export interface PluginFavoriteItem {
 // 插件操作返回结果
 export interface PluginActionResult {
   cli_output: string
-  plugins: PluginItem[]
 }
 
 // 市场操作返回结果
 export interface MarketplaceActionResult {
   cli_output: string
-  plugins: PluginItem[]
-  marketplaces: MarketplaceInfo[]
 }

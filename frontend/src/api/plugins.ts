@@ -9,24 +9,22 @@ import type {
 
 export interface FavoriteInstallResult {
   cli_output: string
-  plugins: PluginItem[]
-  marketplaces: MarketplaceInfo[]
 }
 
 export const pluginsApi = {
-  // 获取插件列表
-  getAll: async (): Promise<PluginItem[]> => {
-    return await invoke<PluginItem[]>('get_all_plugins')
+  // 获取已安装插件列表
+  getInstalled: async (): Promise<PluginItem[]> => {
+    return await invoke<PluginItem[]>('get_installed_plugins')
+  },
+
+  // 获取指定市场的插件列表（按需加载）
+  getMarketplacePlugins: async (marketName: string): Promise<PluginItem[]> => {
+    return await invoke<PluginItem[]>('get_marketplace_plugins', { marketName })
   },
 
   // 获取市场列表
   getMarketplaces: async (): Promise<MarketplaceInfo[]> => {
     return await invoke<MarketplaceInfo[]>('get_marketplaces')
-  },
-
-  // 刷新插件列表
-  refresh: async (): Promise<PluginItem[]> => {
-    return await invoke<PluginItem[]>('refresh_plugins')
   },
 
   // 插件操作
