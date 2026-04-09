@@ -97,7 +97,7 @@ function handleConfirm() {
 }
 .modal-title {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: var(--fw-medium);
   color: #0f172a;
 }
 .modal-close {
@@ -130,8 +130,8 @@ function handleConfirm() {
   border: none;
   padding: 10px 20px;
   border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -147,8 +147,8 @@ function handleConfirm() {
   border: 1px solid #e2e8f0;
   padding: 10px 20px;
   border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;

@@ -217,7 +217,6 @@ onMounted(fetchList)
 
 <style scoped>
 .prompts-page {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -298,8 +297,8 @@ onMounted(fetchList)
   align-items: center;
 }
 .prompt-name {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   color: #0f172a;
   margin: 0;
   display: -webkit-box;
@@ -352,8 +351,8 @@ onMounted(fetchList)
   align-items: center;
 }
 .toggle-label {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-normal);
   color: #64748b;
 }
 
@@ -363,8 +362,8 @@ onMounted(fetchList)
 }
 .c-label {
   display: block;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-normal);
   color: #475569;
   margin-bottom: 12px;
 }
@@ -377,7 +376,7 @@ onMounted(fetchList)
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: #0f172a;
   outline: none;
   transition: all 0.2s;
@@ -390,9 +389,6 @@ textarea.c-input {
   line-height: 1.6;
   word-break: break-all;
 }
-.mono {
-  font-family: "JetBrains Mono", monospace;
-}
 
 /* Buttons */
 .b-button {
@@ -401,8 +397,8 @@ textarea.c-input {
   border: none;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-normal);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -417,8 +413,8 @@ textarea.c-input {
   border: 1px solid #e2e8f0;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-normal);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -439,7 +435,7 @@ textarea.c-input {
 }
 .empty-state p {
   margin-top: 16px;
-  font-size: 15px;
+  font-size: var(--fs-lg);
 }
 
 .action-icon.add-btn {

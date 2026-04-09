@@ -191,42 +191,40 @@ defineExpose({ handleSave })
 .form-section { margin-bottom: 28px; }
 .editor-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-.section-label { font-size: 14px; font-weight: 700; color: #475569; margin-bottom: 12px; letter-spacing: -0.2px; }
+.section-label { font-size: var(--fs-md); font-weight: var(--fw-normal); color: #0f172a; margin-bottom: 12px; letter-spacing: -0.2px; }
 
 .input-group { display: flex; gap: 12px; }
 
-.f-input { 
-  flex: 1; padding: 10px 14px; background: #ffffff; border: 1px solid #e2e8f0; 
-  border-radius: 10px; font-size: 14px; color: #0f172a; outline: none; transition: all 0.2s; 
+.f-input {
+  flex: 1; padding: 10px 14px; background: #ffffff; border: 1px solid #e2e8f0;
+  border-radius: 10px; font-size: var(--fs-md); color: #0f172a; outline: none; transition: all 0.2s;
 }
 .f-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
 
 .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 
-.f-textarea { 
-  flex: 1; min-height: 240px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; 
-  font-size: 13px; background: #f8fafc; color: #0f172a; resize: none; 
+.f-textarea {
+  flex: 1; min-height: 240px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px;
+  font-size: var(--fs-base); background: #f8fafc; color: #0f172a; resize: none;
   outline: none; transition: all 0.2s; line-height: 1.6;
   word-break: break-all;
 }
 .f-textarea:focus { border-color: #0ea5e9; background: #ffffff; }
 
-.mono { font-family: "JetBrains Mono", "Cascadia Code", monospace; }
-
-.hint-text { font-size: 12px; color: #94a3b8; margin-top: 8px; font-weight: 500; }
-.error-text { font-size: 12px; color: #f43f5e; margin-top: 8px; font-weight: 600; }
+.hint-text { font-size: var(--fs-sm); color: #94a3b8; margin-top: 8px; font-weight: var(--fw-normal); }
+.error-text { font-size: var(--fs-sm); color: #f43f5e; margin-top: 8px; font-weight: var(--fw-normal); }
 
 /* Buttons */
-.f-button { 
-  background: #0ea5e9; color: #ffffff; border: none; padding: 12px 24px; border-radius: 10px; 
-  font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; 
-  transition: background 0.2s; 
+.f-button {
+  background: #0ea5e9; color: #ffffff; border: none; padding: 12px 24px; border-radius: 10px;
+  font-size: var(--fs-md); font-weight: var(--fw-medium); cursor: pointer; display: flex; align-items: center;
+  transition: background 0.2s;
 }
 .f-button:hover { background: #0284c7; }
 
-.f-button.ghost-plain { background: transparent; color: #64748b; padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; }
+.f-button.ghost-plain { background: transparent; color: #64748b; padding: 8px 12px; font-size: var(--fs-base); font-weight: var(--fw-medium); border-radius: 8px; }
 .f-button.ghost-plain:hover { color: #0f172a; background: #f1f5f9; }
-.f-button.ghost-plain.sm { padding: 4px 8px; font-size: 12px; }
+.f-button.ghost-plain.sm { padding: 4px 8px; font-size: var(--fs-sm); }
 
 /* Write mode section */
 .write-mode-section { margin-top: 4px; margin-bottom: 0; flex-shrink: 0; }
@@ -243,9 +241,9 @@ defineExpose({ handleSave })
 
 .frost-segmented .seg-item {
   padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748b;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-normal);
+  color: #475569;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -257,7 +255,7 @@ defineExpose({ handleSave })
 
 .frost-segmented .seg-item.active {
   background: #ffffff;
-  color: #0ea5e9;
+  color: #0f172a;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -314,15 +312,15 @@ defineExpose({ handleSave })
 }
 
 .tooltip-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-bold);
   color: #0f172a;
   margin-bottom: 10px;
 }
 
 .tooltip-item {
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: #64748b;
 }
@@ -332,14 +330,14 @@ defineExpose({ handleSave })
 .tooltip-item strong {
   display: block;
   color: #334155;
-  font-weight: 600;
+  font-weight: var(--fw-medium);
   margin-bottom: 2px;
 }
 
 /* Save button */
 .save-button {
   background: rgba(14, 165, 233, 0.1); color: #0ea5e9; border: none; padding: 6px 14px; border-radius: 10px;
-  font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center;
+  font-size: var(--fs-md); font-weight: var(--fw-medium); cursor: pointer; display: flex; align-items: center;
   transition: all 0.2s; flex-shrink: 0;
 }
 .save-button:hover { background: rgba(14, 165, 233, 0.2); }

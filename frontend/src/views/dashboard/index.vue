@@ -7,9 +7,9 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 12px;">
               <div class="status-dot" :class="{ running: getCliEnabled(cli.type) }"></div>
-              <div style="font-size: 16px; font-weight: 600; color: #0f172a;">
-                {{ cli.label }} 
-                <span v-if="!getCliEnabled(cli.type)" style="color: #94a3b8; font-size: 13px; font-weight: 500;">(已禁用)</span>
+              <div class="text-xl fw-medium text-primary">
+                {{ cli.label }}
+                <span v-if="!getCliEnabled(cli.type)" class="text-muted text-base fw-normal">(已禁用)</span>
               </div>
             </div>
             <el-switch :model-value="getCliEnabled(cli.type)" @change="(val: boolean) => handleCliToggle(cli.type, val)" :loading="cliLoading[cli.type]" />
@@ -59,22 +59,22 @@
             <el-table :data="providerStats" style="width: 100%" :max-height="240">
               <el-table-column prop="provider_name" label="服务商" min-width="100" show-overflow-tooltip>
                 <template #default="scope">
-                  <span class="mono" style="color: #475569; font-size: 14px;">{{ scope.row.provider_name }}</span>
+                  <span class="mono text-primary text-md">{{ scope.row.provider_name }}</span>
                 </template>
               </el-table-column>
               <el-table-column prop="total_requests" label="请求" min-width="100">
                 <template #default="scope">
-                  <span class="mono" style="color: #475569; font-size: 14px;">{{ scope.row.total_requests }}</span>
+                  <span class="mono text-primary text-md">{{ scope.row.total_requests }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="成功率" min-width="100">
                 <template #default="scope">
-                  <span class="mono" style="color: #475569; font-size: 14px;">{{ scope.row.success_rate.toFixed(1) }}%</span>
+                  <span class="mono text-primary text-md">{{ scope.row.success_rate.toFixed(1) }}%</span>
                 </template>
               </el-table-column>
               <el-table-column label="Token" min-width="100">
                 <template #default="scope">
-                  <span class="mono" style="color: #475569; font-size: 14px;">{{ formatTokens(scope.row.total_tokens) }}</span>
+                  <span class="mono text-primary text-md">{{ formatTokens(scope.row.total_tokens) }}</span>
                 </template>
               </el-table-column>
             </el-table>
@@ -313,22 +313,22 @@ onMounted(async () => {
 }
 
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-shrink: 0; }
-.page-title { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
+.page-title { font-size: var(--fs-3xl); font-weight: var(--fw-bold); margin: 0; letter-spacing: -0.5px; }
 
 .b-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); padding: 24px; margin-bottom: 24px; transition: border-color 0.2s; border: 1px solid transparent; }
 .b-card:hover { border-color: #e2e8f0; }
-.b-card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; color: #0f172a; }
+.b-card-title { font-size: var(--fs-xl); font-weight: var(--fw-medium); margin-bottom: 20px; color: #0f172a; }
 
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
 .status-dot.running { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
 
 .b-segmented { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; }
-.b-seg-btn { text-align: center; padding: 6px 16px; font-size: 14px; color: #475569; border-radius: 8px; font-weight: 500; transition: all 0.2s ease; opacity: 0.7; cursor: pointer; }
-.b-seg-btn.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 1; pointer-events: none; }
+.b-seg-btn { text-align: center; padding: 6px 16px; font-size: var(--fs-md); color: #475569; border-radius: 8px; font-weight: var(--fw-normal); transition: all 0.2s ease; cursor: pointer; }
+.b-seg-btn.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); pointer-events: none; }
 
 .kpi-card { flex: 1; padding: 24px 20px !important; margin-bottom: 0 !important; text-align: center; display: flex; flex-direction: column; justify-content: center; }
-.kpi-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 12px; }
-.kpi-value { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+.kpi-title { font-size: var(--fs-base); font-weight: var(--fw-normal); color: #64748b; margin-bottom: 12px; }
+.kpi-value { font-size: 32px; font-weight: var(--fw-bold); letter-spacing: -1px; }
 
 .text-blue { color: #0ea5e9; }
 .text-green { color: #10b981; }

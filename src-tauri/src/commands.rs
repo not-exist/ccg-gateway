@@ -16,7 +16,7 @@ use crate::services::skill::{self, is_local_repo_source, InstalledSkillManifestE
 use crate::LogDb;
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use tauri::{Manager, State};
 
 type Result<T> = std::result::Result<T, String>;
