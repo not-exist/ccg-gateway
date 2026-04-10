@@ -616,7 +616,7 @@ watch(activeTab, (tab) => {
 .top-tabs { display: flex; gap: 32px; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent); margin: 0 40px 24px 40px; padding-top: 8px; flex-shrink: 0; }
 .tab-item { padding-bottom: 12px; color: var(--color-text-weak); font-weight: var(--fw-400); font-size: var(--fs-14); cursor: pointer; position: relative; transition: color 0.2s; }
 .tab-item:hover { color: var(--color-text-secondary); }
-.tab-item.active { color: var(--color-text); font-weight: var(--fw-600); border-bottom: 2px solid var(--color-text); }
+.tab-item.active { color: var(--color-primary); font-weight: var(--fw-600); border-bottom: 2px solid var(--color-primary); }
 
 .tab-content {
   flex: 1;
