@@ -604,8 +604,8 @@ async function handleStartDetect() {
     if (idx >= 0) {
       detectResults.value[idx] = result
     }
-    // 检查是否所有结果都已返回
-    if (detectResults.value.every(r => r.status_code !== null || r.elapsed_ms > 0)) {
+    // 检查是否所有结果都已返回（response_text 非空表示有结果）
+    if (detectResults.value.every(r => r.response_text !== '')) {
       detectLoading.value = false
     }
   })
