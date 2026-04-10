@@ -91,6 +91,15 @@
   /* 特殊色系 */
   --color-violet: #8b5cf6;
   --color-violet-light: #f5f3ff;
+
+  /* Element Plus 主题色覆盖 */
+  --el-color-primary: #0ea5e9;
+  --el-color-primary-light-3: #38bdf8;
+  --el-color-primary-light-5: #7dd3fc;
+  --el-color-primary-light-7: #bae6fd;
+  --el-color-primary-light-8: #e0f2fe;
+  --el-color-primary-light-9: #f0f9ff;
+  --el-color-primary-dark-2: #0284c7;
 }
 
 *, *::before, *::after {
