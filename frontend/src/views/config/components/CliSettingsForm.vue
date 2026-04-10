@@ -191,39 +191,39 @@ defineExpose({ handleSave })
 .form-section { margin-bottom: 28px; }
 .editor-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-.section-label { font-size: var(--fs-14); font-weight: var(--fw-500); color: #0f172a; margin-bottom: 12px; letter-spacing: -0.2px; }
+.section-label { font-size: var(--fs-14); font-weight: var(--fw-500); color: var(--color-text); margin-bottom: 12px; letter-spacing: -0.2px; }
 
 .input-group { display: flex; gap: 12px; }
 
 .f-input {
-  flex: 1; padding: 10px 14px; background: #ffffff; border: 1px solid #e2e8f0;
-  border-radius: 10px; font-size: var(--fs-14); color: #0f172a; outline: none; transition: all 0.2s;
+  flex: 1; padding: 10px 14px; background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: 10px; font-size: var(--fs-14); color: var(--color-text); outline: none; transition: all 0.2s;
 }
-.f-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+.f-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-10); }
 
 .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 
 .f-textarea {
-  flex: 1; min-height: 240px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px;
-  font-size: var(--fs-14); background: #f8fafc; color: #0f172a; resize: none;
+  flex: 1; min-height: 240px; padding: 16px; border: 1px solid var(--color-border); border-radius: 12px;
+  font-size: var(--fs-14); background: var(--color-bg-page); color: var(--color-text); resize: none;
   outline: none; transition: all 0.2s; line-height: 1.6;
   word-break: break-all;
 }
-.f-textarea:focus { border-color: #0ea5e9; background: #ffffff; }
+.f-textarea:focus { border-color: var(--color-primary); background: var(--color-bg); }
 
-.hint-text { font-size: var(--fs-12); color: #94a3b8; margin-top: 8px; font-weight: var(--fw-400); }
-.error-text { font-size: var(--fs-12); color: #f43f5e; margin-top: 8px; font-weight: var(--fw-400); }
+.hint-text { font-size: var(--fs-12); color: var(--color-text-weak); margin-top: 8px; font-weight: var(--fw-400); }
+.error-text { font-size: var(--fs-12); color: var(--color-error); margin-top: 8px; font-weight: var(--fw-400); }
 
 /* Buttons */
 .f-button {
-  background: #0ea5e9; color: #ffffff; border: none; padding: 12px 24px; border-radius: 10px;
+  background: var(--color-primary); color: var(--color-bg); border: none; padding: 12px 24px; border-radius: 10px;
   font-size: var(--fs-14); font-weight: var(--fw-600); cursor: pointer; display: flex; align-items: center;
   transition: background 0.2s;
 }
-.f-button:hover { background: #0284c7; }
+.f-button:hover { background: var(--color-primary-hover); }
 
-.f-button.ghost-plain { background: transparent; color: #64748b; padding: 8px 12px; font-size: var(--fs-14); font-weight: var(--fw-600); border-radius: 8px; }
-.f-button.ghost-plain:hover { color: #0f172a; background: #f1f5f9; }
+.f-button.ghost-plain { background: transparent; color: var(--color-text-muted); padding: 8px 12px; font-size: var(--fs-14); font-weight: var(--fw-600); border-radius: 8px; }
+.f-button.ghost-plain:hover { color: var(--color-text); background: var(--color-bg-subtle); }
 .f-button.ghost-plain.sm { padding: 4px 8px; font-size: var(--fs-12); }
 
 /* Write mode section */
@@ -233,7 +233,7 @@ defineExpose({ handleSave })
 
 .frost-segmented {
   display: inline-flex;
-  background: #f1f5f9;
+  background: var(--color-bg-subtle);
   border-radius: 10px;
   padding: 3px;
   gap: 2px;
@@ -243,7 +243,7 @@ defineExpose({ handleSave })
   padding: 6px 14px;
   font-size: var(--fs-14);
   font-weight: var(--fw-600);
-  color: #475569;
+  color: var(--color-text-secondary);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -251,12 +251,12 @@ defineExpose({ handleSave })
   user-select: none;
 }
 
-.frost-segmented .seg-item:hover { color: #0f172a; }
+.frost-segmented .seg-item:hover { color: var(--color-text); }
 
 .frost-segmented .seg-item.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: 0 1px 3px var(--color-shadow-sm);
 }
 
 .write-mode-segmented { flex-shrink: 0; }
@@ -270,11 +270,11 @@ defineExpose({ handleSave })
 }
 
 .help-icon {
-  color: #94a3b8;
+  color: var(--color-text-weak);
   transition: color 0.2s;
 }
 
-.help-icon-wrapper:hover .help-icon { color: #64748b; }
+.help-icon-wrapper:hover .help-icon { color: var(--color-text-muted); }
 
 /* Tooltip */
 .help-tooltip {
@@ -283,11 +283,11 @@ defineExpose({ handleSave })
   left: 50%;
   transform: translateX(-50%);
   width: 300px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px var(--color-shadow-md);
   z-index: 100;
 }
 
@@ -298,7 +298,7 @@ defineExpose({ handleSave })
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top-color: #ffffff;
+  border-top-color: var(--color-bg);
 }
 
 .help-tooltip::before {
@@ -308,13 +308,13 @@ defineExpose({ handleSave })
   left: 50%;
   transform: translateX(-50%);
   border: 7px solid transparent;
-  border-top-color: #e2e8f0;
+  border-top-color: var(--color-border);
 }
 
 .tooltip-title {
   font-size: var(--fs-14);
   font-weight: var(--fw-700);
-  color: #0f172a;
+  color: var(--color-text);
   margin-bottom: 10px;
 }
 
@@ -322,23 +322,23 @@ defineExpose({ handleSave })
   margin-bottom: 8px;
   font-size: var(--fs-12);
   line-height: 1.5;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .tooltip-item:last-child { margin-bottom: 0; }
 
 .tooltip-item strong {
   display: block;
-  color: #334155;
+  color: var(--color-text-dark);
   font-weight: var(--fw-600);
   margin-bottom: 2px;
 }
 
 /* Save button */
 .save-button {
-  background: rgba(14, 165, 233, 0.1); color: #0ea5e9; border: none; padding: 6px 14px; border-radius: 10px;
+  background: var(--color-primary-10); color: var(--color-primary); border: none; padding: 6px 14px; border-radius: 10px;
   font-size: var(--fs-14); font-weight: var(--fw-600); cursor: pointer; display: flex; align-items: center;
   transition: all 0.2s; flex-shrink: 0;
 }
-.save-button:hover { background: rgba(14, 165, 233, 0.2); }
+.save-button:hover { background: var(--color-primary-20); }
 </style>
