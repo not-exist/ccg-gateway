@@ -4625,14 +4625,11 @@ pub async fn test_webdav_connection(
 }
 
 #[tauri::command]
-pub async fn export_to_local() -> Result<Vec<u8>> {
-    // Get the database path from config
+pub async fn export_to_local_path(path: String) -> Result<()> {
     let db_path = get_data_dir().join("ccg_gateway.db");
-
-    // Read the database file
     let content = std::fs::read(&db_path).map_err(|e| format!("Failed to read database: {}", e))?;
-
-    Ok(content)
+    std::fs::write(&path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
+    Ok(())
 }
 
 #[tauri::command]

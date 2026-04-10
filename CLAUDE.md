@@ -6,6 +6,7 @@
 
 ## 一、全局规范
 
+- 包管理统一使用 `pnpm`，禁止混用 `npm` / `yarn` / `npx`。
 - 数据目录统一通过 `config.rs` 中的方法获取，禁止在业务代码里硬编码用户目录或额外拼接一套数据根目录。
 - 数据库结构变更统一维护在 `db/schema_definition.rs`，每次主库或日志库结构变更都必须同步递增对应 `version`。
 - 数据库迁移流程统一走 `db/mod.rs`，禁止绕过 `SchemaInspector / SchemaDiff / SchemaMigrator` 私自写分散迁移逻辑。
@@ -19,7 +20,6 @@
   - 禁止组件内直接散写 `@tauri-apps/api/core` 调用
 - 前端禁止直接请求业务后端或本地管理接口；需要桌面能力、文件能力、数据库能力时，统一新增 Tauri command。第三方公开 HTTP 接口可按现有模式使用，但要有明确必要性。
 - 状态管理统一使用 Pinia；跨页面/跨组件共享状态禁止下沉到组件局部 `ref/reactive`。
-- 包管理统一使用 `pnpm`，禁止混用 `npm` / `yarn` 生成新的锁文件。
 
 ---
 

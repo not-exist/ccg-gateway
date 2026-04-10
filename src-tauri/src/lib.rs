@@ -27,6 +27,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             let config = config.clone();
 
@@ -217,7 +218,7 @@ pub fn run() {
             commands::get_webdav_settings,
             commands::update_webdav_settings,
             commands::test_webdav_connection,
-            commands::export_to_local,
+            commands::export_to_local_path,
             commands::import_from_local,
             commands::export_to_webdav,
             commands::list_webdav_backups,

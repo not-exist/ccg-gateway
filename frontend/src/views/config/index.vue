@@ -163,7 +163,7 @@
     </AppModal>
 
     <!-- WebDAV Settings Dialog -->
-    <AppModal v-model="webdavSettingsVisible" title="WebDAV 设置" width="480px" @confirm="handleSaveWebdavSettings">
+    <AppModal v-model="webdavSettingsVisible" title="WebDAV 设置" width="480px" @confirm="handleSaveWebdav">
       <div class="webdav-settings-form">
         <div class="input-item">
           <label class="item-label">服务器地址</label>
@@ -275,16 +275,8 @@ function showWebdavSettings() {
 async function handleExportLocal() {
   exportingLocal.value = true
   try {
-    const { data } = await backupApi.exportToLocal()
-    const url = window.URL.createObjectURL(new Blob([data]))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `ccg_gateway_${new Date().toISOString().slice(0, 10)}.db`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    notify('导出成功')
+    const success = await backupApi.exportToLocalWithDialog()
+    if (success) notify('导出成功')
   } catch (error: any) {
     notify(getErrorMessage(error, '导出失败'), 'error')
   } finally {

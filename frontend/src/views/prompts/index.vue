@@ -207,11 +207,6 @@ async function handleDelete(prompt: Prompt) {
   }
 }
 
-function truncateText(text: string, length: number) {
-  if (!text) return ''
-  return text.length > length ? text.substring(0, length) + '...' : text
-}
-
 onMounted(fetchList)
 </script>
 

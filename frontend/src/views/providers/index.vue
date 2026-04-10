@@ -16,8 +16,8 @@
     
     <!-- Top Level Tabs -->
     <div class="top-tabs">
-      <div 
-        v-for="cli in [{id: 'claude_code', label: 'Claude Code'}, {id: 'codex', label: 'Codex'}, {id: 'gemini', label: 'Gemini'}]"
+      <div
+        v-for="cli in cliTabs"
         :key="cli.id"
         :class="['tab-item', { active: activeCliType === cli.id }]"
         @click="activeCliType = cli.id"
@@ -422,11 +422,17 @@ import { useCredentialStore } from '@/stores/credentials'
 import { useUiStore } from '@/stores/ui'
 import { credentialsApi } from '@/api/credentials'
 import { providersApi } from '@/api/providers'
-import type { Provider, ModelMap, ModelBlacklist, CliType, OfficialCredential, OfficialCredentialCreate, TestProviderResult } from '@/types/models'
+import type { Provider, CliType, OfficialCredential, OfficialCredentialCreate, TestProviderResult } from '@/types/models'
 
 const providerStore = useProviderStore()
 const credentialStore = useCredentialStore()
 const uiStore = useUiStore()
+
+const cliTabs: { id: CliType; label: string }[] = [
+  { id: 'claude_code', label: 'Claude Code' },
+  { id: 'codex', label: 'Codex' },
+  { id: 'gemini', label: 'Gemini' }
+]
 
 const activeCliType = computed({
   get: () => uiStore.providersActiveCliType,

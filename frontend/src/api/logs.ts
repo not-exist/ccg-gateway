@@ -45,7 +45,7 @@ export const logsApi = {
     const data = await invoke<RequestLogDetail>('get_request_log_detail', { id })
     return { data }
   },
-  clearRequestLogs: async (before_timestamp?: number) => {
+  clearRequestLogs: async () => {
     await invoke('clear_request_logs')
     return { data: null }
   },
@@ -63,7 +63,7 @@ export const logsApi = {
     })
     return { data }
   },
-  clearSystemLogs: async (before_timestamp?: number) => {
+  clearSystemLogs: async () => {
     await invoke('clear_system_logs')
     return { data: null }
   }

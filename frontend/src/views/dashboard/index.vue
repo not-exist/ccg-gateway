@@ -12,7 +12,7 @@
                 <span v-if="!getCliEnabled(cli.type)" class="cli-disabled">(已禁用)</span>
               </div>
             </div>
-            <el-switch :model-value="getCliEnabled(cli.type)" @change="(val: boolean) => handleCliToggle(cli.type, val)" :loading="cliLoading[cli.type]" />
+            <el-switch :model-value="getCliEnabled(cli.type)" @change="(val: string | number | boolean) => handleCliToggle(cli.type, val as boolean)" :loading="cliLoading[cli.type]" />
           </div>
           
           <div class="b-segmented" style="width: 100%;">

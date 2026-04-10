@@ -577,28 +577,6 @@ async function handleReinstallFromInstalled(skill: InstalledSkill) {
   }
 }
 
-async function toggleFavorite(skill: DiscoverableSkill) {
-  operationLoading.value = true
-  try {
-    if (skill.is_favorited) {
-      await skillsApi.removeFavorite(skill.key)
-      notify('已取消收藏')
-    } else {
-      await skillsApi.addFavorite(skill)
-      notify('已收藏')
-    }
-    await fetchFavorites()
-    const target = repoSkillList.value.find(s => s.key === skill.key)
-    if (target) {
-      target.is_favorited = !skill.is_favorited
-    }
-  } catch (error: any) {
-    notify(getErrorMessage(error, '操作失败'), 'error')
-  } finally {
-    operationLoading.value = false
-  }
-}
-
 async function toggleInstalledFavorite(skill: InstalledSkill) {
   operationLoading.value = true
   try {
@@ -611,10 +589,6 @@ async function toggleInstalledFavorite(skill: InstalledSkill) {
   } finally {
     operationLoading.value = false
   }
-}
-
-async function toggleRepoFavorite(skill: DiscoverableSkill) {
-  await toggleFavorite(skill)
 }
 
 async function handleInstallFavorite(favorite: SkillFavoriteItem, reinstall: boolean = false) {

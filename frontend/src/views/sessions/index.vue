@@ -176,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { notify } from '@/utils/notification'
 import { useSessionStore } from '@/stores/sessions'
@@ -199,7 +199,7 @@ const currentSessionId = ref('')
 const expandedMessages = ref(new Set<number>())
 
 function handleCliChange(name: string) {
-  activeCliType.value = name
+  activeCliType.value = name as CliType
   sessionStore.clearSessions()
   sessionStore.fetchProjects(1)
 }

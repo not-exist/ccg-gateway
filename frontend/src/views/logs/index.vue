@@ -573,7 +573,7 @@ function getStatusCodePill(code: number | null): string {
 }
 
 // Keeping original Element styling function backward compat for the Dialog View
-function getStatusCodeType(code: number | null): string {
+function getStatusCodeType(code: number | null): 'success' | 'warning' | 'info' | 'danger' {
   if (!code) return 'info'
   if (code >= 200 && code < 300) return 'success'
   if (code >= 400 && code < 500) return 'warning'

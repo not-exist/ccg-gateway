@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { save } from '@tauri-apps/plugin-dialog'
 
 export interface WebdavSettings {
   url: string
@@ -31,9 +32,15 @@ export const testWebdavConnection = async (data: WebdavSettings): Promise<{ data
   return { data: { success } }
 }
 
-export const exportToLocal = async (): Promise<Blob> => {
-  const data = await invoke<number[]>('export_to_local')
-  return new Blob([new Uint8Array(data)], { type: 'application/octet-stream' })
+export const exportToLocalWithDialog = async (): Promise<boolean> => {
+  const defaultName = `ccg_gateway_${new Date().toISOString().slice(0, 10)}.db`
+  const path = await save({
+    defaultPath: defaultName,
+    filters: [{ name: 'Database', extensions: ['db'] }]
+  })
+  if (!path) return false
+  await invoke('export_to_local_path', { path })
+  return true
 }
 
 export const importFromLocal = async (file: File): Promise<{ data: { success: boolean; message: string } }> => {
