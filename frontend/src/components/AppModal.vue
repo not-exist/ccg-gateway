@@ -148,7 +148,7 @@ function handleConfirm() {
 
 .b-button-outline {
   background: var(--color-bg);
-  color: #475569;
+  color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   padding: 10px 20px;
   border-radius: 10px;

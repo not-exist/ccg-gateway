@@ -649,7 +649,7 @@ watch(activeTab, (tab) => {
   color: var(--color-text);
 }
 .action-icon.delete:hover {
-  background: #fee2e2;
+  background: var(--color-danger-light);
   color: var(--color-danger);
 }
 .action-icon.recording {

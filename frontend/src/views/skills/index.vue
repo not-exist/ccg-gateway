@@ -232,7 +232,7 @@
                       :show-after="200"
                     >
                       <template #content>
-                        <div class="text-14" style="max-width: 350px; line-height: 1.6; word-break: break-word; user-select: text; color: #334155;">
+                        <div class="text-14" style="max-width: 350px; line-height: 1.6; word-break: break-word; user-select: text; color: var(--color-text-dark);">
                           {{ skill.description }}
                         </div>
                       </template>

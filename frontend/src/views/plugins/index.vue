@@ -185,7 +185,7 @@
                       :show-after="200"
                     >
                       <template #content>
-                        <div class="text-14" style="max-width: 350px; line-height: 1.6; word-break: break-word; user-select: text; color: #334155;">
+                        <div class="text-14" style="max-width: 350px; line-height: 1.6; word-break: break-word; user-select: text; color: var(--color-text-dark);">
                           {{ plugin.description }}
                         </div>
                       </template>
@@ -837,7 +837,7 @@ onMounted(() => {
 
 .form-group { margin-bottom: 24px; }
 .c-label { display: block; font-size: var(--fs-14); font-weight: var(--fw-400); color: var(--color-text-secondary); margin-bottom: 12px; }
-.required { color: #f43f5e; }
+.required { color: var(--color-error); }
 
 .action-icon.add-btn {
   width: 36px;
