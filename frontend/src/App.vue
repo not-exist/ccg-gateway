@@ -21,6 +21,76 @@
   --fs-20: 20px;
   --fs-24: 24px;
   --fs-32: 32px;
+
+  /* ========== 颜色规范 ========== */
+  /* 主色系 */
+  --color-primary: #0ea5e9;
+  --color-primary-hover: #0284c7;
+  --color-primary-dark: #0369a1;
+  --color-primary-light: #f0f9ff;
+  --color-primary-lighter: #e0f2fe;
+  --color-primary-border: #bae6fd;
+  --color-primary-muted: #7dd3fc;
+  --color-primary-5: rgba(14, 165, 233, 0.05);
+  --color-primary-10: rgba(14, 165, 233, 0.1);
+  --color-primary-20: rgba(14, 165, 233, 0.2);
+  --color-primary-30: rgba(14, 165, 233, 0.3);
+
+  /* 文字色系 */
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-weak: #94a3b8;
+  --color-text-dark: #334155;
+
+  /* 背景色系 */
+  --color-bg: #ffffff;
+  --color-bg-page: #f8fafc;
+  --color-bg-subtle: #f1f5f9;
+  --color-bg-80: rgba(255, 255, 255, 0.8);
+  --color-bg-90: rgba(255, 255, 255, 0.9);
+  --color-bg-95: rgba(255, 255, 255, 0.95);
+
+  /* 边框色系 */
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-border-light: rgba(226, 232, 240, 0.6);
+  --color-border-medium: rgba(226, 232, 240, 0.8);
+  --color-scrollbar: #cbd5e1;
+  --color-scrollbar-hover: #94a3b8;
+
+  /* 状态色系 */
+  --color-success: #10b981;
+  --color-success-hover: #059669;
+  --color-success-light: #ecfdf5;
+  --color-success-10: rgba(16, 185, 129, 0.1);
+  --color-success-30: rgba(16, 185, 129, 0.3);
+  --color-success-40: rgba(16, 185, 129, 0.4);
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-light: #fee2e2;
+  --color-danger-muted: #fca5a5;
+  --color-error: #f43f5e;
+  --color-error-light: #fff1f2;
+  --color-error-2: rgba(244, 63, 94, 0.02);
+  --color-error-10: rgba(244, 63, 94, 0.1);
+  --color-warning: #f59e0b;
+  --color-warning-10: rgba(245, 158, 11, 0.1);
+
+  /* 阴影色系 */
+  --color-shadow: rgba(0, 0, 0, 0.03);
+  --color-shadow-hover: rgba(0, 0, 0, 0.05);
+  --color-shadow-md: rgba(0, 0, 0, 0.08);
+  --color-shadow-lg: rgba(0, 0, 0, 0.1);
+  --color-shadow-xl: rgba(0, 0, 0, 0.2);
+  --color-scrim: rgba(15, 23, 42, 0.25);
+  --color-scrim-dark: rgba(15, 23, 42, 0.4);
+  --color-overlay: rgba(148, 163, 184, 0.05);
+  --color-overlay-8: rgba(148, 163, 184, 0.08);
+
+  /* 特殊色系 */
+  --color-violet: #8b5cf6;
+  --color-violet-light: #f5f3ff;
 }
 
 *, *::before, *::after {
@@ -55,10 +125,10 @@ html, body, #app {
 .fw-bold { font-weight: var(--fw-700); }
 
 /* ========== 颜色类 ========== */
-.text-muted { color: #94a3b8; }
-.text-secondary { color: #64748b; }
-.text-primary { color: #0f172a; }
-.text-info { color: #0ea5e9; }
+.text-muted { color: var(--color-text-weak); }
+.text-secondary { color: var(--color-text-muted); }
+.text-primary { color: var(--color-text); }
+.text-info { color: var(--color-primary); }
 .text-upper { text-transform: uppercase; letter-spacing: 0.5px; }
 .text-center { text-align: center; }
 
@@ -69,14 +139,14 @@ html, body, #app {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: var(--color-scrollbar);
   border-radius: 10px;
   border: 4px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--color-scrollbar-hover);
 }
 
 ::-webkit-scrollbar-track {
