@@ -9,8 +9,7 @@ use crate::db::models::{
     ProviderStatsResponse, ProviderStatsRow, ProviderUpdate, RequestLogDetail, RequestLogItem,
     SessionInfo, SessionMessage, SkillCliFlag, SkillFavorite, SkillFavoriteItem, SkillRepo,
     SkillRepoCreate, SystemLogItem, SystemLogListResponse, SystemStatus, TestProviderModelsInput,
-    TimeoutSettings,
-    TimeoutSettingsUpdate, WebdavBackup, WebdavSettings, WebdavSettingsUpdate,
+    TimeoutSettings, TimeoutSettingsUpdate, WebdavBackup, WebdavSettings, WebdavSettingsUpdate,
 };
 use crate::services::skill::{self, is_local_repo_source, InstalledSkillManifestEntry};
 use crate::LogDb;
@@ -1901,10 +1900,12 @@ async fn sync_codex_config(
         };
 
         let mut final_doc = if let Some(ref content) = existing_content {
-            content.parse::<toml_edit::DocumentMut>().unwrap_or_else(|e| {
-                tracing::warn!("Failed to parse existing Codex config.toml: {}", e);
-                toml_edit::DocumentMut::new()
-            })
+            content
+                .parse::<toml_edit::DocumentMut>()
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to parse existing Codex config.toml: {}", e);
+                    toml_edit::DocumentMut::new()
+                })
         } else {
             toml_edit::DocumentMut::new()
         };
@@ -6139,7 +6140,6 @@ async fn read_cli_credential_impl_async(db: &SqlitePool, cli_type: &str) -> Resu
         "gemini" => {
             let oauth_path = config_dir.join("oauth_creds.json");
             let accounts_path = config_dir.join("google_accounts.json");
-            let settings_path = config_dir.join("settings.json");
 
             let mut files = vec![];
 
@@ -6168,20 +6168,6 @@ async fn read_cli_credential_impl_async(db: &SqlitePool, cli_type: &str) -> Resu
             } else {
                 files.push(serde_json::json!({
                     "path": format!("{}/google_accounts.json", config_dir.display()),
-                    "content": ""
-                }));
-            }
-
-            if settings_path.exists() {
-                let content = std::fs::read_to_string(&settings_path)
-                    .map_err(|e| format!("读取 settings.json 失败: {}", e))?;
-                files.push(serde_json::json!({
-                    "path": format!("{}/settings.json", config_dir.display()),
-                    "content": content
-                }));
-            } else {
-                files.push(serde_json::json!({
-                    "path": format!("{}/settings.json", config_dir.display()),
                     "content": ""
                 }));
             }
@@ -6258,10 +6244,12 @@ async fn sync_credential_to_cli_async(
                 };
 
                 let mut final_doc = if let Some(ref content) = existing_content {
-                    content.parse::<toml_edit::DocumentMut>().unwrap_or_else(|e| {
-                        tracing::warn!("Failed to parse existing Codex config.toml: {}", e);
-                        toml_edit::DocumentMut::new()
-                    })
+                    content
+                        .parse::<toml_edit::DocumentMut>()
+                        .unwrap_or_else(|e| {
+                            tracing::warn!("Failed to parse existing Codex config.toml: {}", e);
+                            toml_edit::DocumentMut::new()
+                        })
                 } else {
                     toml_edit::DocumentMut::new()
                 };
@@ -6305,9 +6293,6 @@ async fn sync_credential_to_cli_async(
             // 直连模式不备份
             std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
 
-            // 用于存储 settings.json 的内容
-            let mut settings_content: Option<String> = None;
-
             // 写入各个文件
             for file in files.iter() {
                 let path_str = file.get("path").and_then(|p| p.as_str()).unwrap_or("");
@@ -6335,8 +6320,6 @@ async fn sync_credential_to_cli_async(
                         e.to_string()
                     })?;
                     tracing::info!("Gemini google_accounts.json 写入成功");
-                } else if path_str.contains("settings.json") && !content.is_empty() {
-                    settings_content = Some(content.to_string());
                 }
             }
 
@@ -6356,25 +6339,24 @@ async fn sync_credential_to_cli_async(
                 serde_json::json!({})
             };
 
-            // 2. 合并凭证中的 settings.json（凭证配置覆盖现有配置）
-            if let Some(ref user_settings) = settings_content {
-                tracing::info!(
-                    "Gemini 凭证中包含 settings.json，内容长度: {}",
-                    user_settings.len()
-                );
-                if let Ok(cred_val) = serde_json::from_str::<serde_json::Value>(user_settings) {
-                    deep_merge(&mut config, &cred_val);
-                    tracing::info!("Gemini 凭证配置合并成功");
+            // 2. 注入直连模式强制配置 (OAuth Personal)
+            let direct_mode_auth = serde_json::json!({
+                "security": {
+                    "auth": {
+                        "selectedType": "oauth-personal"
+                    }
                 }
-            } else {
-                tracing::info!("Gemini 凭证中不包含 settings.json");
-            }
+            });
+            deep_merge(&mut config, &direct_mode_auth);
+            tracing::info!("Gemini 直连模式强制配置注入成功");
 
-            // 3. 合并全局配置（全局配置优先级最高）
+            // 3. 合并全局配置（全局配置优先级最高，但过滤受保护字段）
             if !default_config.is_empty() {
                 tracing::info!("Gemini 全局配置不为空，长度: {}", default_config.len());
                 if let Ok(default_val) = serde_json::from_str::<serde_json::Value>(default_config) {
-                    deep_merge(&mut config, &default_val);
+                    let protected = gemini_gateway_json_template();
+                    let sanitized = sanitize_json_config(default_val, &protected);
+                    deep_merge(&mut config, &sanitized);
                     tracing::info!("Gemini 全局配置合并成功");
                 }
             } else {
@@ -6939,10 +6921,7 @@ pub async fn get_marketplaces(db: State<'_, SqlitePool>) -> Result<Vec<Marketpla
 }
 
 #[tauri::command]
-pub async fn plugin_action(
-    action: String,
-    plugin_id: String,
-) -> Result<PluginActionResult> {
+pub async fn plugin_action(action: String, plugin_id: String) -> Result<PluginActionResult> {
     crate::services::plugin::plugin_action(&action, &plugin_id)
 }
 
@@ -6992,10 +6971,7 @@ pub async fn remove_plugin_favorite(db: State<'_, SqlitePool>, plugin_id: String
 }
 
 #[tauri::command]
-pub async fn marketplace_action(
-    action: String,
-    param: String,
-) -> Result<MarketplaceActionResult> {
+pub async fn marketplace_action(action: String, param: String) -> Result<MarketplaceActionResult> {
     crate::services::plugin::marketplace_action(&action, &param)
 }
 

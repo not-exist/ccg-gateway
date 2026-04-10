@@ -1,5 +1,5 @@
-use sqlx::SqlitePool;
 use crate::db::models::TestProviderResult;
+use sqlx::SqlitePool;
 
 /// Record a successful request for a provider
 /// Resets consecutive_failures to 0
@@ -257,11 +257,17 @@ pub async fn test_provider_model(
             // Apply captured headers or defaults
             let captured_headers = crate::services::proxy::get_captured_claude_headers();
             if captured_headers.headers.is_empty() {
-                headers.insert(reqwest::header::USER_AGENT, "claude-cli/2.1.91 (external, cli)".parse().unwrap());
+                headers.insert(
+                    reqwest::header::USER_AGENT,
+                    "claude-cli/2.1.91 (external, cli)".parse().unwrap(),
+                );
                 headers.insert("anthropic-beta", "claude-code-20250219,context-1m-2025-08-07,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24".parse().unwrap());
             } else {
                 for (k, v) in &captured_headers.headers {
-                    if let (Ok(h_name), Ok(h_val)) = (reqwest::header::HeaderName::from_bytes(k.as_bytes()), reqwest::header::HeaderValue::from_str(v)) {
+                    if let (Ok(h_name), Ok(h_val)) = (
+                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                        reqwest::header::HeaderValue::from_str(v),
+                    ) {
                         headers.insert(h_name, h_val);
                     }
                 }
@@ -285,11 +291,19 @@ pub async fn test_provider_model(
             // Apply captured headers or defaults
             let captured_headers = crate::services::proxy::get_captured_codex_headers();
             if captured_headers.headers.is_empty() {
-                headers.insert(reqwest::header::USER_AGENT, "codex-tui/0.118.0 (Windows 10.0.26200; x86_64) unknown (codex-tui; 0.118.0)".parse().unwrap());
+                headers.insert(
+                    reqwest::header::USER_AGENT,
+                    "codex-tui/0.118.0 (Windows 10.0.26200; x86_64) unknown (codex-tui; 0.118.0)"
+                        .parse()
+                        .unwrap(),
+                );
                 headers.insert("originator", "codex-tui".parse().unwrap());
             } else {
                 for (k, v) in &captured_headers.headers {
-                    if let (Ok(h_name), Ok(h_val)) = (reqwest::header::HeaderName::from_bytes(k.as_bytes()), reqwest::header::HeaderValue::from_str(v)) {
+                    if let (Ok(h_name), Ok(h_val)) = (
+                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                        reqwest::header::HeaderValue::from_str(v),
+                    ) {
                         headers.insert(h_name, h_val);
                     }
                 }
@@ -319,11 +333,22 @@ pub async fn test_provider_model(
             // Apply captured headers or defaults
             let captured_headers = crate::services::proxy::get_captured_gemini_headers();
             if captured_headers.headers.is_empty() {
-                headers.insert(reqwest::header::USER_AGENT, "GeminiCLI/0.33.1/gemini-3.1-pro-preview (win32; x64)".parse().unwrap());
-                headers.insert("x-goog-api-client", "google-genai-sdk/1.30.0 gl-node/v24.14.0".parse().unwrap());
+                headers.insert(
+                    reqwest::header::USER_AGENT,
+                    "GeminiCLI/0.33.1/gemini-3.1-pro-preview (win32; x64)"
+                        .parse()
+                        .unwrap(),
+                );
+                headers.insert(
+                    "x-goog-api-client",
+                    "google-genai-sdk/1.30.0 gl-node/v24.14.0".parse().unwrap(),
+                );
             } else {
                 for (k, v) in &captured_headers.headers {
-                    if let (Ok(h_name), Ok(h_val)) = (reqwest::header::HeaderName::from_bytes(k.as_bytes()), reqwest::header::HeaderValue::from_str(v)) {
+                    if let (Ok(h_name), Ok(h_val)) = (
+                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                        reqwest::header::HeaderValue::from_str(v),
+                    ) {
                         headers.insert(h_name, h_val);
                     }
                 }
@@ -377,11 +402,8 @@ pub async fn test_provider_model(
                 // Stream mode: wait for first chunk only
                 use futures_util::StreamExt;
                 let mut stream = resp.bytes_stream();
-                let first_chunk = tokio::time::timeout(
-                    std::time::Duration::from_secs(30),
-                    stream.next(),
-                )
-                .await;
+                let first_chunk =
+                    tokio::time::timeout(std::time::Duration::from_secs(30), stream.next()).await;
                 let first_chunk_ms = start.elapsed().as_millis() as u64;
 
                 let (response_text, raw_chunk) = match first_chunk {
@@ -464,7 +486,10 @@ fn extract_stream_summary(chunk: &str) -> String {
         }
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
             // OpenAI streaming: choices[0].delta.content
-            if let Some(c) = json.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+            if let Some(c) = json
+                .pointer("/choices/0/delta/content")
+                .and_then(|v| v.as_str())
+            {
                 if !c.is_empty() {
                     return truncate_string(c, 200);
                 }
@@ -474,7 +499,10 @@ fn extract_stream_summary(chunk: &str) -> String {
                 return t.to_string();
             }
             // Gemini streaming: candidates[0].content.parts[0].text
-            if let Some(c) = json.pointer("/candidates/0/content/parts/0/text").and_then(|v| v.as_str()) {
+            if let Some(c) = json
+                .pointer("/candidates/0/content/parts/0/text")
+                .and_then(|v| v.as_str())
+            {
                 return truncate_string(c, 200);
             }
         }
@@ -488,7 +516,10 @@ fn extract_error_summary(body: &str) -> String {
         if let Some(msg) = json.pointer("/error/message").and_then(|v| v.as_str()) {
             return truncate_string(msg, 1000);
         }
-        if let Some(msg) = json.pointer("/error/error/message").and_then(|v| v.as_str()) {
+        if let Some(msg) = json
+            .pointer("/error/error/message")
+            .and_then(|v| v.as_str())
+        {
             return truncate_string(msg, 1000);
         }
         // FastAPI/Pydantic validation errors use "detail" field

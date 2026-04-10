@@ -310,10 +310,6 @@
                <div class="text-12 text-secondary" style="margin-bottom: 8px;">~/.gemini/google_accounts.json</div>
                <el-input type="textarea" :rows="3" v-model="credentialForm.gemini_accounts" />
              </div>
-             <div style="margin-bottom: 24px;">
-               <div class="text-12 text-secondary" style="margin-bottom: 8px;">~/.gemini/settings.json</div>
-               <el-input type="textarea" :rows="4" v-model="credentialForm.gemini_settings" />
-             </div>
           </template>
     </AppModal>
 
@@ -492,8 +488,7 @@ const credentialForm = ref({
   claude_settings: '',
   codex_auth: '',
   gemini_oauth: '',
-  gemini_accounts: '',
-  gemini_settings: ''
+  gemini_accounts: ''
 })
 
 const baseUrlPlaceholder = computed(() => {
@@ -508,7 +503,7 @@ function resetForm() {
   }
 }
 function resetCredentialForm() {
-  credentialForm.value = { name: '', claude_settings: '', codex_auth: '', gemini_oauth: '', gemini_accounts: '', gemini_settings: '' }
+  credentialForm.value = { name: '', claude_settings: '', codex_auth: '', gemini_oauth: '', gemini_accounts: '' }
 }
 
 // ==================== Model Detection ====================
@@ -735,7 +730,6 @@ function handleEditCredential(credential: OfficialCredential) {
         else if (path.includes('auth.json')) credentialForm.value.codex_auth = content
         else if (path.includes('oauth_creds.json')) credentialForm.value.gemini_oauth = content
         else if (path.includes('google_accounts.json')) credentialForm.value.gemini_accounts = content
-        else if (path.includes('.gemini') && path.includes('settings.json')) credentialForm.value.gemini_settings = content
       })
     }
   } catch (e) {}
@@ -759,7 +753,6 @@ async function handleReadFromCli() {
           else if (path.includes('auth.json')) credentialForm.value.codex_auth = content
           else if (path.includes('oauth_creds.json')) credentialForm.value.gemini_oauth = content
           else if (path.includes('google_accounts.json')) credentialForm.value.gemini_accounts = content
-          else if (path.includes('.gemini') && path.includes('settings.json')) credentialForm.value.gemini_settings = content
         })
       }
     } catch {}
@@ -782,7 +775,6 @@ async function handleSaveCredential() {
   } else if (activeCliType.value === 'gemini') {
     if (credentialForm.value.gemini_oauth) files.push({ path: '~/.gemini/oauth_creds.json', content: credentialForm.value.gemini_oauth })
     if (credentialForm.value.gemini_accounts) files.push({ path: '~/.gemini/google_accounts.json', content: credentialForm.value.gemini_accounts })
-    if (credentialForm.value.gemini_settings) files.push({ path: '~/.gemini/settings.json', content: credentialForm.value.gemini_settings })
   }
   if (files.length === 0) {
     notify('请至少填写一个文件内容', 'error')
@@ -975,3 +967,4 @@ onUnmounted(() => {
   color: #0ea5e9;
 }
 </style>
+>
