@@ -29,7 +29,7 @@
     <div v-loading="loading" class="list-container">
       <template v-if="promptList.length === 0">
         <div class="empty-state">
-          <svg width="64" height="64" color="#e2e8f0"><use href="#icon-quote"/></svg>
+          <svg width="64" height="64" color="var(--color-border)"><use href="#icon-quote"/></svg>
           <p>暂无提示词，点击上方按钮开始添加</p>
         </div>
       </template>
@@ -242,7 +242,7 @@ onMounted(fetchList)
 
 .page-subtitle {
   font-size: var(--fs-14);
-  color: #64748b;
+  color: var(--color-text-muted);
   margin: 0;
 }
 
@@ -253,9 +253,9 @@ onMounted(fetchList)
   gap: 24px;
 }
 .prompt-card {
-  background: #ffffff;
+  background: var(--color-bg);
   border-radius: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid var(--color-border);
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
   transition: all 0.2s;
@@ -264,7 +264,7 @@ onMounted(fetchList)
   gap: 16px;
 }
 .prompt-card:hover {
-  border-color: #0ea5e9;
+  border-color: var(--color-primary);
   box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05);
 }
 
@@ -277,8 +277,8 @@ onMounted(fetchList)
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: #f0f9ff;
-  color: #0ea5e9;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -294,7 +294,7 @@ onMounted(fetchList)
 .prompt-name {
   font-size: var(--fs-16);
   font-weight: var(--fw-700);
-  color: #0f172a;
+  color: var(--color-text);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -317,7 +317,7 @@ onMounted(fetchList)
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: #64748b;
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: all 0.2s;
   background: transparent;
@@ -325,12 +325,12 @@ onMounted(fetchList)
   outline: none;
 }
 .action-icon:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
 }
 .action-icon.delete:hover {
-  background: #fee2e2;
-  color: #ef4444;
+  background: var(--color-danger-light);
+  color: var(--color-danger);
 }
 
 /* CLI Toggles */
@@ -348,7 +348,7 @@ onMounted(fetchList)
 .toggle-label {
   font-size: var(--fs-14);
   font-weight: var(--fw-400);
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 /* Form Elements */
@@ -359,25 +359,25 @@ onMounted(fetchList)
   display: block;
   font-size: var(--fs-14);
   font-weight: var(--fw-400);
-  color: #475569;
+  color: var(--color-text-secondary);
   margin-bottom: 12px;
 }
 .required {
-  color: #f43f5e;
+  color: var(--color-error);
 }
 .c-input {
   width: 100%;
   padding: 10px 14px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: var(--fs-14);
-  color: #0f172a;
+  color: var(--color-text);
   outline: none;
   transition: all 0.2s;
 }
 .c-input:focus {
-  border-color: #0ea5e9;
+  border-color: var(--color-primary);
 }
 textarea.c-input {
   resize: vertical;
@@ -387,8 +387,8 @@ textarea.c-input {
 
 /* Buttons */
 .b-button {
-  background: #0ea5e9;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-bg);
   border: none;
   padding: 8px 16px;
   border-radius: 8px;
@@ -400,12 +400,12 @@ textarea.c-input {
   transition: all 0.2s;
 }
 .b-button:hover {
-  background: #0284c7;
+  background: var(--color-primary-hover);
 }
 .b-button-outline {
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
   padding: 8px 16px;
   border-radius: 8px;
   font-size: var(--fs-14);
@@ -416,17 +416,17 @@ textarea.c-input {
   align-items: center;
 }
 .b-button-outline:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--color-bg-page);
+  border-color: var(--color-border-hover);
 }
 
 .empty-state {
   padding: 80px 40px;
   text-align: center;
-  color: #94a3b8;
-  background: #ffffff;
+  color: var(--color-text-weak);
+  background: var(--color-bg);
   border-radius: 24px;
-  border: 2px dashed #e2e8f0;
+  border: 2px dashed var(--color-border);
 }
 .empty-state p {
   margin-top: 16px;
@@ -436,11 +436,11 @@ textarea.c-input {
 .action-icon.add-btn {
   width: 36px;
   height: 36px;
-  color: #0ea5e9;
-  background: rgba(14, 165, 233, 0.1);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 .action-icon.add-btn:hover {
-  background: rgba(14, 165, 233, 0.2);
-  color: #0ea5e9;
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
 }
 </style>
