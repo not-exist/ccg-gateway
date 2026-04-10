@@ -68,7 +68,7 @@ function handleConfirm() {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--color-scrim-dark);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -83,10 +83,10 @@ function handleConfirm() {
   pointer-events: auto;
 }
 .modal-content {
-  background: #ffffff;
+  background: var(--color-bg);
   border-radius: 20px;
   max-width: 95vw;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 25px 50px -12px var(--color-shadow-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -94,7 +94,7 @@ function handleConfirm() {
 }
 .modal-header {
   padding: 24px 32px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-bg-subtle);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -103,17 +103,17 @@ function handleConfirm() {
 .modal-title {
   font-size: 20px;
   font-weight: var(--fw-600);
-  color: #0f172a;
+  color: var(--color-text);
 }
 .modal-close {
   font-size: 24px;
-  color: #94a3b8;
+  color: var(--color-text-weak);
   cursor: pointer;
   line-height: 1;
   transition: color 0.2s;
 }
 .modal-close:hover {
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 .modal-body {
   padding: 32px;
@@ -121,8 +121,8 @@ function handleConfirm() {
 }
 .modal-footer {
   padding: 20px 32px;
-  background: #f8fafc;
-  border-top: 1px solid #f1f5f9;
+  background: var(--color-bg-page);
+  border-top: 1px solid var(--color-bg-subtle);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -130,8 +130,8 @@ function handleConfirm() {
 }
 
 .b-button {
-  background: #0ea5e9;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-bg);
   border: none;
   padding: 10px 20px;
   border-radius: 10px;
@@ -143,13 +143,13 @@ function handleConfirm() {
   transition: all 0.2s;
 }
 .b-button:hover {
-  background: #0284c7;
+  background: var(--color-primary-hover);
 }
 
 .b-button-outline {
-  background: #ffffff;
+  background: var(--color-bg);
   color: #475569;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   padding: 10px 20px;
   border-radius: 10px;
   font-size: var(--fs-14);
@@ -160,8 +160,8 @@ function handleConfirm() {
   align-items: center;
 }
 .b-button-outline:hover {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background: var(--color-bg-page);
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
 }
 </style>
