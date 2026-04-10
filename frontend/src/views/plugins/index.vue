@@ -530,16 +530,21 @@ async function handleInstallFavorite(favorite: PluginFavoriteItem) {
   operationLoading.value = true
   installingPluginId.value = favorite.plugin_id
   try {
-    const result = await pluginsApi.installFavorite(
-      favorite.plugin_id,
-      favorite.marketplace_name,
-      favorite.marketplace_source ?? undefined
-    )
+    let result: { cli_output: string }
+    if (favorite.is_installed) {
+      result = await pluginsApi.update(favorite.plugin_id)
+    } else {
+      result = await pluginsApi.installFavorite(
+        favorite.plugin_id,
+        favorite.marketplace_name,
+        favorite.marketplace_source ?? undefined
+      )
+    }
     showCliOutput(result.cli_output)
     await Promise.all([fetchInstalled(), fetchFavorites(), fetchMarketplaces()])
     if (currentMarket.value) await fetchMarketplacePlugins()
   } catch (error: any) {
-    showCliOutput(getErrorMessage(error, '安装失败'), true)
+    showCliOutput(getErrorMessage(error, favorite.is_installed ? '更新失败' : '安装失败'), true)
   } finally {
     operationLoading.value = false
     installingPluginId.value = null
@@ -604,7 +609,12 @@ async function handleRemoveMarketplace(market: MarketplaceInfo) {
 }
 
 async function handleUpdateMarketplace(market: MarketplaceInfo) {
-  loadingMarketPlugins.value = true
+  const inMarketDetail = currentMarket.value?.name === market.name
+  if (inMarketDetail) {
+    loadingMarketPlugins.value = true
+  } else {
+    loadingMarketplaces.value = true
+  }
   try {
     const result = await pluginsApi.updateMarketplace(market.name)
     showCliOutput(result.cli_output)
@@ -613,7 +623,11 @@ async function handleUpdateMarketplace(market: MarketplaceInfo) {
   } catch (error: any) {
     showCliOutput(getErrorMessage(error, '更新失败'), true)
   } finally {
-    loadingMarketPlugins.value = false
+    if (inMarketDetail) {
+      loadingMarketPlugins.value = false
+    } else {
+      loadingMarketplaces.value = false
+    }
   }
 }
 

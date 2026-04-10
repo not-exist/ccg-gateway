@@ -41,8 +41,8 @@
             </svg>
           </button>
         </div>
-        <div class="version-tag">
-          <span class="ver-prefix">v</span>{{ appVersion }}
+        <div class="version-tag mono">
+          <span>v</span>{{ appVersion }}
         </div>
       </div>
     </div>
@@ -291,11 +291,10 @@ body {
 
 .version-tag {
   font-size: var(--fs-12);
-  font-weight: var(--fw-700);
-  color: #cbd5e1;
+  font-weight: var(--fw-500);
+  color: #64748b;
   letter-spacing: 0.5px;
 }
-.ver-prefix { opacity: 0.6; margin-right: 1px; }
 
 .spin { animation: fa-spin 2s infinite linear; }
 @keyframes fa-spin {

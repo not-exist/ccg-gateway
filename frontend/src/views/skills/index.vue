@@ -176,6 +176,9 @@
                     <button class="action-icon" title="编辑" @click="handleEditRepo(repo)">
                       <svg width="18" height="18"><use href="#icon-edit"/></svg>
                     </button>
+                    <button class="action-icon" title="同步仓库" :disabled="loadingRepos" @click="handleRefreshRepo(repo)">
+                      <svg width="18" height="18"><use href="#icon-refresh"/></svg>
+                    </button>
                     <button class="action-icon delete" title="删除" @click="handleRemoveRepo(repo)">
                       <svg width="18" height="18"><use href="#icon-trash"/></svg>
                     </button>
@@ -444,6 +447,22 @@ function handleRepoClick(repo: SkillRepo) {
   fetchRepoSkills()
 }
 
+async function handleRefreshRepo(repo: SkillRepo) {
+  loadingRepos.value = true
+  try {
+    await skillsApi.refreshRepoSkills(repo.name)
+    notify('已同步仓库')
+    await fetchRepos()
+    if (currentRepo.value?.name === repo.name) {
+      await fetchRepoSkills()
+    }
+  } catch (error: any) {
+    notify(getErrorMessage(error, '同步失败'), 'error')
+  } finally {
+    loadingRepos.value = false
+  }
+}
+
 async function fetchRepoSkills() {
   if (!currentRepo.value) return
   loadingSkills.value = true
@@ -605,7 +624,11 @@ async function handleInstallFavorite(favorite: SkillFavoriteItem, reinstall: boo
     }
     operationLoading.value = true
     installingSkillId.value = favorite.key
-    await skillsApi.installFavorite(favorite.key)
+    if (reinstall) {
+      await skillsApi.reinstallInstalled(favorite.key)
+    } else {
+      await skillsApi.installFavorite(favorite.key)
+    }
     notify(reinstall ? '重装成功' : '安装成功')
     await Promise.all([
       refreshInstallationState(),
@@ -613,7 +636,7 @@ async function handleInstallFavorite(favorite: SkillFavoriteItem, reinstall: boo
     ])
   } catch (error: any) {
     if (error !== 'cancel' && error?.toString() !== 'cancel') {
-      notify(getErrorMessage(error, '安装失败'), 'error')
+      notify(getErrorMessage(error, reinstall ? '重装失败' : '安装失败'), 'error')
     }
   } finally {
     installingSkillId.value = null
