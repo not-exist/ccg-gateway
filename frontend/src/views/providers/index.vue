@@ -340,7 +340,7 @@
             :style="{
               color: detectSelectedIds.includes(p.id) ? 'var(--color-text)' : 'var(--color-text-weak)',
               border: detectSelectedIds.includes(p.id) ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
-              background: detectSelectedIds.includes(p.id) ? 'rgba(14,165,233,0.04)' : 'var(--color-bg)'
+              background: detectSelectedIds.includes(p.id) ? 'var(--color-primary-5)' : 'var(--color-bg)'
             }"
             @click="toggleDetectProvider(p.id)"
           >
