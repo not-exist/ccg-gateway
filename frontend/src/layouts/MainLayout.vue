@@ -103,8 +103,8 @@ body {
 
 /* Ethereal Frost ElMessageBox Global Overrides to mimic custom modals */
 .el-overlay.is-message-box {
-  background: var(--color-scrim) !important;
-  backdrop-filter: blur(3px) !important;
+  background: var(--color-scrim-dark) !important;
+  backdrop-filter: blur(4px) !important;
 }
 
 .el-message-box {
