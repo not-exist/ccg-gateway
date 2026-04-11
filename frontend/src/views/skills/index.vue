@@ -213,7 +213,10 @@
 
           <div v-loading="loadingSkills || loadingSkillsOperation" class="list-container">
             <template v-if="filteredSkillList.length === 0">
-              <el-empty :description="skillSearchQuery ? '无匹配结果' : '该仓库暂无 Skills'" />
+              <div class="empty-state">
+                <svg width="64" height="64" color="var(--color-border)"><use href="#icon-zap"/></svg>
+                <p>{{ skillSearchQuery ? '无匹配结果' : '该仓库暂无 Skills' }}</p>
+              </div>
             </template>
             <div v-else class="scroll-area">
               <div class="discover-list">

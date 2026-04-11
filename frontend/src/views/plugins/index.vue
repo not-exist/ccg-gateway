@@ -169,7 +169,10 @@
 
           <div v-loading="loadingMarketPlugins || loadingMarketPluginsOperation" class="list-container">
             <template v-if="filteredMarketPlugins.length === 0">
-              <el-empty :description="pluginSearchQuery ? '无匹配结果' : '该市场暂无插件'" />
+              <div class="empty-state">
+                <svg width="64" height="64" color="var(--color-border)"><use href="#icon-puzzle"/></svg>
+                <p>{{ pluginSearchQuery ? '无匹配结果' : '该市场暂无插件' }}</p>
+              </div>
             </template>
             <div v-else class="scroll-area">
               <div class="discover-list">
