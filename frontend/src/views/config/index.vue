@@ -74,21 +74,21 @@
               <div class="input-item">
                 <label class="item-label">流式首字节超时</label>
                 <div class="input-with-unit">
-                  <input type="number" v-model.number="timeoutForm.stream_first_byte_timeout" class="f-input">
+                  <input type="number" v-model.number="timeoutForm.stream_first_byte_timeout" class="b-input">
                   <span class="unit">秒</span>
                 </div>
               </div>
               <div class="input-item">
                 <label class="item-label">流式空闲超时</label>
                 <div class="input-with-unit">
-                  <input type="number" v-model.number="timeoutForm.stream_idle_timeout" class="f-input">
+                  <input type="number" v-model.number="timeoutForm.stream_idle_timeout" class="b-input">
                   <span class="unit">秒</span>
                 </div>
               </div>
               <div class="input-item">
                 <label class="item-label">非流式超时</label>
                 <div class="input-with-unit">
-                  <input type="number" v-model.number="timeoutForm.non_stream_timeout" class="f-input">
+                  <input type="number" v-model.number="timeoutForm.non_stream_timeout" class="b-input">
                   <span class="unit">秒</span>
                 </div>
               </div>
@@ -175,16 +175,16 @@
       <div class="webdav-settings-form">
         <div class="input-item">
           <label class="item-label">服务器地址</label>
-          <input type="text" v-model="webdavForm.url" placeholder="https://dav.jianguoyun.com/dav/" class="f-input">
+          <input type="text" v-model="webdavForm.url" placeholder="https://dav.jianguoyun.com/dav/" class="b-input">
         </div>
         <div class="input-row">
           <div class="input-item" style="flex: 1;">
             <label class="item-label">用户名</label>
-            <input type="text" v-model="webdavForm.username" class="f-input">
+            <input type="text" v-model="webdavForm.username" class="b-input">
           </div>
           <div class="input-item" style="flex: 1;">
             <label class="item-label">密码</label>
-            <input type="password" v-model="webdavForm.password" class="f-input">
+            <input type="password" v-model="webdavForm.password" class="b-input">
           </div>
         </div>
       </div>
@@ -429,12 +429,6 @@ onMounted(() => {
 .input-item { margin-bottom: 20px; }
 .input-row { display: flex; gap: 16px; }
 .item-label { display: block; font-size: var(--fs-14); font-weight: var(--fw-500); color: var(--color-text); margin-bottom: 8px; }
-
-.f-input {
-  width: 100%; padding: 10px 14px; background: var(--color-bg); border: 1px solid var(--color-border);
-  border-radius: 10px; font-size: var(--fs-14); color: var(--color-text); outline: none; transition: all 0.2s;
-}
-.f-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-10); }
 
 .input-with-unit { display: flex; align-items: center; gap: 12px; }
 .unit { font-size: var(--fs-14); color: var(--color-text-weak); font-weight: var(--fw-400); }

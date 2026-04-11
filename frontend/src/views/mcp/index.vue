@@ -91,7 +91,7 @@
     <AppModal v-model="showDialog" :title="editingMcp ? '编辑 MCP' : '添加 MCP'" width="640px" @confirm="handleSave">
         <div class="form-group">
           <label class="c-label">MCP 名称 <span class="required">*</span></label>
-          <input type="text" v-model="form.name" class="c-input" placeholder="例如: Google Maps Search">
+          <input type="text" v-model="form.name" class="b-input" placeholder="例如: Google Maps Search">
         </div>
 
         <div class="form-group">
@@ -104,7 +104,7 @@
           </div>
           <textarea
             v-model="form.config_json"
-            class="c-input mono"
+            class="b-input mono"
             rows="12"
             placeholder='{"command": "npx", "args": ["-y", "@example/mcp"]}'
             @blur="validateConfig"
@@ -396,25 +396,6 @@ onMounted(fetchList)
 }
 .required {
   color: var(--color-error);
-}
-.c-input {
-  width: 100%;
-  padding: 10px 14px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  font-size: var(--fs-14);
-  color: var(--color-text);
-  outline: none;
-  transition: all 0.2s;
-}
-.c-input:focus {
-  border-color: var(--color-primary);
-}
-textarea.c-input {
-  resize: vertical;
-  line-height: 1.6;
-  word-break: break-all;
 }
 .error-tip {
   color: var(--color-error);

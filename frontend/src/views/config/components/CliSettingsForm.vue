@@ -18,7 +18,7 @@
     <div class="form-section">
       <div class="section-label">CLI 目录</div>
       <div class="input-group">
-        <input type="text" v-model="form.config_dir" class="f-input" placeholder="CLI 配置目录">
+        <input type="text" v-model="form.config_dir" class="b-input" placeholder="CLI 配置目录">
         <button class="f-button ghost-plain" @click="handleResetDir" title="恢复默认">
           <svg width="14" height="14" style="margin-right: 4px;"><use href="#icon-rotate"/></svg>
         </button>
@@ -194,12 +194,6 @@ defineExpose({ handleSave })
 .section-label { font-size: var(--fs-14); font-weight: var(--fw-500); color: var(--color-text); margin-bottom: 12px; letter-spacing: -0.2px; }
 
 .input-group { display: flex; gap: 12px; }
-
-.f-input {
-  flex: 1; padding: 10px 14px; background: var(--color-bg); border: 1px solid var(--color-border);
-  border-radius: 10px; font-size: var(--fs-14); color: var(--color-text); outline: none; transition: all 0.2s;
-}
-.f-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-10); }
 
 .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 

@@ -216,32 +216,32 @@
       <div style="display: flex; gap: 32px; margin-bottom: 32px;">
             <div style="flex: 1;">
               <label class="c-label">服务商名称 <span style="color: var(--color-danger);">*</span></label>
-              <input type="text" v-model="form.name" class="c-input" placeholder="例如: OpenAI 官方">
+              <input type="text" v-model="form.name" class="b-input" placeholder="例如: OpenAI 官方">
             </div>
             <div style="flex: 1;">
               <label class="c-label">Base URL <span style="color: var(--color-danger);">*</span></label>
-              <input type="text" v-model="form.base_url" class="c-input" :placeholder="baseUrlPlaceholder">
+              <input type="text" v-model="form.base_url" class="b-input" :placeholder="baseUrlPlaceholder">
             </div>
           </div>
           
           <div style="margin-bottom: 40px;">
             <label class="c-label">{{ activeCliType === 'claude_code' ? 'API Token' : 'API Key' }} <span style="color: var(--color-danger);">*</span></label>
-            <input type="text" v-model="form.api_key" class="c-input" placeholder="sk-...">
+            <input type="text" v-model="form.api_key" class="b-input" placeholder="sk-...">
           </div>
 
           <!-- Advanced Params -->
           <div style="display: flex; gap: 32px; margin-bottom: 40px; padding: 32px 24px; background: var(--color-bg-page); border-radius: 12px; border: 1px solid var(--color-bg-subtle);">
             <div style="flex: 1;">
               <label class="c-label">失败鉴权阈值 (次)</label>
-              <input type="number" v-model.number="form.failure_threshold" class="c-input">
+              <input type="number" v-model.number="form.failure_threshold" class="b-input">
             </div>
             <div style="flex: 1;">
               <label class="c-label">拉黑时长 (分钟)</label>
-              <input type="number" v-model.number="form.blacklist_minutes" class="c-input">
+              <input type="number" v-model.number="form.blacklist_minutes" class="b-input">
             </div>
             <div style="flex: 1;">
               <label class="c-label">自定义 UA (选填)</label>
-              <input type="text" v-model="form.custom_useragent" class="c-input" placeholder="留空则使用原始">
+              <input type="text" v-model="form.custom_useragent" class="b-input" placeholder="留空则使用原始">
             </div>
           </div>
 
@@ -257,9 +257,9 @@
 
             <div style="display: flex; flex-direction: column; gap: 20px;">
               <div v-for="(map, index) in form.model_maps" :key="'map-'+index" style="display: flex; gap: 16px; align-items: center;">
-                <input type="text" v-model="map.source_model" class="c-input" placeholder="CLI 源模型" style="flex: 1;">
+                <input type="text" v-model="map.source_model" class="b-input" placeholder="CLI 源模型" style="flex: 1;">
                 <div class="text-secondary fw-normal">→</div>
-                <input type="text" v-model="map.target_model" class="c-input" placeholder="服务商模型" style="flex: 1;">
+                <input type="text" v-model="map.target_model" class="b-input" placeholder="服务商模型" style="flex: 1;">
                 <div class="b-button-icon" @click="removeModelMap(index)">×</div>
               </div>
             </div>
@@ -277,7 +277,7 @@
 
             <div style="display: flex; flex-direction: column; gap: 20px;">
               <div v-for="(item, index) in form.model_blacklist" :key="'blk-'+index" style="display: flex; gap: 16px; align-items: center;">
-                 <input type="text" v-model="item.model_pattern" class="c-input" placeholder="模型规则" style="flex: 1;">
+                 <input type="text" v-model="item.model_pattern" class="b-input" placeholder="模型规则" style="flex: 1;">
                  <div class="b-button-icon" @click="removeModelBlacklist(index)">×</div>
               </div>
             </div>
@@ -289,7 +289,7 @@
     <AppModal v-model="showCredentialDialog" :title="editingCredential ? '编辑凭证' : '添加凭证'" width="720px" @confirm="handleSaveCredential">
           <div style="margin-bottom: 32px;">
             <label class="c-label">凭证名称 <span style="color: var(--color-danger);">*</span></label>
-            <input type="text" v-model="credentialForm.name" class="c-input" placeholder="例如: 个人主账号">
+            <input type="text" v-model="credentialForm.name" class="b-input" placeholder="例如: 个人主账号">
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
@@ -329,7 +329,7 @@
       <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px;">
         <div style="flex: 1;">
           <label class="c-label">检测模型</label>
-          <input type="text" v-model="detectModel" class="c-input" placeholder="输入模型名称">
+          <input type="text" v-model="detectModel" class="b-input" placeholder="输入模型名称">
         </div>
       </div>
 
@@ -918,8 +918,6 @@ onUnmounted(() => {
 
 .tag { padding: 4px 10px; border-radius: 999px; font-size: var(--fs-12); font-weight: var(--fw-400); }
 
-.c-input { width: 100%; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-size: var(--fs-14); outline: none; transition: border-color 0.2s; }
-.c-input:focus { border-color: var(--color-primary); }
 .c-label { font-size: var(--fs-14); font-weight: var(--fw-400); color: var(--color-text-secondary); margin-bottom: 12px; display: block; }
 
 .drag-handle { display: flex; flex-direction: column; gap: 3px; cursor: grab; padding: 8px; margin-left: -8px; opacity: 0.3; transition: opacity 0.2s; }

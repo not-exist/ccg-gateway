@@ -196,6 +196,31 @@ html, body, #app {
 .text-upper { text-transform: uppercase; letter-spacing: 0.5px; }
 .text-center { text-align: center; }
 
+/* ========== 输入框 ========== */
+.b-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font-size: var(--fs-14);
+  outline: none;
+  transition: all 0.2s;
+}
+.b-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-10);
+}
+.b-input::placeholder {
+  color: var(--color-text-weak);
+}
+
+textarea.b-input {
+  resize: vertical;
+  line-height: 1.6;
+}
+
 /* ========== Global Ethereal Scrollbar ========== */
 ::-webkit-scrollbar {
   width: 14px;

@@ -91,7 +91,7 @@
         </div>
         <div class="search-box" style="width: 260px; position: relative;">
           <svg class="search-icon" width="16" height="16" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-weak); pointer-events: none; z-index: 1;"><use href="#icon-search"/></svg>
-          <input type="text" v-model="sessionSearchQuery" class="c-input" placeholder="搜索..." style="height: 38px; padding: 0 12px 0 36px; margin: 0; box-shadow: none;">
+          <input type="text" v-model="sessionSearchQuery" class="b-input" placeholder="搜索..." style="height: 38px; padding: 0 12px 0 36px; margin: 0; box-shadow: none;">
         </div>
       </div>
 
@@ -382,11 +382,7 @@ onMounted(() => {
 .page-title { font-size: var(--fs-14); font-weight: var(--fw-500); margin: 0; color: var(--color-text); }
 
 .search-box { position: relative; width: 320px; }
-.search-box input { width: 100%; padding-left: 36px; border-radius: 10px; background: var(--color-bg); box-shadow: 0 2px 10px var(--color-shadow); }
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-weak); pointer-events: none; }
-
-.c-input { padding: 8px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-size: var(--fs-14); outline: none; background: var(--color-bg); color: var(--color-text); transition: all 0.2s; }
-.c-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-10); background: var(--color-bg); }
 
 .b-button-outline { background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border); padding: 8px 16px; border-radius: 8px; font-size: var(--fs-14); font-weight: var(--fw-400); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px var(--color-shadow); transition: all 0.2s;}
 .b-button-outline:hover { background: var(--color-bg-page); border-color: var(--color-border-hover); }

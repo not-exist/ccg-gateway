@@ -203,7 +203,7 @@
             <div style="display: flex; gap: 12px; align-items: center;">
               <div class="search-box" style="width: 240px; position: relative;">
                 <svg class="search-icon" width="16" height="16" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-weak); pointer-events: none; z-index: 1;"><use href="#icon-search"/></svg>
-                <input type="text" v-model="skillSearchQuery" class="c-input" placeholder="搜索..." style="height: 38px; padding: 0 12px 0 36px; margin: 0;">
+                <input type="text" v-model="skillSearchQuery" class="b-input" placeholder="搜索..." style="height: 38px; padding: 0 12px 0 36px; margin: 0;">
               </div>
               <button class="action-icon" :disabled="loadingSkills" @click="refreshRepoSkills" title="刷新列表">
                 <svg width="18" height="18"><use href="#icon-refresh"/></svg>
@@ -334,7 +334,7 @@
             <input
               type="text"
               v-model="repoForm.url"
-              class="c-input"
+              class="b-input"
               placeholder="仓库地址 、 owner/repo 、 本地目录"
             >
           </div>
@@ -839,11 +839,6 @@ onMounted(() => {
 
 .search-box { position: relative; }
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-weak); }
-.c-input {
-  width: 100%; padding: 10px 14px; background: var(--color-bg); border: 1px solid var(--color-border);
-  border-radius: 8px; font-size: var(--fs-14); color: var(--color-text); outline: none; transition: all 0.2s;
-}
-.c-input:focus { border-color: var(--color-primary); }
 
 .b-button {
   background: var(--color-primary); color: var(--color-bg); border: none; padding: 8px 16px; border-radius: 8px;
