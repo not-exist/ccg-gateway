@@ -3,6 +3,8 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeStore } from '@/stores/theme'
+useThemeStore()
 </script>
 
 <style>
@@ -86,6 +88,73 @@
   /* 特殊色系 */
   --color-violet: #8b5cf6;
   --color-violet-light: #f5f3ff;
+}
+
+/* ========== 暗色模式 ========== */
+html.dark {
+  /* 主色系 - 保持不变 */
+  --color-primary: #0ea5e9;
+  --color-primary-hover: #38bdf8;
+  --color-primary-dark: #0369a1;
+  --color-primary-light: #0c4a6e;
+  --color-primary-lighter: #082f49;
+  --color-primary-border: #0369a1;
+  --color-primary-muted: #7dd3fc;
+  --color-primary-5: rgba(14, 165, 233, 0.15);
+  --color-primary-10: rgba(14, 165, 233, 0.25);
+  --color-primary-20: rgba(14, 165, 233, 0.35);
+
+  /* 文字色系 */
+  --color-text: #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-text-weak: #64748b;
+  --color-text-dark: #e2e8f0;
+
+  /* 背景色系 */
+  --color-bg: #1e293b;
+  --color-bg-page: #0f172a;
+  --color-bg-subtle: #334155;
+  --color-bg-80: rgba(30, 41, 59, 0.8);
+  --color-bg-95: rgba(30, 41, 59, 0.95);
+
+  /* 边框色系 */
+  --color-border: #334155;
+  --color-border-hover: #475569;
+  --color-border-light: rgba(51, 65, 85, 0.6);
+  --color-border-medium: rgba(51, 65, 85, 0.8);
+  --color-scrollbar: #475569;
+  --color-scrollbar-hover: #64748b;
+
+  /* 状态色系 */
+  --color-success: #10b981;
+  --color-success-hover: #34d399;
+  --color-success-light: #064e3b;
+  --color-success-10: rgba(16, 185, 129, 0.2);
+  --color-success-30: rgba(16, 185, 129, 0.4);
+  --color-success-40: rgba(16, 185, 129, 0.5);
+  --color-danger: #f87171;
+  --color-danger-hover: #fca5a5;
+  --color-danger-light: #450a0a;
+  --color-danger-muted: #fca5a5;
+  --color-error: #fb7185;
+  --color-error-light: #4c0519;
+  --color-error-2: rgba(251, 113, 133, 0.1);
+  --color-error-10: rgba(251, 113, 133, 0.2);
+  --color-warning: #fbbf24;
+  --color-warning-10: rgba(251, 191, 36, 0.2);
+
+  /* 阴影色系 */
+  --color-shadow: rgba(0, 0, 0, 0.2);
+  --color-shadow-lg: rgba(0, 0, 0, 0.4);
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  --color-scrim-dark: rgba(0, 0, 0, 0.7);
+  --color-overlay: rgba(0, 0, 0, 0.1);
+  --color-overlay-8: rgba(0, 0, 0, 0.15);
+
+  /* 特殊色系 */
+  --color-violet: #a78bfa;
+  --color-violet-light: #2e1065;
 }
 
 *, *::before, *::after {
