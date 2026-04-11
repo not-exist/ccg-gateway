@@ -718,9 +718,13 @@ async function handleCommand(command: string, provider: Provider) {
     await providerStore.unblacklist(provider.id)
     notify('已解除拉黑')
   } else if (command === 'delete') {
-    await confirm('确定删除该服务商？', '确认')
-    await providerStore.deleteProvider(provider.id)
-    notify('已删除')
+    try {
+      await confirm('确定删除该服务商？', '确认')
+      await providerStore.deleteProvider(provider.id)
+      notify('已删除')
+    } catch (e) {
+      if (e !== 'cancel') notify(getErrorMessage(e, '删除失败'), 'error')
+    }
   }
 }
 
@@ -742,9 +746,13 @@ function handleEditCredential(credential: OfficialCredential) {
 }
 
 async function handleDeleteCredential(credential: OfficialCredential) {
-  await confirm('确定删除该凭证？', '确认')
-  await credentialStore.deleteCredential(credential.id)
-  notify('已删除')
+  try {
+    await confirm('确定删除该凭证？', '确认')
+    await credentialStore.deleteCredential(credential.id)
+    notify('已删除')
+  } catch (e) {
+    if (e !== 'cancel') notify(getErrorMessage(e, '删除失败'), 'error')
+  }
 }
 
 async function handleReadFromCli() {

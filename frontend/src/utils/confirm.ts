@@ -20,7 +20,7 @@ export function confirm(
           modalRef.value?.open(message, title, options).then((result) => {
             cleanup()
             if (result) resolve()
-            else reject(new Error('cancel'))
+            else reject('cancel')
           })
         })
 
