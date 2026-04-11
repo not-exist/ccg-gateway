@@ -45,7 +45,10 @@
     <div v-if="!currentProject" class="project-list">
       <div v-loading="sessionStore.loading" class="list-container">
         <template v-if="sessionStore.projects.length === 0">
-          <el-empty description="暂无项目" />
+          <div class="empty-state">
+            <svg width="64" height="64" color="var(--color-border)"><use href="#icon-folder"/></svg>
+            <p>暂无项目</p>
+          </div>
         </template>
         <div v-else class="scroll-area">
           <div class="project-grid">
@@ -94,7 +97,10 @@
 
       <div v-loading="sessionStore.loading" class="list-container">
         <template v-if="filteredSessions.length === 0">
-          <el-empty description="暂无会话" />
+          <div class="empty-state">
+            <svg width="64" height="64" color="var(--color-border)"><use href="#icon-chat"/></svg>
+            <p>暂无会话</p>
+          </div>
         </template>
         <div v-else class="scroll-area">
           <div style="display: flex; flex-direction: column;">
@@ -445,4 +451,20 @@ onMounted(() => {
 }
 .bubble:hover .copy-btn { opacity: 0.8; }
 .bubble-user .copy-btn { color: var(--color-text); }
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-text-weak);
+  background: var(--color-bg);
+  border-radius: 16px;
+  border: 2px dashed var(--color-border);
+}
+.empty-state p {
+  margin-top: 16px;
+  font-size: var(--fs-14);
+}
 </style>

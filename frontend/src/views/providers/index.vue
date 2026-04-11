@@ -2,6 +2,14 @@
   <div class="providers-page">
     <svg style="display:none">
       <defs>
+        <symbol id="icon-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+        </symbol>
+        <symbol id="icon-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7.5" cy="15.5" r="5.5"/>
+          <path d="m21 2-9.6 9.6"/>
+          <path d="m15.5 7.5 3 3L22 7l-3-3"/>
+        </symbol>
         <symbol id="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </symbol>
@@ -68,8 +76,9 @@
 
     <!-- PROXY MODE LIST -->
     <div v-if="viewMode === 'proxy'" class="b-card list-container" v-loading="providerStore.loading">
-      <div v-if="providerStore.providers.length === 0" style="padding: 40px; text-align: center; color: var(--color-text-weak);">
-        暂无服务商
+      <div v-if="providerStore.providers.length === 0" class="empty-state">
+        <svg width="64" height="64" color="var(--color-border)"><use href="#icon-cloud"/></svg>
+        <p>暂无服务商</p>
       </div>
       
       <div v-else class="scroll-area">
@@ -154,8 +163,9 @@
 
     <!-- DIRECT MODE -->
     <div v-else class="b-card list-container" v-loading="credentialStore.loading">
-      <div v-if="credentialStore.credentials.length === 0" style="padding: 40px; text-align: center; color: var(--color-text-weak);">
-        暂无凭证
+      <div v-if="credentialStore.credentials.length === 0" class="empty-state">
+        <svg width="64" height="64" color="var(--color-border)"><use href="#icon-key"/></svg>
+        <p>暂无凭证</p>
       </div>
       
       <div v-else class="scroll-area">
@@ -974,6 +984,19 @@ onUnmounted(() => {
 .action-icon.add-btn:hover {
   background: var(--color-primary-20);
   color: var(--color-primary);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-text-weak);
+}
+.empty-state p {
+  margin-top: 16px;
+  font-size: var(--fs-14);
 }
 </style>
 >

@@ -2,6 +2,13 @@
   <div class="logs-page">
     <svg style="display:none">
       <defs>
+        <symbol id="icon-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" x2="8" y1="13" y2="13"/>
+          <line x1="16" x2="8" y1="17" y2="17"/>
+          <line x1="10" x2="8" y1="9" y2="9"/>
+        </symbol>
         <symbol id="icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m6 9 6 6 6-6"/>
         </symbol>
@@ -82,69 +89,71 @@
 
       <!-- Super Clean Flat Table -->
       <div class="table-container" v-loading="requestLoading">
-        <div class="table-wrapper">
-          <table class="flat-table">
-            <colgroup>
-              <col style="width: 60px;">
-              <col style="width: 160px;">
-              <col style="width: 100px;">
-              <col style="width: 130px;">
-              <col style="width: 70px;">
-              <col style="width: 80px;">
-              <col style="width: 120px;">
-              <col style="width: 60px;">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>时间</th>
-                <th>终端</th>
-                <th>服务商</th>
-                <th>状态</th>
-                <th>耗时</th>
-                <th>Tokens</th>
-                <th style="text-align: right;">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in requestLogs" :key="row.id">
-                <td class="mono">{{ row.id }}</td>
-                <td>{{ formatTime(row.created_at) }}</td>
-                <td>{{ row.cli_type }}</td>
-                <td>{{ row.provider_name }}</td>
-                <td>
-                  <span v-if="row.status_code" :class="['pill', getStatusCodePill(row.status_code)]">{{ row.status_code }}</span>
-                  <span v-else>-</span>
-                </td>
-                <td class="mono" :class="{'text-danger': row.status_code && row.status_code >= 500}">
-                  {{ row.elapsed_ms }}ms
-                </td>
-                <td class="mono">
-                  <span v-if="row.input_tokens || row.output_tokens">{{ formatTokens(row.input_tokens) }} / {{ formatTokens(row.output_tokens) }}</span>
-                  <span v-else>-</span>
-                </td>
-                <td style="text-align: right;"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
-              </tr>
-              <tr v-if="requestLogs.length === 0">
-                <td colspan="8" class="text-center text-muted" style="padding: 40px;">暂无日志记录</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="requestLogs.length === 0" class="empty-state">
+          <svg width="64" height="64" color="var(--color-border)"><use href="#icon-file-text"/></svg>
+          <p>暂无日志记录</p>
         </div>
+        <template v-else>
+          <div class="table-wrapper">
+            <table class="flat-table">
+              <colgroup>
+                <col style="width: 60px;">
+                <col style="width: 160px;">
+                <col style="width: 100px;">
+                <col style="width: 130px;">
+                <col style="width: 70px;">
+                <col style="width: 80px;">
+                <col style="width: 120px;">
+                <col style="width: 60px;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>时间</th>
+                  <th>终端</th>
+                  <th>服务商</th>
+                  <th>状态</th>
+                  <th>耗时</th>
+                  <th>Tokens</th>
+                  <th style="text-align: right;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in requestLogs" :key="row.id">
+                  <td class="mono">{{ row.id }}</td>
+                  <td>{{ formatTime(row.created_at) }}</td>
+                  <td>{{ row.cli_type }}</td>
+                  <td>{{ row.provider_name }}</td>
+                  <td>
+                    <span v-if="row.status_code" :class="['pill', getStatusCodePill(row.status_code)]">{{ row.status_code }}</span>
+                    <span v-else>-</span>
+                  </td>
+                  <td class="mono" :class="{'text-danger': row.status_code && row.status_code >= 500}">
+                    {{ row.elapsed_ms }}ms
+                  </td>
+                  <td class="mono">
+                    <span v-if="row.input_tokens || row.output_tokens">{{ formatTokens(row.input_tokens) }} / {{ formatTokens(row.output_tokens) }}</span>
+                    <span v-else>-</span>
+                  </td>
+                  <td style="text-align: right;"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <div class="pagination-footer">
-          <span class="text-14 text-secondary">总计 {{ requestTotal }}</span>
-          <!-- Still fallback to el-pagination for functionally complex pagers while removing background blocks -->
-          <el-pagination
-            v-model:current-page="requestPage"
-            v-model:page-size="requestPageSize"
-            :page-sizes="[20, 50, 100]"
-            :total="requestTotal"
-            layout="sizes, prev, pager, next"
-            @size-change="fetchRequestLogs"
-            @current-change="fetchRequestLogs"
-          />
-        </div>
+          <div class="pagination-footer">
+            <span class="text-14 text-secondary">总计 {{ requestTotal }}</span>
+            <el-pagination
+              v-model:current-page="requestPage"
+              v-model:page-size="requestPageSize"
+              :page-sizes="[20, 50, 100]"
+              :total="requestTotal"
+              layout="sizes, prev, pager, next"
+              @size-change="fetchRequestLogs"
+              @current-change="fetchRequestLogs"
+            />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -180,48 +189,51 @@
 
       <!-- Super Clean Flat Table -->
       <div class="table-container" v-loading="systemLoading">
-        <div class="table-wrapper">
-          <table class="flat-table">
-            <colgroup>
-              <col style="width: 70px;">
-              <col style="width: 170px;">
-              <col style="width: 160px;">
-              <col>
-            </colgroup>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>时间</th>
-                <th>事件类型</th>
-                <th>消息脉络</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in systemLogs" :key="row.id">
-                <td>{{ row.id }}</td>
-                <td>{{ formatTime(row.created_at) }}</td>
-                <td style="width: 160px;">{{ formatEventType(row.event_type) }}</td>
-                <td>{{ row.message }}</td>
-              </tr>
-              <tr v-if="systemLogs.length === 0">
-                <td colspan="4" class="text-center text-muted" style="padding: 40px;">暂无日志记录</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="systemLogs.length === 0" class="empty-state">
+          <svg width="64" height="64" color="var(--color-border)"><use href="#icon-file-text"/></svg>
+          <p>暂无日志记录</p>
         </div>
+        <template v-else>
+          <div class="table-wrapper">
+            <table class="flat-table">
+              <colgroup>
+                <col style="width: 70px;">
+                <col style="width: 170px;">
+                <col style="width: 160px;">
+                <col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>时间</th>
+                  <th>事件类型</th>
+                  <th>事件消息</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in systemLogs" :key="row.id">
+                  <td>{{ row.id }}</td>
+                  <td>{{ formatTime(row.created_at) }}</td>
+                  <td style="width: 160px;">{{ formatEventType(row.event_type) }}</td>
+                  <td>{{ row.message }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <div class="pagination-footer">
-          <span class="text-14 text-secondary">总计 {{ systemTotal }}</span>
-          <el-pagination
-            v-model:current-page="systemPage"
-            v-model:page-size="systemPageSize"
-            :page-sizes="[20, 50, 100]"
-            :total="systemTotal"
-            layout="sizes, prev, pager, next"
-            @size-change="fetchSystemLogs"
-            @current-change="fetchSystemLogs"
-          />
-        </div>
+          <div class="pagination-footer">
+            <span class="text-14 text-secondary">总计 {{ systemTotal }}</span>
+            <el-pagination
+              v-model:current-page="systemPage"
+              v-model:page-size="systemPageSize"
+              :page-sizes="[20, 50, 100]"
+              :total="systemTotal"
+              layout="sizes, prev, pager, next"
+              @size-change="fetchSystemLogs"
+              @current-change="fetchSystemLogs"
+            />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -740,4 +752,17 @@ watch(activeTab, (tab) => {
 .url-line { font-size: var(--fs-12); color: var(--color-primary); word-break: break-all; margin-bottom: 12px; padding: 8px 12px; background: var(--color-primary-light); border-radius: 6px; }
 .code-block { background: var(--color-bg-page); padding: 12px; border-radius: 6px; font-size: var(--fs-12); white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; margin: 0; cursor: pointer; border: 1px solid transparent; transition: border-color 0.2s; }
 .code-block:hover { border-color: var(--color-border-hover); }
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-text-weak);
+}
+.empty-state p {
+  margin-top: 16px;
+  font-size: var(--fs-14);
+}
 </style>

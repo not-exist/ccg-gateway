@@ -118,7 +118,7 @@
           <div v-loading="loadingMarketplaces" class="list-container">
             <div v-if="marketplaceList.length === 0" class="empty-state">
                <svg width="64" height="64" class="empty-icon"><use href="#icon-store"/></svg>
-               <p>暂无配置市场，请点击上方按钮添加</p>
+               <p>暂无插件市场</p>
             </div>
             <div v-else class="scroll-area">
               <div class="repo-grid">
@@ -846,7 +846,7 @@ onMounted(() => {
 }
 .b-button-outline:hover { background: var(--color-bg-page); border-color: var(--color-border-hover); }
 
-.empty-state { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--color-bg); border-radius: 16px; border: 2px dashed var(--color-border); }
+.empty-state { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--color-text-weak); background: var(--color-bg); border-radius: 16px; border: 2px dashed var(--color-border); }
 .empty-state p { margin-top: 16px; font-size: var(--fs-14); }
 .empty-icon { color: var(--color-border); }
 

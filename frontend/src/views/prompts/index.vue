@@ -421,6 +421,7 @@ textarea.c-input {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  color: var(--color-text-weak);
   background: var(--color-bg);
   border-radius: 16px;
   border: 2px dashed var(--color-border);

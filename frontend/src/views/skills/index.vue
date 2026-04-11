@@ -161,7 +161,7 @@
             <template v-if="repoList.length === 0">
               <div class="empty-state">
                 <svg width="64" height="64" color="var(--color-border)"><use href="#icon-store"/></svg>
-                <p>暂未添加仓库</p>
+                <p>暂无技能仓库</p>
               </div>
             </template>
             <div v-else class="scroll-area">
