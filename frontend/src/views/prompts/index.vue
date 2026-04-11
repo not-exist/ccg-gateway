@@ -30,7 +30,7 @@
       <template v-if="promptList.length === 0">
         <div class="empty-state">
           <svg width="64" height="64" color="var(--color-border)"><use href="#icon-quote"/></svg>
-          <p>暂无提示词，点击上方按钮开始添加</p>
+          <p>暂无提示词</p>
         </div>
       </template>
       <div v-else class="scroll-area">
@@ -416,11 +416,13 @@ textarea.c-input {
 }
 
 .empty-state {
-  padding: 80px 40px;
-  text-align: center;
-  color: var(--color-text-weak);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   background: var(--color-bg);
-  border-radius: 24px;
+  border-radius: 16px;
   border: 2px dashed var(--color-border);
 }
 .empty-state p {

@@ -846,7 +846,7 @@ onMounted(() => {
 }
 .b-button-outline:hover { background: var(--color-bg-page); border-color: var(--color-border-hover); }
 
-.empty-state { padding: 80px 40px; text-align: center; color: var(--color-text-weak); background: var(--color-bg); border-radius: 24px; border: 2px dashed var(--color-border); }
+.empty-state { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--color-bg); border-radius: 16px; border: 2px dashed var(--color-border); }
 .empty-state p { margin-top: 16px; font-size: var(--fs-14); }
 .empty-icon { color: var(--color-border); }
 
