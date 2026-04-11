@@ -216,7 +216,7 @@ html, body, #app {
 }
 .b-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-10);
+  box-shadow: 0 0 0 1px var(--color-primary-10);
 }
 .b-input::placeholder {
   color: var(--color-text-weak);

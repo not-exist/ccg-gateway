@@ -719,13 +719,13 @@ watch(activeTab, (tab) => {
 
 .pagination-footer :deep(.el-select__wrapper) { padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: color-mix(in srgb, var(--color-bg) 80%, transparent); box-shadow: 0 1px 3px var(--color-shadow); min-height: auto; transition: all 0.2s; }
 .pagination-footer :deep(.el-select__wrapper:hover) { border-color: var(--color-border-hover); }
-.pagination-footer :deep(.el-select__wrapper.is-focused) { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent); }
+.pagination-footer :deep(.el-select__wrapper.is-focused) { border-color: var(--color-primary); box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 10%, transparent); }
 
 /* Custom HTML Select (Headless UI Clone) */
 .custom-select { position: relative; width: 150px; }
 .custom-select-trigger { padding: 9px 36px 9px 16px; border: 1px solid var(--color-border); border-radius: 8px; font-size: var(--fs-14); font-weight: var(--fw-400); color: var(--color-text); background: color-mix(in srgb, var(--color-bg) 80%, transparent); box-shadow: 0 1px 3px var(--color-shadow); cursor: pointer; transition: all 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
 .custom-select:hover .custom-select-trigger { border-color: var(--color-border-hover); background: var(--color-bg); }
-.custom-select.open .custom-select-trigger { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent); background: var(--color-bg); }
+.custom-select.open .custom-select-trigger { border-color: var(--color-primary); box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 10%, transparent); background: var(--color-bg); }
 .custom-select .chevron { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted); pointer-events: none; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .custom-select.open .chevron { transform: translateY(-50%) rotate(180deg); color: var(--color-primary); }
 
