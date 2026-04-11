@@ -55,29 +55,25 @@
         <!-- 服务商统计 -->
         <div class="b-card responsive-bottom-card" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column; min-width: 400px; padding: 24px;">
           <div class="b-card-title" style="margin-bottom: 16px;">服务商统计</div>
-          <div style="flex: 1; min-height: 240px;">
-            <el-table :data="providerStats" style="width: 100%" :max-height="240">
-              <el-table-column prop="provider_name" label="服务商" min-width="100" show-overflow-tooltip>
-                <template #default="scope">
-                  <span class="table-cell">{{ scope.row.provider_name }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="total_requests" label="请求" min-width="100">
-                <template #default="scope">
-                  <span class="table-cell">{{ scope.row.total_requests }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="成功率" min-width="100">
-                <template #default="scope">
-                  <span class="table-cell">{{ scope.row.success_rate.toFixed(1) }}%</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="Token" min-width="100">
-                <template #default="scope">
-                  <span class="table-cell">{{ formatTokens(scope.row.total_tokens) }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
+          <div class="stats-table-wrapper">
+            <table class="flat-table">
+              <thead>
+                <tr>
+                  <th>服务商</th>
+                  <th>请求</th>
+                  <th>成功率</th>
+                  <th>Token</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in providerStats" :key="row.provider_name">
+                  <td class="table-cell">{{ row.provider_name }}</td>
+                  <td class="table-cell mono">{{ row.total_requests }}</td>
+                  <td class="table-cell">{{ row.success_rate.toFixed(1) }}%</td>
+                  <td class="table-cell mono">{{ formatTokens(row.total_tokens) }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -337,4 +333,15 @@ onMounted(async () => {
 .table-cell { font-size: var(--fs-14); color: var(--color-text); }
 
 .chart { width: 100%; height: 100%; }
+
+/* Stats Table Wrapper */
+.stats-table-wrapper { height: 240px; overflow-y: auto; }
+
+/* Flat Table */
+.flat-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; table-layout: fixed; }
+.flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; text-align: left; }
+.flat-table th { padding: 12px 16px; font-size: var(--fs-12); font-weight: var(--fw-600); color: var(--color-text-muted); text-transform: uppercase; background: var(--color-bg-page); border-bottom: 1px solid var(--color-border); }
+.flat-table td { padding: 12px 16px; font-size: var(--fs-14); color: var(--color-text); border-bottom: 1px solid var(--color-bg-subtle); }
+.flat-table tr:last-child td { border-bottom: none; }
+.flat-table tr:hover td { background: var(--color-bg-page); }
 </style>
