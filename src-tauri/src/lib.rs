@@ -207,6 +207,7 @@ pub fn run() {
             commands::toggle_installed_skill_favorite,
             commands::remove_skill_favorite,
             commands::install_favorite_skill,
+            commands::reinstall_favorite_skill,
             commands::get_daily_stats,
             commands::get_provider_stats,
             commands::get_session_projects,

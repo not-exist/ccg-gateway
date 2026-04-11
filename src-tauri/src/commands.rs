@@ -5578,12 +5578,9 @@ pub async fn install_skill(
 }
 
 #[tauri::command]
-pub async fn reinstall_skill(
-    db: State<'_, SqlitePool>,
-    directory: String,
-) -> Result<InstalledSkillResponse> {
+async fn reinstall_skill_impl(db: &SqlitePool, directory: String) -> Result<InstalledSkillResponse> {
     // 1. 检测当前 CLI 启用状态
-    let enabled_clis = detect_skill_cli_status(db.inner(), &directory).await;
+    let enabled_clis = detect_skill_cli_status(db, &directory).await;
 
     // 2. 从 manifest 获取信息
     let manifest_entries = skill::load_installed_skill_manifest()?;
@@ -5639,10 +5636,10 @@ pub async fn reinstall_skill(
     copy_dir_recursive(&skill_source_path, &skill_path)?;
 
     // 5. 恢复 CLI 启用状态
-    batch_set_skill_cli(db.inner(), &directory, &enabled_clis).await?;
+    batch_set_skill_cli(db, &directory, &enabled_clis).await?;
 
     // 6. 返回结果
-    let cli_flags = build_skill_cli_flags(db.inner(), &directory).await;
+    let cli_flags = build_skill_cli_flags(db, &directory).await;
     let (disk_name, disk_description) = read_installed_skill_metadata(&directory);
     let key = format!("{}:{}", repo.name, source_dir);
 
@@ -5665,6 +5662,14 @@ pub async fn reinstall_skill(
             format!("@{}", repo.source)
         },
     })
+}
+
+#[tauri::command]
+pub async fn reinstall_skill(
+    db: State<'_, SqlitePool>,
+    directory: String,
+) -> Result<InstalledSkillResponse> {
+    reinstall_skill_impl(db.inner(), directory).await
 }
 
 #[tauri::command]
@@ -5903,6 +5908,31 @@ pub async fn install_favorite_skill(
         false,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn reinstall_favorite_skill(
+    db: State<'_, SqlitePool>,
+    key: String,
+) -> Result<InstalledSkillResponse> {
+    let favorite =
+        sqlx::query_as::<_, SkillFavorite>("SELECT * FROM skill_favorites WHERE skill_key = ?")
+            .bind(&key)
+            .fetch_optional(db.inner())
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Skill favorite not found".to_string())?;
+
+    // 计算安装目录
+    let directory = skill_install_directory_name_from_parts(&favorite.directory, &favorite.repo_name);
+
+    // 检查是否已安装
+    let ssot_dir = get_ssot_dir();
+    if !ssot_dir.join(&directory).exists() {
+        return Err(format!("Skill '{}' is not installed, cannot reinstall", directory));
+    }
+
+    reinstall_skill_impl(db.inner(), directory).await
 }
 
 // ==================== 检查更新命令 ====================
