@@ -198,7 +198,7 @@ pub fn run() {
             commands::discover_repo_skills,
             commands::reinstall_skill_repo,
             commands::install_skill,
-            commands::reinstall_installed_skill,
+            commands::reinstall_skill,
             commands::uninstall_skill,
             commands::get_installed_skills,
             commands::toggle_skill_cli,

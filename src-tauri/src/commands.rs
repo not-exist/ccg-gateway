@@ -5059,6 +5059,29 @@ async fn remove_skill_from_all_cli_async(db: &SqlitePool, directory: &str) -> Re
     Ok(())
 }
 
+// 批量设置 CLI 启用状态（内部方法）
+async fn batch_set_skill_cli(db: &SqlitePool, directory: &str, cli_types: &[String]) -> Result<()> {
+    // 先从所有 CLI 移除
+    remove_skill_from_all_cli_async(db, directory).await?;
+
+    // 再启用指定的 CLI
+    for cli_type in cli_types {
+        sync_skill_to_cli_async(db, directory, cli_type).await?;
+    }
+    Ok(())
+}
+
+// 检测技能在各 CLI 的启用状态（遍历文件系统）
+async fn detect_skill_cli_status(db: &SqlitePool, directory: &str) -> Vec<String> {
+    let mut enabled_clis = Vec::new();
+    for cli_type in ["claude_code", "codex", "gemini"] {
+        if skill_enabled_in_cli_async(db, cli_type, directory).await {
+            enabled_clis.push(cli_type.to_string());
+        }
+    }
+    enabled_clis
+}
+
 async fn uninstall_skill_directory_async(
     db: &SqlitePool,
     directory: &str,
@@ -5558,10 +5581,14 @@ pub async fn install_skill(
 }
 
 #[tauri::command]
-pub async fn reinstall_installed_skill(
+pub async fn reinstall_skill(
     db: State<'_, SqlitePool>,
     directory: String,
 ) -> Result<InstalledSkillResponse> {
+    // 1. 检测当前 CLI 启用状态
+    let enabled_clis = detect_skill_cli_status(db.inner(), &directory).await;
+
+    // 2. 从 manifest 获取信息
     let manifest_entries = skill::load_installed_skill_manifest()?;
     let entry = manifest_entries
         .iter()
@@ -5585,25 +5612,62 @@ pub async fn reinstall_installed_skill(
             }
         });
 
-    let key = format!("{}:{}", repo.name, source_dir);
+    // 3. 删除 SSOT 目录
+    let ssot_dir = get_ssot_dir();
+    let skill_path = ssot_dir.join(&directory);
+    if skill_path.exists() {
+        std::fs::remove_dir_all(&skill_path).map_err(|e| e.to_string())?;
+    }
 
-    let (disk_name, disk_description) = read_installed_skill_metadata(&directory);
-    let name = disk_name.unwrap_or_else(|| entry.name.clone());
-    let description = disk_description.unwrap_or_default();
-
-    let discoverable = DiscoverableSkill {
-        key,
-        name,
-        description,
-        directory: source_dir.to_string(),
-        install_directory: directory.clone(),
-        readme_url: None,
-        repo: repo.clone(),
-        is_favorited: false,
-        is_installed: true,
+    // 4. 从仓库源复制到 SSOT
+    let skill_source_path = if skill::is_local_repo_source(&repo.source) {
+        let base = std::path::Path::new(&repo.source);
+        if source_dir == "." {
+            base.to_path_buf()
+        } else {
+            base.join(source_dir)
+        }
+    } else {
+        let cache_dir = git_clone_repo(&repo.source)?;
+        if source_dir == "." {
+            cache_dir.to_path_buf()
+        } else {
+            cache_dir.join(source_dir)
+        }
     };
 
-    install_skill_inner(db.inner(), discoverable, true).await
+    if !skill_source_path.exists() {
+        return Err(format!("技能目录不存在: {}", skill_source_path.display()));
+    }
+    copy_dir_recursive(&skill_source_path, &skill_path)?;
+
+    // 5. 恢复 CLI 启用状态
+    batch_set_skill_cli(db.inner(), &directory, &enabled_clis).await?;
+
+    // 6. 返回结果
+    let cli_flags = build_skill_cli_flags(db.inner(), &directory).await;
+    let (disk_name, disk_description) = read_installed_skill_metadata(&directory);
+    let key = format!("{}:{}", repo.name, source_dir);
+
+    Ok(InstalledSkillResponse {
+        id: directory.clone(),
+        name: disk_name.unwrap_or_else(|| entry.name.clone()),
+        description: normalize_skill_text(&disk_description.unwrap_or_default()),
+        directory,
+        repo: Some(repo.clone()),
+        readme_url: None,
+        installed_at: entry.installed_at,
+        cli_flags,
+        exists_on_disk: true,
+        is_favorited: false,
+        can_favorite: true,
+        favorite_key: Some(key),
+        market_display: if is_local_repo_source(&repo.source) {
+            String::new()
+        } else {
+            format!("@{}", repo.source)
+        },
+    })
 }
 
 #[tauri::command]
