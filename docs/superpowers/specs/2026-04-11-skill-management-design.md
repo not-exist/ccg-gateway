@@ -72,6 +72,8 @@
 输出: 已安装技能信息
 ```
 
+**注意**: CLI 启用状态不存储在 manifest 中，由 `get_installed_skills` 返回时实时检测文件系统得出。
+
 ### 重装技能
 
 ```
@@ -214,14 +216,15 @@ batch_set_skill_cli(id, cliTypes) → 批量设置 CLI 启用状态
 | `install_skill` | 安装技能 |
 | `reinstall_skill` | 重装技能 |
 | `uninstall_skill` | 卸载技能 |
-| `get_installed_skills` | 获取已安装技能列表 |
+| `get_installed_skills` | 获取已安装技能列表（含实时检测的 CLI 启用状态） |
 
 ### CLI 管理
 
 | 接口 | 说明 |
 |------|------|
 | `toggle_skill_cli` | 切换单个 CLI 启用状态 |
-| `get_cli_list` | 获取已配置 CLI 列表 |
+
+**注意**: CLI 启用状态通过 `get_installed_skills` 实时检测返回，不需要单独的查询接口。
 
 ### 收藏管理
 
@@ -286,7 +289,10 @@ skill_favorites (
 | 功能点 | 现有实现 | 新设计 | 原因 |
 |--------|----------|--------|------|
 | 编辑仓库 | `update_skill_repo` | 移除 | 简化操作，要么新增要么删除 |
+| 重装仓库接口名 | `refresh_repo_skills` | `reinstall_skill_repo` | 命名一致性，与技能重装接口对应 |
 | CLI 状态存储 | manifest 中存 `cli_flags` | 不存储，实时检测 | 状态应从文件系统实时读取 |
+| CLI 状态查询 | 无独立接口 | 通过 `get_installed_skills` 附带返回 | 减少接口数量，实时检测更准确 |
 | 批量 CLI API | 无独立接口 | 内部方法 | 仅供卸载/重装调用，不暴露 |
+| 重装技能接口名 | `reinstall_installed_skill` | `reinstall_skill` | 命名简化 |
 | 重装技能流程 | 直接覆盖 + sync | 检测状态 → 删除 → 复制 → 恢复 | 确保状态一致性 |
 | 从收藏安装 | 不检查仓库 | 先检查仓库 | 避免仓库不存在时失败 |
