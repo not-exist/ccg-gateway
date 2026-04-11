@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 export type Theme = 'light' | 'dark'
 
 export const useThemeStore = defineStore('theme', () => {
   const theme = ref<Theme>((localStorage.getItem('theme') as Theme) || 'light')
 
-  function applyTheme(t: Theme) {
+  async function applyTheme(t: Theme) {
     const html = document.documentElement
     if (t === 'dark') {
       html.classList.add('dark')
@@ -14,6 +15,13 @@ export const useThemeStore = defineStore('theme', () => {
       html.classList.remove('dark')
     }
     localStorage.setItem('theme', t)
+
+    try {
+      const appWindow = getCurrentWindow()
+      await appWindow.setTheme(t)
+    } catch (e) {
+      console.error('Failed to set window theme:', e)
+    }
   }
 
   function toggleTheme() {
