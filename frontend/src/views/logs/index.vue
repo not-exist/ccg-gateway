@@ -96,26 +96,17 @@
         <template v-else>
           <div class="table-wrapper">
             <table class="flat-table">
-              <colgroup>
-                <col style="width: 60px;">
-                <col style="width: 160px;">
-                <col style="width: 100px;">
-                <col style="width: 130px;">
-                <col style="width: 70px;">
-                <col style="width: 80px;">
-                <col style="width: 120px;">
-                <col style="width: 60px;">
-              </colgroup>
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>时间</th>
-                  <th>终端</th>
-                  <th>服务商</th>
-                  <th>状态</th>
-                  <th>耗时</th>
-                  <th>Tokens</th>
-                  <th style="text-align: right;">操作</th>
+                  <th style="min-width: 60px;">ID</th>
+                  <th style="min-width: 100px;">时间</th>
+                  <th style="min-width: 100px;">CLI</th>
+                  <th style="min-width: 100px;">服务商</th>
+                  <th style="min-width: 60px;">状态</th>
+                  <th style="min-width: 100px;">耗时</th>
+                  <th style="min-width: 110px;">Tokens(In/Out)</th>
+                  <th style="min-width: 100px;">模型映射</th>
+                  <th class="col-sticky" style="width: 60px;">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,13 +120,14 @@
                     <span v-else>-</span>
                   </td>
                   <td class="mono" :class="{'text-danger': row.status_code && row.status_code >= 500}">
-                    {{ row.elapsed_ms }}ms
+                    {{ (row.elapsed_ms / 1000).toFixed(2) }}s
                   </td>
                   <td class="mono">
                     <span v-if="row.input_tokens || row.output_tokens">{{ formatTokens(row.input_tokens) }} / {{ formatTokens(row.output_tokens) }}</span>
                     <span v-else>-</span>
                   </td>
-                  <td style="text-align: right;"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
+                  <td class="mono">{{ row.source_model || '-' }} → {{ row.target_model || '-' }}</td>
+                  <td class="col-sticky"><a class="table-link" @click="showRequestDetail(row.id)">详情</a></td>
                 </tr>
               </tbody>
             </table>
@@ -197,9 +189,9 @@
           <div class="table-wrapper">
             <table class="flat-table">
               <colgroup>
-                <col style="width: 70px;">
-                <col style="width: 170px;">
-                <col style="width: 160px;">
+                <col style="width: 60px;">
+                <col style="width: 100;">
+                <col style="width: 200px;">
                 <col>
               </colgroup>
               <thead>
@@ -241,25 +233,12 @@
     <!-- Request Detail Dialog -->
     <AppModal v-model="requestDetailVisible" title="请求详情" width="900px" :show-footer="false">
         <div v-if="requestDetail" class="detail-content">
-            <!-- Summary -->
-        <el-descriptions :column="3" border size="small">
-          <el-descriptions-item label="ID">{{ requestDetail.id }}</el-descriptions-item>
-          <el-descriptions-item label="时间">{{ formatTime(requestDetail.created_at) }}</el-descriptions-item>
-          <el-descriptions-item label="耗时">{{ requestDetail.elapsed_ms }}ms</el-descriptions-item>
-          <el-descriptions-item label="CLI类型">{{ requestDetail.cli_type }}</el-descriptions-item>
-          <el-descriptions-item label="服务商">{{ requestDetail.provider_name }}</el-descriptions-item>
-          <el-descriptions-item label="源模型">{{ requestDetail.source_model || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="映射模型">{{ requestDetail.target_model || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Input Tokens">{{ formatTokens(requestDetail.input_tokens) }}</el-descriptions-item>
-          <el-descriptions-item label="Output Tokens">{{ formatTokens(requestDetail.output_tokens) }}</el-descriptions-item>
-        </el-descriptions>
-
         <!-- Error Message -->
-        <el-alert v-if="requestDetail.error_message" :title="requestDetail.error_message" type="error" :closable="false" style="margin-top: 16px" />
+        <el-alert v-if="requestDetail.error_message" :title="requestDetail.error_message" type="error" :closable="false" style="margin-bottom: 16px" />
 
         <!-- Request/Response Explorer -->
         <div class="cards-container">
-          <el-card class="detail-card" shadow="hover">
+          <el-card class="detail-card" shadow="never">
             <template #header>
               <div class="detail-card-header">
                 <span class="card-title">CLI 终端握手</span>
@@ -277,7 +256,7 @@
             </el-collapse>
           </el-card>
 
-          <el-card class="detail-card" shadow="hover">
+          <el-card class="detail-card" shadow="never">
             <template #header>
               <div class="detail-card-header">
                 <span class="card-title">网关路由分发</span>
@@ -295,7 +274,7 @@
             </el-collapse>
           </el-card>
 
-          <el-card class="detail-card" style="grid-column: span 2;" shadow="hover">
+          <el-card class="detail-card" style="grid-column: span 2;" shadow="never">
             <template #header>
               <div class="detail-card-header">
                 <span class="card-title">服务商节点响应回传</span>
@@ -694,10 +673,10 @@ watch(activeTab, (tab) => {
 }
 .table-wrapper {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
 }
-.flat-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; table-layout: fixed; }
-.flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; text-align: left; }
+.flat-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; text-align: center; }
+.flat-table th, .flat-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; text-align: center; }
 
 .flat-table th {
   padding: 12px 20px;
@@ -714,6 +693,19 @@ watch(activeTab, (tab) => {
 .flat-table td { padding: 12px 20px; font-size: var(--fs-14); color: var(--color-text); border-bottom: 1px solid var(--color-bg-subtle); }
 .flat-table tr:last-child td { border-bottom: none; }
 .flat-table tr:hover td { background: var(--color-bg-page); }
+.flat-table tr:hover td.col-sticky { background: var(--color-bg-page); }
+
+.col-sticky {
+  position: sticky;
+  right: 0;
+  background: var(--color-bg);
+  width: 100px;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.03);
+}
+.flat-table th.col-sticky {
+  background: var(--color-bg-page);
+  z-index: 20;
+}
 
 .text-danger { color: var(--color-error); font-weight: var(--fw-600); }
 .table-link { color: var(--color-primary); cursor: pointer; text-decoration: none; font-weight: var(--fw-400); }
@@ -766,13 +758,6 @@ watch(activeTab, (tab) => {
   font-size: var(--fs-14);
 }
 
-/* el-descriptions 背景色覆盖 */
-.detail-content :deep(.el-descriptions__body) {
-  background: var(--color-bg);
-}
-.detail-content :deep(.el-descriptions__label) {
-  background: var(--color-bg-subtle);
-}
 /* el-collapse 标题背景色覆盖 */
 .detail-content :deep(.el-collapse-item__header) {
   background: var(--color-bg);
