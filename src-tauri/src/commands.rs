@@ -5544,11 +5544,8 @@ async fn install_skill_inner(
         source_directory: Some(skill_item.directory.clone()),
     })?;
 
-    let mut cli_flags = build_skill_cli_flags(db, &directory_name).await;
-    for flag in cli_flags.iter().filter(|flag| flag.enabled) {
-        sync_skill_to_cli_async(db, &directory_name, &flag.cli_type).await?;
-    }
-    cli_flags = build_skill_cli_flags(db, &directory_name).await;
+    // 不触发 CLI 同步，状态实时检测
+    let cli_flags = build_skill_cli_flags(db, &directory_name).await;
 
     Ok(InstalledSkillResponse {
         id: directory_name.clone(),
