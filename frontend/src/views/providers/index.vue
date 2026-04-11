@@ -300,25 +300,25 @@
           <template v-if="activeCliType === 'claude_code'">
              <div style="margin-bottom: 24px;">
                <div class="text-12 text-secondary" style="margin-bottom: 8px;">~/.claude/settings.json</div>
-               <el-input type="textarea" :rows="10" v-model="credentialForm.claude_settings" placeholder='{"ANTHROPIC_API_KEY": "..."}' />
+               <textarea class="b-input mono" rows="10" v-model="credentialForm.claude_settings" placeholder='{"ANTHROPIC_API_KEY": "..."}'></textarea>
              </div>
           </template>
 
           <template v-if="activeCliType === 'codex'">
             <div style="margin-bottom: 24px;">
                <div class="text-12 text-secondary" style="margin-bottom: 8px;">~/.codex/auth.json</div>
-               <el-input type="textarea" :rows="10" v-model="credentialForm.codex_auth" />
+               <textarea class="b-input mono" rows="10" v-model="credentialForm.codex_auth"></textarea>
              </div>
           </template>
 
           <template v-if="activeCliType === 'gemini'">
              <div style="margin-bottom: 24px;">
                <div class="text-12 text-secondary" style="margin-bottom: 8px;">~/.gemini/oauth_creds.json</div>
-               <el-input type="textarea" :rows="4" v-model="credentialForm.gemini_oauth" />
+               <textarea class="b-input mono" rows="4" v-model="credentialForm.gemini_oauth"></textarea>
              </div>
              <div style="margin-bottom: 24px;">
                <div class="text-12 text-secondary" style="margin-bottom: 8px;">~/.gemini/google_accounts.json</div>
-               <el-input type="textarea" :rows="3" v-model="credentialForm.gemini_accounts" />
+               <textarea class="b-input mono" rows="3" v-model="credentialForm.gemini_accounts"></textarea>
              </div>
           </template>
     </AppModal>

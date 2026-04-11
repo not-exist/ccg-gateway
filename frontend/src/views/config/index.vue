@@ -500,21 +500,6 @@ onMounted(() => {
 .table-link.danger { color: var(--color-danger); }
 .table-link.danger:hover { color: var(--color-danger-hover); }
 
-/* Custom Scrollbar for Modal */
-.scroll-area::-webkit-scrollbar {
-  width: 6px;
-}
-.scroll-area::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scroll-area::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 10px;
-}
-.scroll-area::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-hover);
-}
-
 /* Backup Row */
 .backup-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .backup-segmented { margin-bottom: 0; flex-shrink: 0; }

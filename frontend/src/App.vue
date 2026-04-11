@@ -242,8 +242,11 @@ textarea.b-input {
   background-color: transparent;
 }
 
-/* Element Plus Specific Overrides */
-.el-textarea__inner::-webkit-scrollbar {
-  width: 14px;
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+::-webkit-resizer {
+  background-color: transparent;
 }
 </style>
