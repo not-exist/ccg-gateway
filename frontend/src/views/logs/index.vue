@@ -747,7 +747,7 @@ watch(activeTab, (tab) => {
 /* Keep el-dialog styles clean to match ethereal frost inside detail view */
 .detail-content { max-height: 60vh; overflow-y: auto; }
 .cards-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
-.detail-card { margin: 0; }
+.detail-card { margin: 0; background: var(--color-bg); }
 .detail-card-header { display: flex; justify-content: space-between; font-weight: var(--fw-600); }
 .url-line { font-size: var(--fs-12); color: var(--color-primary); word-break: break-all; margin-bottom: 12px; padding: 8px 12px; background: var(--color-primary-light); border-radius: 6px; }
 .code-block { background: var(--color-bg-page); padding: 12px; border-radius: 6px; font-size: var(--fs-12); white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; margin: 0; cursor: pointer; border: 1px solid transparent; transition: border-color 0.2s; }
@@ -764,5 +764,20 @@ watch(activeTab, (tab) => {
 .empty-state p {
   margin-top: 16px;
   font-size: var(--fs-14);
+}
+
+/* el-descriptions 背景色覆盖 */
+.detail-content :deep(.el-descriptions__body) {
+  background: var(--color-bg);
+}
+.detail-content :deep(.el-descriptions__label) {
+  background: var(--color-bg-subtle);
+}
+/* el-collapse 标题背景色覆盖 */
+.detail-content :deep(.el-collapse-item__header) {
+  background: var(--color-bg);
+}
+.detail-content :deep(.el-collapse-item__wrap) {
+  background: var(--color-bg);
 }
 </style>
