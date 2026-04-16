@@ -1,5 +1,10 @@
 // CLI Type
 export type CliType = 'claude_code' | 'codex' | 'gemini'
+export type ProviderApiFormat =
+  | 'anthropic_messages'
+  | 'openai_chat_completions'
+  | 'openai_responses'
+  | 'gemini_generate_content'
 
 // Provider types
 export interface ModelMap {
@@ -20,6 +25,7 @@ export interface Provider {
   name: string
   base_url: string
   api_key: string
+  api_format: ProviderApiFormat
   enabled: boolean
   failure_threshold: number
   blacklist_minutes: number
@@ -37,6 +43,7 @@ export interface ProviderCreate {
   name: string
   base_url: string
   api_key: string
+  api_format?: ProviderApiFormat
   enabled?: boolean
   failure_threshold?: number
   blacklist_minutes?: number
@@ -49,6 +56,7 @@ export interface ProviderUpdate {
   name?: string
   base_url?: string
   api_key?: string
+  api_format?: ProviderApiFormat
   enabled?: boolean
   failure_threshold?: number
   blacklist_minutes?: number
@@ -75,6 +83,7 @@ export interface TestProviderResult {
 // Settings types
 export interface GatewaySettings {
   debug_log: boolean
+  max_tokens: number
 }
 
 export interface TimeoutSettings {
@@ -101,6 +110,7 @@ export interface AllSettings {
 
 export interface GatewaySettingsUpdate {
   debug_log?: boolean
+  max_tokens?: number
 }
 
 export interface TimeoutSettingsUpdate {

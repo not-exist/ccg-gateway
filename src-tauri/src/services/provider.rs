@@ -1,4 +1,6 @@
 use crate::db::models::TestProviderResult;
+use crate::services::proxy::{build_upstream_url, set_auth_header_for_api};
+use crate::services::transform::ApiFormat;
 use sqlx::SqlitePool;
 
 /// Record a successful request for a provider
@@ -207,6 +209,7 @@ pub async fn test_provider_model(
     let base_url = provider.base_url.trim_end_matches('/').to_string();
     let api_key = provider.api_key.clone();
     let custom_ua = provider.custom_useragent.clone();
+    let target_api = ApiFormat::from_provider(&cli_type, provider.api_format.as_deref());
 
     // 2. Resolve model mapping
     let model_maps = sqlx::query_as::<_, crate::db::models::ProviderModelMap>(
@@ -236,87 +239,35 @@ pub async fn test_provider_model(
     headers.insert("accept", "text/event-stream".parse().unwrap());
     headers.insert("accept-encoding", "identity".parse().unwrap());
 
-    let (url, body_json) = match cli_type.as_str() {
-        "claude_code" => {
-            // Anthropic native: POST /v1/messages with stream
-            let url = format!("{}/v1/messages", base_url);
+    let (path, body_json) = match target_api {
+        ApiFormat::AnthropicMessages => {
             let body = serde_json::json!({
                 "model": actual_model,
                 "messages": [{"role": "user", "content": [{"type": "text", "text": "今天天气不错"}]}],
                 "stream": true,
                 "max_tokens": 1024
             });
-            if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key)) {
-                headers.insert(reqwest::header::AUTHORIZATION, v);
-            }
-            if let Ok(v) = reqwest::header::HeaderValue::from_str(&api_key) {
-                headers.insert("x-api-key", v);
-            }
-            headers.insert("anthropic-version", "2023-06-01".parse().unwrap());
-
-            // Apply captured headers or defaults
-            let captured_headers = crate::services::proxy::get_captured_claude_headers();
-            if captured_headers.headers.is_empty() {
-                headers.insert(
-                    reqwest::header::USER_AGENT,
-                    "claude-cli/2.1.91 (external, cli)".parse().unwrap(),
-                );
-                headers.insert("anthropic-beta", "claude-code-20250219,context-1m-2025-08-07,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24".parse().unwrap());
-            } else {
-                for (k, v) in &captured_headers.headers {
-                    if let (Ok(h_name), Ok(h_val)) = (
-                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
-                        reqwest::header::HeaderValue::from_str(v),
-                    ) {
-                        headers.insert(h_name, h_val);
-                    }
-                }
-            }
-
-            (url, body)
+            (target_api.request_path(""), body)
         }
-        "codex" => {
-            // OpenAI format: base_url already includes /v1
-            let url = format!("{}/chat/completions", base_url);
+        ApiFormat::OpenAiChatCompletions => {
             let body = serde_json::json!({
                 "model": actual_model,
                 "messages": [{"role": "user", "content": "今天天气不错"}],
                 "stream": true,
                 "max_tokens": 1024
             });
-            if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key)) {
-                headers.insert(reqwest::header::AUTHORIZATION, v);
-            }
-
-            // Apply captured headers or defaults
-            let captured_headers = crate::services::proxy::get_captured_codex_headers();
-            if captured_headers.headers.is_empty() {
-                headers.insert(
-                    reqwest::header::USER_AGENT,
-                    "codex-tui/0.118.0 (Windows 10.0.26200; x86_64) unknown (codex-tui; 0.118.0)"
-                        .parse()
-                        .unwrap(),
-                );
-                headers.insert("originator", "codex-tui".parse().unwrap());
-            } else {
-                for (k, v) in &captured_headers.headers {
-                    if let (Ok(h_name), Ok(h_val)) = (
-                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
-                        reqwest::header::HeaderValue::from_str(v),
-                    ) {
-                        headers.insert(h_name, h_val);
-                    }
-                }
-            }
-
-            (url, body)
+            (target_api.request_path(""), body)
         }
-        "gemini" => {
-            // Gemini streaming: streamGenerateContent with alt=sse
-            let url = format!(
-                "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
-                base_url, actual_model
-            );
+        ApiFormat::OpenAiResponses => {
+            let body = serde_json::json!({
+                "model": actual_model,
+                "input": "今天天气不错",
+                "stream": true,
+                "max_output_tokens": 1024
+            });
+            (target_api.request_path(""), body)
+        }
+        ApiFormat::GeminiGenerateContent => {
             let body = serde_json::json!({
                 "contents": [{
                     "role": "user",
@@ -326,51 +277,76 @@ pub async fn test_provider_model(
                     "maxOutputTokens": 1024
                 }
             });
-            if let Ok(v) = reqwest::header::HeaderValue::from_str(&api_key) {
-                headers.insert("x-goog-api-key", v);
-            }
+            (
+                format!(
+                    "/v1beta/models/{}:streamGenerateContent?alt=sse",
+                    actual_model
+                ),
+                body,
+            )
+        }
+    };
+    let url = build_upstream_url(
+        &base_url,
+        &path,
+        if cli_type == "gemini" {
+            crate::services::proxy::CliType::Gemini
+        } else if cli_type == "codex" {
+            crate::services::proxy::CliType::Codex
+        } else {
+            crate::services::proxy::CliType::ClaudeCode
+        },
+    );
+    set_auth_header_for_api(&mut headers, &api_key, target_api);
 
-            // Apply captured headers or defaults
-            let captured_headers = crate::services::proxy::get_captured_gemini_headers();
-            if captured_headers.headers.is_empty() {
+    // Apply captured headers or defaults
+    let captured_headers = match cli_type.as_str() {
+        "codex" => crate::services::proxy::get_captured_codex_headers()
+            .headers
+            .clone(),
+        "gemini" => crate::services::proxy::get_captured_gemini_headers()
+            .headers
+            .clone(),
+        _ => crate::services::proxy::get_captured_claude_headers()
+            .headers
+            .clone(),
+    };
+    if captured_headers.is_empty() {
+        match cli_type.as_str() {
+            "codex" => {
+                headers.insert(
+                    reqwest::header::USER_AGENT,
+                    "codex-tui/0.118.0 (Windows 10.0.26200; x86_64) unknown (codex-tui; 0.118.0)"
+                        .parse()
+                        .unwrap(),
+                );
+                headers.insert("originator", "codex-tui".parse().unwrap());
+            }
+            "gemini" => {
                 headers.insert(
                     reqwest::header::USER_AGENT,
                     "GeminiCLI/0.33.1/gemini-3.1-pro-preview (win32; x64)"
                         .parse()
                         .unwrap(),
                 );
+            }
+            _ => {
                 headers.insert(
-                    "x-goog-api-client",
-                    "google-genai-sdk/1.30.0 gl-node/v24.14.0".parse().unwrap(),
+                    reqwest::header::USER_AGENT,
+                    "claude-cli/2.1.91 (external, cli)".parse().unwrap(),
                 );
-            } else {
-                for (k, v) in &captured_headers.headers {
-                    if let (Ok(h_name), Ok(h_val)) = (
-                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
-                        reqwest::header::HeaderValue::from_str(v),
-                    ) {
-                        headers.insert(h_name, h_val);
-                    }
-                }
             }
-
-            (url, body)
         }
-        _ => {
-            // Fallback: OpenAI compatible
-            let url = format!("{}/v1/chat/completions", base_url);
-            let body = serde_json::json!({
-                "model": actual_model,
-                "messages": [{"role": "user", "content": "今天天气不错"}],
-                "stream": true,
-                "max_tokens": 1024
-            });
-            if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key)) {
-                headers.insert(reqwest::header::AUTHORIZATION, v);
+    } else {
+        for (k, v) in &captured_headers {
+            if let (Ok(h_name), Ok(h_val)) = (
+                reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                reqwest::header::HeaderValue::from_str(v),
+            ) {
+                headers.insert(h_name, h_val);
             }
-            (url, body)
         }
-    };
+    }
 
     // Apply custom UA if configured
     if let Some(ref ua) = custom_ua {
@@ -492,6 +468,14 @@ fn extract_stream_summary(chunk: &str) -> String {
             {
                 if !c.is_empty() {
                     return truncate_string(c, 200);
+                }
+            }
+            // Responses streaming: delta text event
+            if json.get("type").and_then(|v| v.as_str()) == Some("response.output_text.delta") {
+                if let Some(c) = json.get("delta").and_then(|v| v.as_str()) {
+                    if !c.is_empty() {
+                        return truncate_string(c, 200);
+                    }
                 }
             }
             // Anthropic streaming: check event type

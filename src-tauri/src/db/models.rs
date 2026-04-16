@@ -3,6 +3,26 @@ use sqlx::FromRow;
 
 // ==================== Provider 相关实体 ====================
 
+pub const PROVIDER_API_ANTHROPIC_MESSAGES: &str = "anthropic_messages";
+pub const PROVIDER_API_OPENAI_CHAT: &str = "openai_chat_completions";
+pub const PROVIDER_API_OPENAI_RESPONSES: &str = "openai_responses";
+pub const PROVIDER_API_GEMINI_GENERATE_CONTENT: &str = "gemini_generate_content";
+pub const DEFAULT_GATEWAY_MAX_TOKENS: i64 = 256_000;
+
+pub fn resolve_provider_api_format(cli_type: &str, api_format: Option<&str>) -> &'static str {
+    match api_format {
+        Some(PROVIDER_API_ANTHROPIC_MESSAGES) => PROVIDER_API_ANTHROPIC_MESSAGES,
+        Some(PROVIDER_API_OPENAI_CHAT) => PROVIDER_API_OPENAI_CHAT,
+        Some(PROVIDER_API_OPENAI_RESPONSES) => PROVIDER_API_OPENAI_RESPONSES,
+        Some(PROVIDER_API_GEMINI_GENERATE_CONTENT) => PROVIDER_API_GEMINI_GENERATE_CONTENT,
+        _ => match cli_type {
+            "codex" => PROVIDER_API_OPENAI_CHAT,
+            "gemini" => PROVIDER_API_GEMINI_GENERATE_CONTENT,
+            _ => PROVIDER_API_ANTHROPIC_MESSAGES,
+        },
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Provider {
     pub id: i64,
@@ -16,6 +36,7 @@ pub struct Provider {
     pub consecutive_failures: i64,
     pub blacklisted_until: Option<i64>,
     pub sort_order: i64,
+    pub api_format: Option<String>,
     pub custom_useragent: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
@@ -56,6 +77,7 @@ pub struct ProviderCreate {
     pub name: String,
     pub base_url: String,
     pub api_key: String,
+    pub api_format: Option<String>,
     pub enabled: Option<bool>,
     pub failure_threshold: Option<i64>,
     pub blacklist_minutes: Option<i64>,
@@ -69,6 +91,7 @@ pub struct ProviderUpdate {
     pub name: Option<String>,
     pub base_url: Option<String>,
     pub api_key: Option<String>,
+    pub api_format: Option<String>,
     pub enabled: Option<bool>,
     pub failure_threshold: Option<i64>,
     pub blacklist_minutes: Option<i64>,
@@ -99,6 +122,7 @@ pub struct ProviderResponse {
     pub name: String,
     pub base_url: String,
     pub api_key: String,
+    pub api_format: String,
     pub enabled: bool,
     pub failure_threshold: i64,
     pub blacklist_minutes: i64,
@@ -121,6 +145,8 @@ impl From<Provider> for ProviderResponse {
         } else {
             p.consecutive_failures
         };
+        let api_format =
+            resolve_provider_api_format(&p.cli_type, p.api_format.as_deref()).to_string();
 
         Self {
             id: p.id,
@@ -128,6 +154,7 @@ impl From<Provider> for ProviderResponse {
             name: p.name,
             base_url: p.base_url,
             api_key: p.api_key,
+            api_format,
             enabled: p.enabled != 0,
             failure_threshold: p.failure_threshold,
             blacklist_minutes: p.blacklist_minutes,
@@ -172,6 +199,7 @@ pub struct TestProviderResult {
 pub struct GatewaySettingsRow {
     pub id: i64,
     pub debug_log: i64,
+    pub max_tokens: i64,
     pub updated_at: i64,
 }
 
@@ -179,6 +207,13 @@ pub struct GatewaySettingsRow {
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct GatewaySettings {
     pub debug_log: i64,
+    pub max_tokens: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GatewaySettingsUpdate {
+    pub debug_log: Option<bool>,
+    pub max_tokens: Option<i64>,
 }
 
 // Timeout Settings (完整版 - 对应数据库表)

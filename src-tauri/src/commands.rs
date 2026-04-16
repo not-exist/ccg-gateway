@@ -1,15 +1,16 @@
 use crate::config::{expand_home_path, get_data_dir, get_default_cli_config_dir, shrink_home_path};
 use crate::db::models::{
-    CliSettingsResponse, CliSettingsUpdate, DailyStats, DiscoverableSkill, GatewaySettings,
-    InstalledSkillResponse, MarketplaceInfo, McpCliFlag, McpConfig, McpCreate, McpResponse,
-    McpUpdate, OfficialCredential, OfficialCredentialCreate, OfficialCredentialResponse,
-    OfficialCredentialUpdate, PaginatedLogs, PaginatedProjects, PaginatedSessions,
-    PluginFavoriteItem, PluginItem, ProjectInfo, PromptCliFlag, PromptCreate, PromptPreset,
-    PromptResponse, PromptUpdate, Provider, ProviderCreate, ProviderResponse,
-    ProviderStatsResponse, ProviderStatsRow, ProviderUpdate, RequestLogDetail, RequestLogItem,
-    SessionInfo, SessionMessage, SkillCliFlag, SkillFavorite, SkillFavoriteItem, SkillRepo,
-    SkillRepoCreate, SystemLogItem, SystemLogListResponse, SystemStatus, TestProviderModelsInput,
-    TimeoutSettings, TimeoutSettingsUpdate, WebdavBackup, WebdavSettings, WebdavSettingsUpdate,
+    resolve_provider_api_format, CliSettingsResponse, CliSettingsUpdate, DailyStats,
+    DiscoverableSkill, GatewaySettings, GatewaySettingsUpdate, InstalledSkillResponse,
+    MarketplaceInfo, McpCliFlag, McpConfig, McpCreate, McpResponse, McpUpdate, OfficialCredential,
+    OfficialCredentialCreate, OfficialCredentialResponse, OfficialCredentialUpdate, PaginatedLogs,
+    PaginatedProjects, PaginatedSessions, PluginFavoriteItem, PluginItem, ProjectInfo,
+    PromptCliFlag, PromptCreate, PromptPreset, PromptResponse, PromptUpdate, Provider,
+    ProviderCreate, ProviderResponse, ProviderStatsResponse, ProviderStatsRow, ProviderUpdate,
+    RequestLogDetail, RequestLogItem, SessionInfo, SessionMessage, SkillCliFlag, SkillFavorite,
+    SkillFavoriteItem, SkillRepo, SkillRepoCreate, SystemLogItem, SystemLogListResponse,
+    SystemStatus, TestProviderModelsInput, TimeoutSettings, TimeoutSettingsUpdate, WebdavBackup,
+    WebdavSettings, WebdavSettingsUpdate,
 };
 use crate::services::skill::{self, is_local_repo_source, InstalledSkillManifestEntry};
 use crate::LogDb;
@@ -669,6 +670,8 @@ pub async fn create_provider(
 ) -> Result<ProviderResponse> {
     let now = chrono::Utc::now().timestamp();
     let cli_type = input.cli_type.unwrap_or_else(|| "claude_code".to_string());
+    let api_format =
+        resolve_provider_api_format(&cli_type, input.api_format.as_deref()).to_string();
     let provider_name = input.name.clone();
 
     // Normalize custom_useragent: treat empty string as None
@@ -681,8 +684,8 @@ pub async fn create_provider(
 
     let result = sqlx::query(
         r#"
-        INSERT INTO providers (cli_type, name, base_url, api_key, enabled, failure_threshold, blacklist_minutes, consecutive_failures, sort_order, custom_useragent, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM providers), ?, ?, ?)
+        INSERT INTO providers (cli_type, name, base_url, api_key, enabled, failure_threshold, blacklist_minutes, consecutive_failures, sort_order, api_format, custom_useragent, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM providers), ?, ?, ?, ?)
         "#,
     )
     .bind(&cli_type)
@@ -692,6 +695,7 @@ pub async fn create_provider(
     .bind(input.enabled.unwrap_or(true) as i64)
     .bind(input.failure_threshold.unwrap_or(3))
     .bind(input.blacklist_minutes.unwrap_or(10))
+    .bind(&api_format)
     .bind(&custom_ua)
     .bind(now)
     .bind(now)
@@ -751,17 +755,16 @@ pub async fn update_provider(
 ) -> Result<ProviderResponse> {
     let now = chrono::Utc::now().timestamp();
 
-    // Get provider name for logging
-    let provider_name: Option<(String,)> =
-        sqlx::query_as("SELECT name FROM providers WHERE id = ?")
+    // Get provider name and cli_type for logging/defaults
+    let provider_meta: Option<(String, String)> =
+        sqlx::query_as("SELECT name, cli_type FROM providers WHERE id = ?")
             .bind(id)
             .fetch_optional(db.inner())
             .await
             .map_err(|e| e.to_string())?;
 
-    let provider_name = provider_name
-        .map(|(n,)| n)
-        .unwrap_or_else(|| format!("Provider#{}", id));
+    let (provider_name, provider_cli_type) =
+        provider_meta.unwrap_or_else(|| (format!("Provider#{}", id), "claude_code".to_string()));
 
     // Check if model maps will be updated (before moving)
     let has_model_maps_update = input.model_maps.is_some();
@@ -781,6 +784,10 @@ pub async fn update_provider(
     }
     if input.api_key.is_some() {
         updates.push("api_key = ?".to_string());
+        has_updates = true;
+    }
+    if input.api_format.is_some() {
+        updates.push("api_format = ?".to_string());
         has_updates = true;
     }
     if input.enabled.is_some() {
@@ -812,6 +819,11 @@ pub async fn update_provider(
         }
         if let Some(ref api_key) = input.api_key {
             q = q.bind(api_key);
+        }
+        if let Some(ref api_format) = input.api_format {
+            let resolved_api_format =
+                resolve_provider_api_format(&provider_cli_type, Some(api_format.as_str()));
+            q = q.bind(resolved_api_format);
         }
         if let Some(enabled) = input.enabled {
             q = q.bind(enabled as i64);
@@ -1040,23 +1052,41 @@ pub async fn test_provider_models(
 // Settings commands
 #[tauri::command]
 pub async fn get_gateway_settings(db: State<'_, SqlitePool>) -> Result<GatewaySettings> {
-    sqlx::query_as::<_, GatewaySettings>("SELECT debug_log FROM gateway_settings WHERE id = 1")
-        .fetch_one(db.inner())
-        .await
-        .map_err(|e| e.to_string())
+    sqlx::query_as::<_, GatewaySettings>(
+        "SELECT debug_log, max_tokens FROM gateway_settings WHERE id = 1",
+    )
+    .fetch_one(db.inner())
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn update_gateway_settings(db: State<'_, SqlitePool>, debug_log: bool) -> Result<()> {
+pub async fn update_gateway_settings(
+    db: State<'_, SqlitePool>,
+    input: GatewaySettingsUpdate,
+) -> Result<()> {
     let now = chrono::Utc::now().timestamp();
-    let debug_log_val = if debug_log { 1i64 } else { 0 };
+    let current = get_gateway_settings(db.clone()).await?;
+    let debug_log_val = if input.debug_log.unwrap_or(current.debug_log != 0) {
+        1i64
+    } else {
+        0
+    };
+    let max_tokens = input.max_tokens.unwrap_or(current.max_tokens);
 
-    sqlx::query("UPDATE gateway_settings SET debug_log = ?, updated_at = ? WHERE id = 1")
-        .bind(debug_log_val)
-        .bind(now)
-        .execute(db.inner())
-        .await
-        .map_err(map_db_error)?;
+    if max_tokens <= 0 {
+        return Err("max_tokens 必须大于 0".to_string());
+    }
+
+    sqlx::query(
+        "UPDATE gateway_settings SET debug_log = ?, max_tokens = ?, updated_at = ? WHERE id = 1",
+    )
+    .bind(debug_log_val)
+    .bind(max_tokens)
+    .bind(now)
+    .execute(db.inner())
+    .await
+    .map_err(map_db_error)?;
 
     Ok(())
 }
@@ -5578,7 +5608,10 @@ pub async fn install_skill(
 }
 
 #[tauri::command]
-async fn reinstall_skill_impl(db: &SqlitePool, directory: String) -> Result<InstalledSkillResponse> {
+async fn reinstall_skill_impl(
+    db: &SqlitePool,
+    directory: String,
+) -> Result<InstalledSkillResponse> {
     // 1. 检测当前 CLI 启用状态
     let enabled_clis = detect_skill_cli_status(db, &directory).await;
 
@@ -5940,12 +5973,16 @@ pub async fn reinstall_favorite_skill(
             .ok_or_else(|| "Skill favorite not found".to_string())?;
 
     // 计算安装目录
-    let directory = skill_install_directory_name_from_parts(&favorite.directory, &favorite.repo_name);
+    let directory =
+        skill_install_directory_name_from_parts(&favorite.directory, &favorite.repo_name);
 
     // 检查是否已安装
     let ssot_dir = get_ssot_dir();
     if !ssot_dir.join(&directory).exists() {
-        return Err(format!("Skill '{}' is not installed, cannot reinstall", directory));
+        return Err(format!(
+            "Skill '{}' is not installed, cannot reinstall",
+            directory
+        ));
     }
 
     reinstall_skill_impl(db.inner(), directory).await

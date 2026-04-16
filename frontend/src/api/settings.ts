@@ -4,7 +4,7 @@ import type { AllSettings, GatewaySettingsUpdate, TimeoutSettingsUpdate, CliSett
 export const settingsApi = {
   getAll: async () => {
     const [gateway, timeouts, claudeCode, codex, gemini, status] = await Promise.all([
-      invoke<{ debug_log: number }>('get_gateway_settings'),
+      invoke<{ debug_log: number; max_tokens: number }>('get_gateway_settings'),
       invoke<{ stream_first_byte_timeout: number; stream_idle_timeout: number; non_stream_timeout: number }>('get_timeout_settings'),
       invoke<CliSettings>('get_cli_settings', { cliType: 'claude_code' }),
       invoke<CliSettings>('get_cli_settings', { cliType: 'codex' }),
@@ -13,7 +13,7 @@ export const settingsApi = {
     ])
     return {
       data: {
-        gateway: { debug_log: !!gateway.debug_log },
+        gateway: { debug_log: !!gateway.debug_log, max_tokens: gateway.max_tokens },
         timeouts,
         cli_settings: {
           claude_code: claudeCode,
@@ -25,7 +25,7 @@ export const settingsApi = {
     }
   },
   updateGateway: async (data: GatewaySettingsUpdate) => {
-    await invoke('update_gateway_settings', { debugLog: data.debug_log })
+    await invoke('update_gateway_settings', { input: data })
     return { data: null }
   },
   updateTimeouts: async (data: TimeoutSettingsUpdate) => {

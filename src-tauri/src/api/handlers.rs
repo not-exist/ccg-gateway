@@ -6,6 +6,7 @@ use axum::{
 use bytes::Bytes;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
+use serde_json::Value;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::Instant;
@@ -13,13 +14,17 @@ use tauri::Emitter;
 use tokio::sync::{mpsc, Mutex};
 
 use super::AppState;
-use crate::db::models::{RequestLogInfo, RequestLogItem};
+use crate::db::models::{RequestLogInfo, RequestLogItem, DEFAULT_GATEWAY_MAX_TOKENS};
 use crate::services::proxy::{
-    apply_body_model_mapping, apply_url_model_mapping, apply_useragent_override, detect_cli_type,
-    extract_model_from_body, extract_model_from_path, filter_headers, is_streaming,
-    parse_token_usage, set_auth_header, CliType, TimeoutConfig, TokenUsage,
+    apply_body_model_mapping, apply_url_model_mapping, apply_useragent_override,
+    build_upstream_url, detect_cli_type, extract_model_from_body, extract_model_from_path,
+    filter_headers, is_streaming, set_auth_header_for_api, CliType, TimeoutConfig, TokenUsage,
 };
 use crate::services::routing::select_provider;
+use crate::services::transform::{
+    parse_token_usage_by_api, transform_request, transform_response_body,
+    transform_streaming_response, ApiFormat,
+};
 use crate::services::{provider as provider_service, stats as stats_service};
 
 // Catch-all proxy handler - forwards any non-API request to the appropriate provider
@@ -41,6 +46,7 @@ pub async fn proxy_handler_catchall(
 
     // Detect CLI type from User-Agent
     let cli_type = detect_cli_type(&headers);
+    let source_api = ApiFormat::from_client_request(cli_type, &full_path);
 
     // Serialize client headers for logging
     let client_headers_json = serialize_headers(&headers);
@@ -105,6 +111,15 @@ pub async fn proxy_handler_catchall(
     let provider = &provider_with_maps.provider;
     let provider_id = provider.id;
     let provider_name = provider.name.clone();
+    let target_api = ApiFormat::from_provider(&provider.cli_type, provider.api_format.as_deref());
+    let default_chat_max_tokens =
+        match sqlx::query_as::<_, (i64,)>("SELECT max_tokens FROM gateway_settings WHERE id = 1")
+            .fetch_one(&state.db)
+            .await
+        {
+            Ok((max_tokens,)) if max_tokens > 0 => max_tokens,
+            _ => DEFAULT_GATEWAY_MAX_TOKENS,
+        };
 
     // Get timeout settings
     let timeouts = match sqlx::query_as::<_, (i64, i64, i64)>(
@@ -121,7 +136,7 @@ pub async fn proxy_handler_catchall(
     // (streaming flag already determined above)
 
     // Apply model mapping and extract model info
-    let (final_body, final_path, source_model, target_model) = match cli_type {
+    let (mapped_body, mapped_path, source_model, target_model) = match cli_type {
         CliType::Gemini => {
             let mapping = apply_url_model_mapping(
                 &provider_with_maps,
@@ -146,17 +161,36 @@ pub async fn proxy_handler_catchall(
         }
     };
 
+    let transformed_request = match transform_request(
+        source_api,
+        target_api,
+        &mapped_path,
+        &mapped_body,
+        default_chat_max_tokens,
+    ) {
+        Ok(result) => result,
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to transform request");
+            return Ok(Response::builder()
+                .status(StatusCode::BAD_GATEWAY)
+                .header("content-type", "application/json")
+                .body(Body::from(format!(r#"{{"error":"{}"}}"#, e)))
+                .unwrap());
+        }
+    };
+    let final_body = transformed_request.body;
+    let final_path = transformed_request.path;
+
     // Use target model if mapped, otherwise use source model
     let model_id = target_model.clone().or(source_model.clone());
 
     // Build upstream URL: base_url + original_path
     // e.g., base_url="https://api.example.com/v1", path="/responses" -> "https://api.example.com/v1/responses"
-    let base_url = provider.base_url.trim_end_matches('/');
-    let upstream_url = format!("{}{}", base_url, final_path);
+    let upstream_url = build_upstream_url(&provider.base_url, &final_path, cli_type);
 
     // Prepare headers - filter hop-by-hop headers and set auth
     let mut req_headers = filter_headers(&headers);
-    set_auth_header(&mut req_headers, &provider.api_key, cli_type);
+    set_auth_header_for_api(&mut req_headers, &provider.api_key, target_api);
 
     // Apply User-Agent override (per-provider)
     let _original_ua =
@@ -237,6 +271,8 @@ pub async fn proxy_handler_catchall(
             provider_id,
             &provider_name,
             cli_type,
+            source_api,
+            target_api,
             model_id.as_deref(),
             method.as_ref(),
             &full_path,
@@ -255,6 +291,8 @@ pub async fn proxy_handler_catchall(
             provider_id,
             &provider_name,
             cli_type,
+            source_api,
+            target_api,
             model_id.as_deref(),
             method.as_ref(),
             &full_path,
@@ -308,6 +346,20 @@ fn maybe_decompress(body: &[u8], content_encoding: Option<&str>) -> Vec<u8> {
     body.to_vec()
 }
 
+fn body_looks_like_sse(body: &[u8]) -> bool {
+    String::from_utf8_lossy(body).lines().any(|line| {
+        let line = line.trim_end_matches('\r');
+        line.starts_with("data:") || line.starts_with("event:")
+    })
+}
+
+fn is_json_error_body(body: &[u8]) -> bool {
+    serde_json::from_slice::<Value>(body)
+        .ok()
+        .and_then(|json| json.as_object().map(|obj| obj.contains_key("error")))
+        .unwrap_or(false)
+}
+
 async fn handle_streaming_request(
     request: reqwest::Request,
     client: &reqwest::Client,
@@ -315,6 +367,8 @@ async fn handle_streaming_request(
     provider_id: i64,
     provider_name: &str,
     cli_type: CliType,
+    source_api: ApiFormat,
+    target_api: ApiFormat,
     model_id: Option<&str>,
     client_method: &str,
     client_path: &str,
@@ -412,11 +466,137 @@ async fn handle_streaming_request(
 
     // Store provider response info
     log_info.provider_headers = Some(serialize_reqwest_headers(&resp_headers));
+    let is_success = status.is_success();
 
-    // Build response headers
+    if source_api != target_api {
+        let mut byte_stream = response.bytes_stream();
+        let idle_timeout = timeouts.idle_timeout;
+        let mut collected = Vec::<u8>::new();
+
+        loop {
+            match tokio::time::timeout(idle_timeout, byte_stream.next()).await {
+                Ok(Some(Ok(chunk))) => collected.extend_from_slice(&chunk),
+                Ok(Some(Err(e))) => {
+                    tracing::error!(error = %e, "Transformed stream read failed");
+                    break;
+                }
+                Ok(None) => break,
+                Err(_) => {
+                    tracing::warn!("Transformed stream idle timeout");
+                    break;
+                }
+            }
+        }
+
+        let content_encoding = resp_headers
+            .get("content-encoding")
+            .and_then(|v| v.to_str().ok());
+        let decompressed_body = maybe_decompress(&collected, content_encoding);
+        log_info.provider_body = Some(truncate_body(&decompressed_body));
+        let looks_like_sse = body_looks_like_sse(&decompressed_body);
+
+        let mut usage = TokenUsage::default();
+        if looks_like_sse {
+            for line in String::from_utf8_lossy(&decompressed_body).lines() {
+                if line.starts_with("data:") {
+                    let data = line.strip_prefix("data:").unwrap_or("").trim();
+                    if !data.is_empty() && data != "[DONE]" {
+                        parse_token_usage_by_api(data.as_bytes(), target_api, &mut usage);
+                    }
+                }
+            }
+        } else {
+            parse_token_usage_by_api(&decompressed_body, target_api, &mut usage);
+        }
+
+        let passthrough_original =
+            is_json_error_body(&decompressed_body) || (!looks_like_sse && !status.is_success());
+
+        let client_body = if passthrough_original {
+            collected
+        } else {
+            match transform_streaming_response(target_api, source_api, &decompressed_body) {
+                Ok(body) => body,
+                Err(e) => {
+                    tracing::error!(error = %e, "Failed to transform streaming response");
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_GATEWAY)
+                        .header("content-type", "application/json")
+                        .body(Body::from(format!(r#"{{"error":"{}"}}"#, e)))
+                        .unwrap());
+                }
+            }
+        };
+
+        let elapsed = start_time.elapsed().as_millis() as i64;
+        if is_success {
+            if let Ok(had_failures) = provider_service::record_success(&state.db, provider_id).await
+            {
+                if had_failures {
+                    let _ = stats_service::record_system_log(
+                        &state.log_db,
+                        "provider_recovered",
+                        &format!("服务商 {} 已恢复正常", provider_name),
+                    )
+                    .await;
+                }
+            }
+        } else if let Ok((was_blacklisted, prov_name)) =
+            provider_service::record_failure(&state.db, provider_id).await
+        {
+            if was_blacklisted {
+                let _ = stats_service::record_system_log(
+                    &state.log_db,
+                    "provider_blacklisted",
+                    &format!("服务商 {} 因连续失败已被加入黑名单", prov_name),
+                )
+                .await;
+            }
+        }
+
+        record_request_stats(
+            state,
+            cli_type,
+            provider_name,
+            model_id,
+            Some(status.as_u16()),
+            elapsed,
+            usage.input_tokens,
+            usage.output_tokens,
+            client_method,
+            client_path,
+            source_model,
+            target_model,
+            Some(log_info),
+        )
+        .await;
+
+        let mut builder = Response::builder()
+            .status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
+
+        if passthrough_original {
+            for (name, value) in resp_headers.iter() {
+                if let Ok(header_name) =
+                    axum::http::HeaderName::from_bytes(name.as_str().as_bytes())
+                {
+                    if let Ok(header_value) = axum::http::HeaderValue::from_bytes(value.as_bytes())
+                    {
+                        builder = builder.header(header_name, header_value);
+                    }
+                }
+            }
+        } else {
+            builder = builder.header("content-type", source_api.content_type(true));
+        }
+
+        return Ok(builder
+            .header("X-CCG-Provider", provider_name)
+            .body(Body::from(client_body))
+            .unwrap());
+    }
+
     let mut builder =
         Response::builder().status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
-
     for (name, value) in resp_headers.iter() {
         if let Ok(header_name) = axum::http::HeaderName::from_bytes(name.as_str().as_bytes()) {
             if let Ok(header_value) = axum::http::HeaderValue::from_bytes(value.as_bytes()) {
@@ -425,9 +605,6 @@ async fn handle_streaming_request(
         }
     }
     builder = builder.header("X-CCG-Provider", provider_name);
-
-    // Create streaming body
-    let is_success = status.is_success();
 
     // 使用共享状态收集chunks，确保即使stream被提前终止也能记录日志
     // 优化：只存储原始chunks，后台任务再解析（避免重复解析）
@@ -552,7 +729,7 @@ async fn handle_streaming_request(
                         continue;
                     }
                     // 解析这一行的 JSON（如果有usage，会覆盖旧值）
-                    parse_token_usage(data.as_bytes(), cli_type, &mut usage);
+                    parse_token_usage_by_api(data.as_bytes(), target_api, &mut usage);
                     // 继续遍历所有行，使用最后一个值
                 }
             }
@@ -631,6 +808,8 @@ async fn handle_non_streaming_request(
     provider_id: i64,
     provider_name: &str,
     cli_type: CliType,
+    source_api: ApiFormat,
+    target_api: ApiFormat,
     model_id: Option<&str>,
     client_method: &str,
     client_path: &str,
@@ -779,7 +958,23 @@ async fn handle_non_streaming_request(
 
     // Parse token usage (use decompressed body)
     let mut usage = TokenUsage::default();
-    parse_token_usage(&decompressed_body, cli_type, &mut usage);
+    parse_token_usage_by_api(&decompressed_body, target_api, &mut usage);
+
+    let response_body = if source_api == target_api {
+        body_bytes.to_vec()
+    } else {
+        match transform_response_body(target_api, source_api, &decompressed_body) {
+            Ok(body) => body,
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to transform upstream response");
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_GATEWAY)
+                    .header("content-type", "application/json")
+                    .body(Body::from(format!(r#"{{"error":"{}"}}"#, e)))
+                    .unwrap());
+            }
+        }
+    };
 
     // Record success/failure
     if is_success {
@@ -829,16 +1024,20 @@ async fn handle_non_streaming_request(
     let mut builder =
         Response::builder().status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
 
-    for (name, value) in resp_headers.iter() {
-        if let Ok(header_name) = axum::http::HeaderName::from_bytes(name.as_str().as_bytes()) {
-            if let Ok(header_value) = axum::http::HeaderValue::from_bytes(value.as_bytes()) {
-                builder = builder.header(header_name, header_value);
+    if source_api == target_api {
+        for (name, value) in resp_headers.iter() {
+            if let Ok(header_name) = axum::http::HeaderName::from_bytes(name.as_str().as_bytes()) {
+                if let Ok(header_value) = axum::http::HeaderValue::from_bytes(value.as_bytes()) {
+                    builder = builder.header(header_name, header_value);
+                }
             }
         }
+    } else {
+        builder = builder.header("content-type", source_api.content_type(false));
     }
     builder = builder.header("X-CCG-Provider", provider_name);
 
-    Ok(builder.body(Body::from(body_bytes)).unwrap())
+    Ok(builder.body(Body::from(response_body)).unwrap())
 }
 
 async fn record_request_stats(

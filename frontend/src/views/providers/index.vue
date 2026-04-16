@@ -116,6 +116,9 @@
                     <div v-if="element.model_maps.length > 0" class="tag" style="background: var(--color-success-10); color: var(--color-success); white-space: nowrap;">
                       {{ element.model_maps.length }}个模型映射
                     </div>
+                    <div class="tag" style="background: var(--color-primary-5); color: var(--color-primary); white-space: nowrap;">
+                      {{ getApiFormatLabel(element.api_format) }}
+                    </div>
                     <div v-if="element.model_blacklist && element.model_blacklist.length > 0" class="tag" style="background: var(--color-warning-10); color: var(--color-warning); white-space: nowrap;">
                       {{ element.model_blacklist.length }}个黑名单配置
                     </div>
@@ -227,6 +230,18 @@
           <div style="margin-bottom: 40px;">
             <label class="c-label">{{ activeCliType === 'claude_code' ? 'API Token' : 'API Key' }} <span style="color: var(--color-danger);">*</span></label>
             <input type="text" v-model="form.api_key" class="b-input" placeholder="sk-...">
+          </div>
+
+          <div style="margin-bottom: 40px;">
+            <label class="c-label">目标接口</label>
+            <select v-model="form.api_format" class="b-input">
+              <option v-for="option in providerApiOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+            <div class="text-12 text-secondary" style="margin-top: 8px;">
+              {{ providerApiDescription }}
+            </div>
           </div>
 
           <!-- Advanced Params -->
@@ -432,7 +447,14 @@ import { useCredentialStore } from '@/stores/credentials'
 import { useUiStore } from '@/stores/ui'
 import { credentialsApi } from '@/api/credentials'
 import { providersApi } from '@/api/providers'
-import type { Provider, CliType, OfficialCredential, OfficialCredentialCreate, TestProviderResult } from '@/types/models'
+import type {
+  Provider,
+  CliType,
+  OfficialCredential,
+  OfficialCredentialCreate,
+  ProviderApiFormat,
+  TestProviderResult
+} from '@/types/models'
 
 const providerStore = useProviderStore()
 const credentialStore = useCredentialStore()
@@ -488,10 +510,24 @@ const showCredentialDialog = computed({
 interface FormModelMap { source_model: string; target_model: string; enabled: boolean }
 interface FormModelBlacklist { model_pattern: string }
 
+function getDefaultProviderApiFormat(cliType: CliType): ProviderApiFormat {
+  if (cliType === 'codex') return 'openai_chat_completions'
+  if (cliType === 'gemini') return 'gemini_generate_content'
+  return 'anthropic_messages'
+}
+
+const PROVIDER_API_LABELS: Record<ProviderApiFormat, string> = {
+  anthropic_messages: '/v1/messages',
+  openai_chat_completions: '/v1/chat/completions',
+  openai_responses: '/v1/responses',
+  gemini_generate_content: 'Gemini GenerateContent'
+}
+
 const form = ref({
   name: '',
   base_url: '',
   api_key: '',
+  api_format: getDefaultProviderApiFormat(activeCliType.value),
   failure_threshold: 3,
   blacklist_minutes: 10,
   custom_useragent: '',
@@ -508,14 +544,59 @@ const credentialForm = ref({
 })
 
 const baseUrlPlaceholder = computed(() => {
-  if (activeCliType.value === 'codex') return 'https://api.example.com/v1'
+  if (
+    form.value.api_format === 'openai_chat_completions' ||
+    form.value.api_format === 'openai_responses'
+  ) {
+    return 'https://api.example.com'
+  }
+  if (form.value.api_format === 'gemini_generate_content') {
+    return 'https://generativelanguage.googleapis.com'
+  }
   return 'https://api.example.com'
+})
+
+const providerApiOptions = computed<{ value: ProviderApiFormat; label: string }[]>(() => {
+  if (activeCliType.value === 'gemini') {
+    return [{
+      value: 'gemini_generate_content',
+      label: PROVIDER_API_LABELS.gemini_generate_content
+    }]
+  }
+  return [
+    {
+      value: 'anthropic_messages',
+      label: PROVIDER_API_LABELS.anthropic_messages
+    },
+    {
+      value: 'openai_chat_completions',
+      label: PROVIDER_API_LABELS.openai_chat_completions
+    },
+    {
+      value: 'openai_responses',
+      label: PROVIDER_API_LABELS.openai_responses
+    }
+  ]
+})
+
+const providerApiDescription = computed(() => {
+  if (activeCliType.value === 'gemini') {
+    return 'Gemini 服务商保持原生 GenerateContent 协议，不做额外 OpenAI/Anthropic 转换。'
+  }
+  return '按供应商决定上游协议，网关会在客户端协议与目标接口之间做内置转换。'
 })
 
 function resetForm() {
   form.value = {
-    name: '', base_url: '', api_key: '', failure_threshold: 3, blacklist_minutes: 10,
-    custom_useragent: '', model_maps: [], model_blacklist: []
+    name: '',
+    base_url: '',
+    api_key: '',
+    api_format: getDefaultProviderApiFormat(activeCliType.value),
+    failure_threshold: 3,
+    blacklist_minutes: 10,
+    custom_useragent: '',
+    model_maps: [],
+    model_blacklist: []
   }
 }
 function resetCredentialForm() {
@@ -637,6 +718,10 @@ function getDetectPill(code: number | null): string {
   return 'pill-grey'
 }
 
+function getApiFormatLabel(apiFormat: ProviderApiFormat): string {
+  return PROVIDER_API_LABELS[apiFormat] || apiFormat
+}
+
 async function copyResponseText(text: string) {
   if (!text) return
   try {
@@ -656,12 +741,16 @@ function removeModelBlacklist(index: number) { form.value.model_blacklist.splice
 watch(() => activeCliType.value, (cliType) => {
   providerStore.fetchProviders(cliType as CliType)
   credentialStore.fetchCredentials(cliType as CliType)
+  if (!editingProvider.value) {
+    form.value.api_format = getDefaultProviderApiFormat(cliType as CliType)
+  }
 })
 
 function handleEdit(provider: Provider) {
   editingProvider.value = provider
   form.value = {
     name: provider.name, base_url: provider.base_url, api_key: provider.api_key,
+    api_format: provider.api_format,
     failure_threshold: provider.failure_threshold, blacklist_minutes: provider.blacklist_minutes,
     custom_useragent: provider.custom_useragent || '',
     model_maps: provider.model_maps.map(m => ({ ...m })),
