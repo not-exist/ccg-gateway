@@ -18,3 +18,7 @@
 - 修复部分 `/chat/completions` 供应商仅返回 `reasoning_content` 导致 Codex 端显示空回复的问题，在 `content` 为空时回退使用 `reasoning_content` 作为可显示文本。
 - 恢复 `OpenAI Chat Completions` 请求缺少 `max_tokens` 时的自动补值逻辑，并改为读取全局配置；默认值现为 `256000`，可在应用的基础配置中调整。
 - 修复 `OpenAI Chat Completions -> OpenAI Responses` 流式转换事件过于精简导致 Codex 端空回显的问题，补齐 `response.output_item.*`、`response.content_part.*`、`response.output_text.done` 与 `response.function_call_arguments.*` 事件，并修正带文本前导项时的 `output_index -> tool_call` 映射。
+- 修复旧版 `Codex` 服务商在 `api_format` 为空时被错误回退到 `OpenAI Chat Completions` 的兼容性回归，恢复默认走 `OpenAI Responses`，避免升级后无感切换上游接口。
+- 修复 catch-all 代理对非 completion 路由的错误协议重写，`/v1/models`、`/v1/responses/{id}/cancel` 及带查询参数的原始路径现在会按原样透传。
+- 修复跨协议流式响应被整包缓冲后再返回的问题，改为按 SSE 事件增量转换并流式转发，避免长请求超时和大响应内存峰值。
+- 修复跨协议非流式请求在上游返回 `4xx/5xx` 错误体时被二次解析成网关 `502` 的问题，现已改为保留原始状态码、响应头与错误体。

@@ -16,7 +16,7 @@ pub fn resolve_provider_api_format(cli_type: &str, api_format: Option<&str>) -> 
         Some(PROVIDER_API_OPENAI_RESPONSES) => PROVIDER_API_OPENAI_RESPONSES,
         Some(PROVIDER_API_GEMINI_GENERATE_CONTENT) => PROVIDER_API_GEMINI_GENERATE_CONTENT,
         _ => match cli_type {
-            "codex" => PROVIDER_API_OPENAI_CHAT,
+            "codex" => PROVIDER_API_OPENAI_RESPONSES,
             "gemini" => PROVIDER_API_GEMINI_GENERATE_CONTENT,
             _ => PROVIDER_API_ANTHROPIC_MESSAGES,
         },
@@ -217,6 +217,19 @@ pub struct GatewaySettingsUpdate {
 }
 
 // Timeout Settings (完整版 - 对应数据库表)
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_codex_providers_to_openai_responses() {
+        assert_eq!(
+            resolve_provider_api_format("codex", None),
+            PROVIDER_API_OPENAI_RESPONSES
+        );
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TimeoutSettingsRow {
     pub id: i64,

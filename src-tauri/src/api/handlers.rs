@@ -6,7 +6,6 @@ use axum::{
 use bytes::Bytes;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
-use serde_json::Value;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::Instant;
@@ -22,8 +21,8 @@ use crate::services::proxy::{
 };
 use crate::services::routing::select_provider;
 use crate::services::transform::{
-    parse_token_usage_by_api, transform_request, transform_response_body,
-    transform_streaming_response, ApiFormat,
+    parse_token_usage_by_api, transform_request, transform_response_body, ApiFormat,
+    StreamingResponseTransformer,
 };
 use crate::services::{provider as provider_service, stats as stats_service};
 
@@ -346,20 +345,6 @@ fn maybe_decompress(body: &[u8], content_encoding: Option<&str>) -> Vec<u8> {
     body.to_vec()
 }
 
-fn body_looks_like_sse(body: &[u8]) -> bool {
-    String::from_utf8_lossy(body).lines().any(|line| {
-        let line = line.trim_end_matches('\r');
-        line.starts_with("data:") || line.starts_with("event:")
-    })
-}
-
-fn is_json_error_body(body: &[u8]) -> bool {
-    serde_json::from_slice::<Value>(body)
-        .ok()
-        .and_then(|json| json.as_object().map(|obj| obj.contains_key("error")))
-        .unwrap_or(false)
-}
-
 async fn handle_streaming_request(
     request: reqwest::Request,
     client: &reqwest::Client,
@@ -468,131 +453,142 @@ async fn handle_streaming_request(
     log_info.provider_headers = Some(serialize_reqwest_headers(&resp_headers));
     let is_success = status.is_success();
 
-    if source_api != target_api {
-        let mut byte_stream = response.bytes_stream();
-        let idle_timeout = timeouts.idle_timeout;
-        let mut collected = Vec::<u8>::new();
+    if source_api != target_api && is_success {
+        let mut builder =
+            Response::builder().status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
+        builder = builder
+            .header("content-type", source_api.content_type(true))
+            .header("X-CCG-Provider", provider_name);
 
-        loop {
-            match tokio::time::timeout(idle_timeout, byte_stream.next()).await {
-                Ok(Some(Ok(chunk))) => collected.extend_from_slice(&chunk),
-                Ok(Some(Err(e))) => {
-                    tracing::error!(error = %e, "Transformed stream read failed");
-                    break;
-                }
-                Ok(None) => break,
-                Err(_) => {
-                    tracing::warn!("Transformed stream idle timeout");
-                    break;
-                }
-            }
-        }
+        let collected_chunks = Arc::new(Mutex::new(Vec::<Bytes>::new()));
+        let collected_chunks_for_stream = collected_chunks.clone();
+        let transformed_usage = Arc::new(Mutex::new(TokenUsage::default()));
+        let transformed_usage_for_stream = transformed_usage.clone();
+        let (stream_end_tx, mut stream_end_rx) = mpsc::channel::<()>(1);
 
-        let content_encoding = resp_headers
-            .get("content-encoding")
-            .and_then(|v| v.to_str().ok());
-        let decompressed_body = maybe_decompress(&collected, content_encoding);
-        log_info.provider_body = Some(truncate_body(&decompressed_body));
-        let looks_like_sse = body_looks_like_sse(&decompressed_body);
+        const MAX_COLLECT_SIZE: usize = 10 * 1024 * 1024;
 
-        let mut usage = TokenUsage::default();
-        if looks_like_sse {
-            for line in String::from_utf8_lossy(&decompressed_body).lines() {
-                if line.starts_with("data:") {
-                    let data = line.strip_prefix("data:").unwrap_or("").trim();
-                    if !data.is_empty() && data != "[DONE]" {
-                        parse_token_usage_by_api(data.as_bytes(), target_api, &mut usage);
+        let stream = async_stream::stream! {
+            let mut byte_stream = response.bytes_stream();
+            let idle_timeout = timeouts.idle_timeout;
+            let mut collected_bytes = 0usize;
+            let mut transformer = StreamingResponseTransformer::new(target_api, source_api);
+            let mut transform_failed = false;
+
+            loop {
+                match tokio::time::timeout(idle_timeout, byte_stream.next()).await {
+                    Ok(Some(Ok(chunk))) => {
+                        if collected_bytes < MAX_COLLECT_SIZE {
+                            let mut chunks = collected_chunks_for_stream.lock().await;
+                            chunks.push(chunk.clone());
+                            collected_bytes += chunk.len();
+                            drop(chunks);
+                        }
+
+                        match transformer.push_chunk(&chunk) {
+                            Ok(outputs) => {
+                                for output in outputs {
+                                    if !output.is_empty() {
+                                        yield Ok::<Bytes, std::io::Error>(Bytes::from(output));
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!(error = %e, "Failed to transform streaming response");
+                                transform_failed = true;
+                                break;
+                            }
+                        }
+                    }
+                    Ok(Some(Err(e))) => {
+                        tracing::error!(error = %e, "Transformed stream read failed");
+                        break;
+                    }
+                    Ok(None) => break,
+                    Err(_) => {
+                        tracing::warn!("Transformed stream idle timeout");
+                        break;
                     }
                 }
             }
-        } else {
-            parse_token_usage_by_api(&decompressed_body, target_api, &mut usage);
-        }
 
-        let passthrough_original =
-            is_json_error_body(&decompressed_body) || (!looks_like_sse && !status.is_success());
-
-        let client_body = if passthrough_original {
-            collected
-        } else {
-            match transform_streaming_response(target_api, source_api, &decompressed_body) {
-                Ok(body) => body,
-                Err(e) => {
-                    tracing::error!(error = %e, "Failed to transform streaming response");
-                    return Ok(Response::builder()
-                        .status(StatusCode::BAD_GATEWAY)
-                        .header("content-type", "application/json")
-                        .body(Body::from(format!(r#"{{"error":"{}"}}"#, e)))
-                        .unwrap());
+            if !transform_failed {
+                match transformer.finish() {
+                    Ok(outputs) => {
+                        for output in outputs {
+                            if !output.is_empty() {
+                                yield Ok::<Bytes, std::io::Error>(Bytes::from(output));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!(error = %e, "Failed to finalize transformed stream");
+                    }
                 }
             }
+
+            let mut usage = transformed_usage_for_stream.lock().await;
+            *usage = transformer.usage();
+            drop(usage);
+
+            let _ = stream_end_tx.send(()).await;
         };
 
-        let elapsed = start_time.elapsed().as_millis() as i64;
-        if is_success {
-            if let Ok(had_failures) = provider_service::record_success(&state.db, provider_id).await
+        let log_state = state.clone();
+        let log_provider_name = provider_name.to_string();
+        let log_model_id = model_id.map(|s| s.to_string());
+        let log_client_method = client_method.to_string();
+        let log_client_path = client_path.to_string();
+        let log_provider_id = provider_id;
+        let log_resp_headers = resp_headers.clone();
+        let log_source_model = source_model.map(|s| s.to_string());
+        let log_target_model = target_model.map(|s| s.to_string());
+
+        tokio::spawn(async move {
+            let _ = stream_end_rx.recv().await;
+
+            let chunks = collected_chunks.lock().await.clone();
+            let full_body: Vec<u8> = chunks.iter().flat_map(|chunk| chunk.iter()).copied().collect();
+            let content_encoding = log_resp_headers
+                .get("content-encoding")
+                .and_then(|v| v.to_str().ok());
+            let decompressed_body = maybe_decompress(&full_body, content_encoding);
+            let mut final_log_info = log_info;
+            final_log_info.provider_body = Some(truncate_body(&decompressed_body));
+            let usage = transformed_usage.lock().await.clone();
+
+            if let Ok(had_failures) =
+                provider_service::record_success(&log_state.db, log_provider_id).await
             {
                 if had_failures {
                     let _ = stats_service::record_system_log(
-                        &state.log_db,
+                        &log_state.log_db,
                         "provider_recovered",
-                        &format!("服务商 {} 已恢复正常", provider_name),
+                        &format!("服务商 {} 已恢复正常", log_provider_name),
                     )
                     .await;
                 }
             }
-        } else if let Ok((was_blacklisted, prov_name)) =
-            provider_service::record_failure(&state.db, provider_id).await
-        {
-            if was_blacklisted {
-                let _ = stats_service::record_system_log(
-                    &state.log_db,
-                    "provider_blacklisted",
-                    &format!("服务商 {} 因连续失败已被加入黑名单", prov_name),
-                )
-                .await;
-            }
-        }
 
-        record_request_stats(
-            state,
-            cli_type,
-            provider_name,
-            model_id,
-            Some(status.as_u16()),
-            elapsed,
-            usage.input_tokens,
-            usage.output_tokens,
-            client_method,
-            client_path,
-            source_model,
-            target_model,
-            Some(log_info),
-        )
-        .await;
+            record_request_stats(
+                &log_state,
+                cli_type,
+                &log_provider_name,
+                log_model_id.as_deref(),
+                Some(status.as_u16()),
+                start_time.elapsed().as_millis() as i64,
+                usage.input_tokens,
+                usage.output_tokens,
+                &log_client_method,
+                &log_client_path,
+                log_source_model.as_deref(),
+                log_target_model.as_deref(),
+                Some(final_log_info),
+            )
+            .await;
+        });
 
-        let mut builder = Response::builder()
-            .status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
-
-        if passthrough_original {
-            for (name, value) in resp_headers.iter() {
-                if let Ok(header_name) =
-                    axum::http::HeaderName::from_bytes(name.as_str().as_bytes())
-                {
-                    if let Ok(header_value) = axum::http::HeaderValue::from_bytes(value.as_bytes())
-                    {
-                        builder = builder.header(header_name, header_value);
-                    }
-                }
-            }
-        } else {
-            builder = builder.header("content-type", source_api.content_type(true));
-        }
-
-        return Ok(builder
-            .header("X-CCG-Provider", provider_name)
-            .body(Body::from(client_body))
-            .unwrap());
+        return Ok(builder.body(Body::from_stream(stream)).unwrap());
     }
 
     let mut builder =
@@ -960,7 +956,9 @@ async fn handle_non_streaming_request(
     let mut usage = TokenUsage::default();
     parse_token_usage_by_api(&decompressed_body, target_api, &mut usage);
 
-    let response_body = if source_api == target_api {
+    let passthrough_original = source_api == target_api || !is_success;
+
+    let response_body = if passthrough_original {
         body_bytes.to_vec()
     } else {
         match transform_response_body(target_api, source_api, &decompressed_body) {
@@ -1024,7 +1022,7 @@ async fn handle_non_streaming_request(
     let mut builder =
         Response::builder().status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
 
-    if source_api == target_api {
+    if passthrough_original {
         for (name, value) in resp_headers.iter() {
             if let Ok(header_name) = axum::http::HeaderName::from_bytes(name.as_str().as_bytes()) {
                 if let Ok(header_value) = axum::http::HeaderValue::from_bytes(value.as_bytes()) {

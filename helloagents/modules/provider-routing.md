@@ -28,8 +28,12 @@
   - 已存在 `max_tokens` 时保持原值。
   - 仅存在 `max_completion_tokens` 时补写同值的 `max_tokens`。
   - 两者都缺失时，使用全局配置中的默认值，初始值为 `256000`。
+- 对历史 `Codex` 服务商记录，如果数据库里的 `api_format` 仍为 `NULL`，默认目标接口会继续保持为 `OpenAI Responses`，避免升级后被静默切换到 `/v1/chat/completions`。
+- 只有主 completion 路由会参与协议重写；像 `/v1/models`、`/v1/responses/{id}/cancel` 以及附带查询参数的原始辅助路径会直接透传，避免 catch-all 代理错误改写 URL。
 - 当 `Codex` 通过 `/responses` 消费 `OpenAI Chat Completions` 流式上游时，网关现在会补齐 `response.output_item.added/done`、`response.content_part.added/done`、`response.output_text.done` 与 `response.function_call_arguments.delta/done` 事件，而不是只发送简化的 `response.output_text.delta + response.completed`，以避免客户端因事件生命周期不完整而显示空回显。
 - `OpenAI Responses` 流式解析不再把 `output_index` 直接当作工具调用索引；当前实现会单独维护 `output_index/item_id -> tool_call` 映射，避免前面存在文本输出项时把工具调用解析成空槽位。
+- 跨协议流式响应不再等待上游完整结束后一次性转换；当前实现会边接收边解析 SSE 事件，并即时转发给目标协议客户端。
+- 当跨协议非流式请求收到上游 `4xx/5xx` 错误时，网关不会再尝试把错误 JSON 当成成功响应结构转换，而是保留原始状态码、响应头与错误体直接返回给客户端。
 
 ## 工具转换限制
 

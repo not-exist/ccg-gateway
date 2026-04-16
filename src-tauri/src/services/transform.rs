@@ -4,6 +4,7 @@ use crate::db::models::{
 };
 use crate::services::proxy::{CliType, TokenUsage};
 use serde_json::{json, Map, Value};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,12 +40,14 @@ impl ApiFormat {
     }
 
     pub fn request_path(&self, fallback_path: &str) -> String {
-        match self {
-            Self::AnthropicMessages => "/v1/messages".to_string(),
-            Self::OpenAiChatCompletions => "/v1/chat/completions".to_string(),
-            Self::OpenAiResponses => "/v1/responses".to_string(),
-            Self::GeminiGenerateContent => fallback_path.to_string(),
-        }
+        let (_, query) = split_path_and_query(fallback_path);
+        let path = match self {
+            Self::AnthropicMessages => "/v1/messages",
+            Self::OpenAiChatCompletions => "/v1/chat/completions",
+            Self::OpenAiResponses => "/v1/responses",
+            Self::GeminiGenerateContent => return fallback_path.to_string(),
+        };
+        join_path_and_query(path, query)
     }
 
     pub fn content_type(&self, streaming: bool) -> &'static str {
@@ -54,12 +57,1242 @@ impl ApiFormat {
             "application/json"
         }
     }
+
+    pub fn is_completion_endpoint(&self, path: &str) -> bool {
+        let (path_only, _) = split_path_and_query(path);
+        match self {
+            Self::AnthropicMessages => matches!(path_only, "/v1/messages" | "/messages"),
+            Self::OpenAiChatCompletions => {
+                matches!(path_only, "/v1/chat/completions" | "/chat/completions")
+            }
+            Self::OpenAiResponses => matches!(path_only, "/v1/responses" | "/responses"),
+            Self::GeminiGenerateContent => {
+                path_only.contains(":generateContent")
+                    || path_only.contains(":streamGenerateContent")
+            }
+        }
+    }
+}
+
+fn split_path_and_query(path: &str) -> (&str, Option<&str>) {
+    match path.split_once('?') {
+        Some((path_only, query)) => (path_only, Some(query)),
+        None => (path, None),
+    }
+}
+
+fn join_path_and_query(path: &str, query: Option<&str>) -> String {
+    match query {
+        Some(query) if !query.is_empty() => format!("{path}?{query}"),
+        _ => path.to_string(),
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct TransformedRequest {
     pub path: String,
     pub body: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StreamingResponseTransformer {
+    upstream_api: ApiFormat,
+    client_api: ApiFormat,
+    buffer: Vec<u8>,
+    saw_sse_frames: bool,
+    state: StreamingTransformState,
+}
+
+#[derive(Debug, Clone)]
+struct StreamingTransformState {
+    response_id: String,
+    model: Option<String>,
+    created_at: i64,
+    usage: TokenUsage,
+    finish_reason: Option<String>,
+    text: String,
+    text_output_index: Option<usize>,
+    text_item_id: Option<String>,
+    text_item_started: bool,
+    text_item_done: bool,
+    anthropic_message_started: bool,
+    anthropic_text_started: bool,
+    anthropic_text_done: bool,
+    chat_role_emitted: bool,
+    responses_created: bool,
+    next_output_index: usize,
+    tool_calls: Vec<StreamingToolCall>,
+    responses_tool_by_output_index: HashMap<usize, usize>,
+    responses_tool_by_item_id: HashMap<String, usize>,
+    anthropic_tool_by_block_index: HashMap<usize, usize>,
+    active_anthropic_tool_call: Option<usize>,
+    completed: bool,
+}
+
+impl Default for StreamingTransformState {
+    fn default() -> Self {
+        Self {
+            response_id: String::new(),
+            model: None,
+            created_at: chrono::Utc::now().timestamp(),
+            usage: TokenUsage::default(),
+            finish_reason: None,
+            text: String::new(),
+            text_output_index: None,
+            text_item_id: None,
+            text_item_started: false,
+            text_item_done: false,
+            anthropic_message_started: false,
+            anthropic_text_started: false,
+            anthropic_text_done: false,
+            chat_role_emitted: false,
+            responses_created: false,
+            next_output_index: 0,
+            tool_calls: Vec::new(),
+            responses_tool_by_output_index: HashMap::new(),
+            responses_tool_by_item_id: HashMap::new(),
+            anthropic_tool_by_block_index: HashMap::new(),
+            active_anthropic_tool_call: None,
+            completed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct StreamingToolCall {
+    call: GenericToolCall,
+    output_index: Option<usize>,
+    item_id: Option<String>,
+    responses_item_started: bool,
+    responses_item_done: bool,
+    anthropic_started: bool,
+    anthropic_done: bool,
+}
+
+impl StreamingResponseTransformer {
+    pub fn new(upstream_api: ApiFormat, client_api: ApiFormat) -> Self {
+        Self {
+            upstream_api,
+            client_api,
+            buffer: Vec::new(),
+            saw_sse_frames: false,
+            state: StreamingTransformState::default(),
+        }
+    }
+
+    pub fn usage(&self) -> TokenUsage {
+        self.state.usage.clone()
+    }
+
+    pub fn push_chunk(&mut self, chunk: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+        self.buffer.extend_from_slice(chunk);
+        let frames = drain_complete_sse_frames(&mut self.buffer);
+        if !frames.is_empty() {
+            self.saw_sse_frames = true;
+        }
+
+        let mut outputs = Vec::new();
+        for frame in frames {
+            let Some(data) = parse_sse_frame_data(&frame) else {
+                continue;
+            };
+            let output = self.process_sse_frame(&data)?;
+            if !output.is_empty() {
+                outputs.push(output);
+            }
+        }
+
+        Ok(outputs)
+    }
+
+    pub fn finish(&mut self) -> Result<Vec<Vec<u8>>, String> {
+        let mut outputs = Vec::new();
+
+        if self.saw_sse_frames {
+            if !self.buffer.is_empty() {
+                if let Some(data) = parse_sse_frame_data(&self.buffer) {
+                    let output = self.process_sse_frame(&data)?;
+                    if !output.is_empty() {
+                        outputs.push(output);
+                    }
+                }
+                self.buffer.clear();
+            }
+
+            let finish = self.emit_finish_if_needed();
+            if !finish.is_empty() {
+                outputs.push(finish);
+            }
+            return Ok(outputs);
+        }
+
+        if self.buffer.is_empty() {
+            return Ok(outputs);
+        }
+
+        parse_token_usage_by_api(&self.buffer, self.upstream_api, &mut self.state.usage);
+        let buffered = std::mem::take(&mut self.buffer);
+        let converted =
+            transform_streaming_response(self.upstream_api, self.client_api, &buffered)?;
+        self.state.completed = true;
+        if !converted.is_empty() {
+            outputs.push(converted);
+        }
+        Ok(outputs)
+    }
+}
+
+impl StreamingResponseTransformer {
+    fn process_sse_frame(&mut self, data: &str) -> Result<Vec<u8>, String> {
+        if data.trim() == "[DONE]" {
+            return Ok(self.emit_finish_if_needed());
+        }
+
+        let json =
+            serde_json::from_str::<Value>(data).map_err(|e| format!("解析流式事件失败: {}", e))?;
+        if is_error_response_payload(&json) {
+            return Err(extract_error_message(&json));
+        }
+
+        match self.upstream_api {
+            ApiFormat::AnthropicMessages => self.process_anthropic_frame(data, &json),
+            ApiFormat::OpenAiChatCompletions => self.process_chat_frame(data, &json),
+            ApiFormat::OpenAiResponses => self.process_responses_frame(data, &json),
+            ApiFormat::GeminiGenerateContent => Err("Gemini 响应暂不支持转换".to_string()),
+        }
+    }
+
+    fn process_anthropic_frame(&mut self, data: &str, json: &Value) -> Result<Vec<u8>, String> {
+        let mut out = String::new();
+
+        match json.get("type").and_then(|v| v.as_str()) {
+            Some("message_start") => {
+                if let Some(message) = json.get("message") {
+                    if self.state.response_id.is_empty() {
+                        self.state.response_id = message
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string();
+                    }
+                    if self.state.model.is_none() {
+                        self.state.model = message
+                            .get("model")
+                            .and_then(|v| v.as_str())
+                            .map(|v| v.to_string());
+                    }
+                }
+            }
+            Some("content_block_start") => {
+                let block = json.get("content_block").unwrap_or(&Value::Null);
+                let block_index = json
+                    .get("index")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize);
+                if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+                    let internal_index = self.state.tool_calls.len();
+                    self.state.tool_calls.push(StreamingToolCall::default());
+                    if let Some(block_index) = block_index {
+                        self.state
+                            .anthropic_tool_by_block_index
+                            .insert(block_index, internal_index);
+                    }
+                    self.state.active_anthropic_tool_call = Some(internal_index);
+                    self.emit_tool_call_delta(
+                        &mut out,
+                        internal_index,
+                        block.get("id").and_then(|v| v.as_str()),
+                        block.get("name").and_then(|v| v.as_str()),
+                        "",
+                    );
+                }
+            }
+            Some("content_block_delta") => {
+                let delta = json.get("delta").unwrap_or(&Value::Null);
+                match delta.get("type").and_then(|v| v.as_str()) {
+                    Some("text_delta") => {
+                        if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
+                            self.emit_text_delta(&mut out, text);
+                        }
+                    }
+                    Some("input_json_delta") => {
+                        let block_index = json
+                            .get("index")
+                            .and_then(|v| v.as_u64())
+                            .map(|v| v as usize);
+                        let internal_index = block_index
+                            .and_then(|index| {
+                                self.state.anthropic_tool_by_block_index.get(&index).copied()
+                            })
+                            .or(self.state.active_anthropic_tool_call);
+                        if let (Some(internal_index), Some(partial)) = (
+                            internal_index,
+                            delta.get("partial_json").and_then(|v| v.as_str()),
+                        ) {
+                            self.emit_tool_call_delta(&mut out, internal_index, None, None, partial);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Some("content_block_stop") => {
+                let block_index = json
+                    .get("index")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize);
+                if let Some(block_index) = block_index {
+                    self.state.anthropic_tool_by_block_index.remove(&block_index);
+                }
+                self.state.active_anthropic_tool_call = None;
+            }
+            Some("message_delta") => {
+                self.state.finish_reason = json
+                    .get("delta")
+                    .and_then(|v| v.get("stop_reason"))
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.to_string());
+            }
+            Some("message_stop") => {
+                out.push_str(&String::from_utf8_lossy(&self.emit_finish_if_needed()))
+            }
+            _ => {}
+        }
+
+        parse_token_usage_by_api(data.as_bytes(), self.upstream_api, &mut self.state.usage);
+        Ok(out.into_bytes())
+    }
+
+    fn process_chat_frame(&mut self, data: &str, json: &Value) -> Result<Vec<u8>, String> {
+        let mut out = String::new();
+
+        if self.state.response_id.is_empty() {
+            self.state.response_id = json
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+        }
+        if self.state.model.is_none() {
+            self.state.model = json
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|v| v.to_string());
+        }
+        if let Some(created) = json.get("created").and_then(|v| v.as_i64()) {
+            self.state.created_at = created;
+        }
+
+        if let Some(choice) = json
+            .get("choices")
+            .and_then(|v| v.as_array())
+            .and_then(|v| v.first())
+        {
+            if let Some(delta) = choice.get("delta") {
+                let text = extract_chat_text(delta);
+                if !text.is_empty() {
+                    self.emit_text_delta(&mut out, &text);
+                }
+                if let Some(tool_calls) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+                    for tool in tool_calls {
+                        let index =
+                            tool.get("index").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                        self.emit_tool_call_delta(
+                            &mut out,
+                            index,
+                            tool.get("id").and_then(|v| v.as_str()),
+                            tool.get("function")
+                                .and_then(|v| v.get("name"))
+                                .and_then(|v| v.as_str()),
+                            tool.get("function")
+                                .and_then(|v| v.get("arguments"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or(""),
+                        );
+                    }
+                }
+            }
+
+            if let Some(reason) = choice.get("finish_reason").and_then(|v| v.as_str()) {
+                self.state.finish_reason = Some(reason.to_string());
+            }
+        }
+
+        parse_token_usage_by_api(data.as_bytes(), self.upstream_api, &mut self.state.usage);
+        out.push_str(&String::from_utf8_lossy(&self.emit_finish_if_needed()));
+        Ok(out.into_bytes())
+    }
+
+    fn process_responses_frame(&mut self, data: &str, json: &Value) -> Result<Vec<u8>, String> {
+        let mut out = String::new();
+
+        match json.get("type").and_then(|v| v.as_str()) {
+            Some("response.created") => {
+                if let Some(response) = json.get("response") {
+                    if self.state.response_id.is_empty() {
+                        self.state.response_id = response
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string();
+                    }
+                    if self.state.model.is_none() {
+                        self.state.model = response
+                            .get("model")
+                            .and_then(|v| v.as_str())
+                            .map(|v| v.to_string());
+                    }
+                    if let Some(created_at) = response.get("created_at").and_then(|v| v.as_i64()) {
+                        self.state.created_at = created_at;
+                    }
+                }
+            }
+            Some("response.output_text.delta") => {
+                if let Some(delta) = json.get("delta").and_then(|v| v.as_str()) {
+                    self.emit_text_delta(&mut out, delta);
+                }
+            }
+            Some("response.output_text.done") => {
+                if let Some(text) = json.get("text").and_then(|v| v.as_str()) {
+                    self.emit_missing_text_delta(&mut out, text);
+                }
+            }
+            Some("response.output_item.added") | Some("response.output_item.done") => {
+                if let Some(item) = json.get("item") {
+                    let output_index = json
+                        .get("output_index")
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as usize);
+                    match item.get("type").and_then(|v| v.as_str()) {
+                        Some("message") => {
+                            let text =
+                                extract_text(item.get("content").unwrap_or(&Value::Null));
+                            self.emit_missing_text_delta(&mut out, &text);
+                        }
+                        Some("function_call") => {
+                            let internal_index = self.ensure_responses_tool_call(
+                                output_index,
+                                item.get("id").and_then(|v| v.as_str()),
+                            );
+                            self.emit_missing_tool_arguments(
+                                &mut out,
+                                internal_index,
+                                item.get("call_id")
+                                    .or_else(|| item.get("id"))
+                                    .and_then(|v| v.as_str()),
+                                item.get("name").and_then(|v| v.as_str()),
+                                item.get("arguments")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or(""),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Some("response.function_call_arguments.delta") => {
+                let internal_index = self.ensure_responses_tool_call(
+                    json.get("output_index")
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as usize),
+                    json.get("item_id").and_then(|v| v.as_str()),
+                );
+                self.emit_tool_call_delta(
+                    &mut out,
+                    internal_index,
+                    json.get("call_id").and_then(|v| v.as_str()),
+                    None,
+                    json.get("delta").and_then(|v| v.as_str()).unwrap_or(""),
+                );
+            }
+            Some("response.function_call_arguments.done") => {
+                let internal_index = self.ensure_responses_tool_call(
+                    json.get("output_index")
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as usize),
+                    json.get("item_id").and_then(|v| v.as_str()),
+                );
+                self.emit_missing_tool_arguments(
+                    &mut out,
+                    internal_index,
+                    json.get("call_id").and_then(|v| v.as_str()),
+                    None,
+                    json.get("arguments").and_then(|v| v.as_str()).unwrap_or(""),
+                );
+            }
+            Some("response.completed") => {
+                if let Some(response) = json.get("response") {
+                    let parsed = parse_responses_response(response);
+                    if self.state.response_id.is_empty() {
+                        self.state.response_id = parsed.id.clone();
+                    }
+                    if self.state.model.is_none() {
+                        self.state.model = parsed.model.clone();
+                    }
+                    if self.state.text.is_empty() {
+                        self.emit_missing_text_delta(&mut out, &parsed.text);
+                    }
+                    for (index, tool_call) in parsed.tool_calls.iter().enumerate() {
+                        self.emit_missing_tool_arguments(
+                            &mut out,
+                            index,
+                            Some(&tool_call.id),
+                            Some(&tool_call.name),
+                            &tool_call.arguments,
+                        );
+                    }
+                    if self.state.usage.input_tokens == 0 {
+                        self.state.usage.input_tokens = parsed.usage.input_tokens;
+                    }
+                    if self.state.usage.output_tokens == 0 {
+                        self.state.usage.output_tokens = parsed.usage.output_tokens;
+                    }
+                    self.state.finish_reason = parsed.finish_reason;
+                }
+                out.push_str(&String::from_utf8_lossy(&self.emit_finish_if_needed()));
+            }
+            _ => {}
+        }
+
+        parse_token_usage_by_api(data.as_bytes(), self.upstream_api, &mut self.state.usage);
+        Ok(out.into_bytes())
+    }
+}
+
+impl StreamingResponseTransformer {
+    fn emit_text_delta(&mut self, out: &mut String, delta: &str) {
+        if delta.is_empty() {
+            return;
+        }
+
+        self.state.text.push_str(delta);
+        match self.client_api {
+            ApiFormat::AnthropicMessages => {
+                self.ensure_anthropic_message_start(out);
+                let output_index = self.ensure_text_output_index();
+                if !self.state.anthropic_text_started {
+                    push_sse_event(
+                        out,
+                        "content_block_start",
+                        &json!({
+                            "type": "content_block_start",
+                            "index": output_index,
+                            "content_block": {"type": "text", "text": ""}
+                        }),
+                    );
+                    self.state.anthropic_text_started = true;
+                }
+                push_sse_event(
+                    out,
+                    "content_block_delta",
+                    &json!({
+                        "type": "content_block_delta",
+                        "index": output_index,
+                        "delta": {"type": "text_delta", "text": delta}
+                    }),
+                );
+            }
+            ApiFormat::OpenAiChatCompletions => {
+                let mut delta_obj = Map::new();
+                if !self.state.chat_role_emitted {
+                    delta_obj.insert("role".to_string(), Value::String("assistant".to_string()));
+                    self.state.chat_role_emitted = true;
+                }
+                delta_obj.insert("content".to_string(), Value::String(delta.to_string()));
+                push_chat_stream_chunk(
+                    out,
+                    &json!({
+                        "id": self.ensure_response_id_for_client(),
+                        "object": "chat.completion.chunk",
+                        "created": self.state.created_at,
+                        "model": self.current_model(),
+                        "choices": [{
+                            "index": 0,
+                            "delta": Value::Object(delta_obj),
+                            "finish_reason": null
+                        }]
+                    }),
+                );
+            }
+            ApiFormat::OpenAiResponses => {
+                self.ensure_responses_created(out);
+                let output_index = self.ensure_text_output_index();
+                let item_id = self.ensure_text_item_id();
+                if !self.state.text_item_started {
+                    push_sse_event(
+                        out,
+                        "response.output_item.added",
+                        &json!({
+                            "type":"response.output_item.added",
+                            "response_id": self.ensure_response_id_for_client(),
+                            "output_index": output_index,
+                            "item": {
+                                "id": item_id,
+                                "type": "message",
+                                "role": "assistant",
+                                "status": "in_progress",
+                                "content": [{"type":"output_text","text":""}]
+                            }
+                        }),
+                    );
+                    push_sse_event(
+                        out,
+                        "response.content_part.added",
+                        &json!({
+                            "type":"response.content_part.added",
+                            "response_id": self.ensure_response_id_for_client(),
+                            "output_index": output_index,
+                            "item_id": item_id,
+                            "content_index": 0,
+                            "part": {"type":"output_text","text":""}
+                        }),
+                    );
+                    self.state.text_item_started = true;
+                }
+                push_sse_event(
+                    out,
+                    "response.output_text.delta",
+                    &json!({
+                        "type":"response.output_text.delta",
+                        "response_id": self.ensure_response_id_for_client(),
+                        "output_index": output_index,
+                        "item_id": item_id,
+                        "content_index": 0,
+                        "delta": delta
+                    }),
+                );
+            }
+            ApiFormat::GeminiGenerateContent => {}
+        }
+    }
+
+    fn emit_tool_call_delta(
+        &mut self,
+        out: &mut String,
+        internal_index: usize,
+        call_id: Option<&str>,
+        name: Option<&str>,
+        delta: &str,
+    ) {
+        self.ensure_tool_slot(internal_index);
+        if let Some(call_id) = call_id.filter(|value| !value.is_empty()) {
+            self.state.tool_calls[internal_index].call.id = call_id.to_string();
+        }
+        if let Some(name) = name.filter(|value| !value.is_empty()) {
+            self.state.tool_calls[internal_index].call.name = name.to_string();
+        }
+        self.state.tool_calls[internal_index]
+            .call
+            .arguments
+            .push_str(delta);
+
+        match self.client_api {
+            ApiFormat::AnthropicMessages => {
+                self.ensure_anthropic_message_start(out);
+                let output_index = self.ensure_tool_output_index(internal_index);
+                let tool = &mut self.state.tool_calls[internal_index];
+                if !tool.anthropic_started && !tool.call.name.is_empty() {
+                    push_sse_event(
+                        out,
+                        "content_block_start",
+                        &json!({
+                            "type": "content_block_start",
+                            "index": output_index,
+                            "content_block": {
+                                "type": "tool_use",
+                                "id": non_empty_or_generated(&tool.call.id, "call"),
+                                "name": tool.call.name,
+                                "input": {}
+                            }
+                        }),
+                    );
+                    tool.anthropic_started = true;
+                }
+                if tool.anthropic_started && !delta.is_empty() {
+                    push_sse_event(
+                        out,
+                        "content_block_delta",
+                        &json!({
+                            "type": "content_block_delta",
+                            "index": output_index,
+                            "delta": {"type":"input_json_delta","partial_json": delta}
+                        }),
+                    );
+                }
+            }
+            ApiFormat::OpenAiChatCompletions => {
+                let tool = &self.state.tool_calls[internal_index];
+                let mut function = Map::new();
+                if !tool.call.name.is_empty() {
+                    function.insert(
+                        "name".to_string(),
+                        Value::String(tool.call.name.clone()),
+                    );
+                }
+                function.insert("arguments".to_string(), Value::String(delta.to_string()));
+
+                let mut tool_call = Map::new();
+                tool_call.insert(
+                    "index".to_string(),
+                    Value::Number((internal_index as i64).into()),
+                );
+                tool_call.insert("type".to_string(), Value::String("function".to_string()));
+                if !tool.call.id.is_empty() {
+                    tool_call.insert("id".to_string(), Value::String(tool.call.id.clone()));
+                }
+                tool_call.insert("function".to_string(), Value::Object(function));
+
+                let mut delta_obj = Map::new();
+                if !self.state.chat_role_emitted {
+                    delta_obj.insert("role".to_string(), Value::String("assistant".to_string()));
+                    self.state.chat_role_emitted = true;
+                }
+                delta_obj.insert(
+                    "tool_calls".to_string(),
+                    Value::Array(vec![Value::Object(tool_call)]),
+                );
+
+                push_chat_stream_chunk(
+                    out,
+                    &json!({
+                        "id": self.ensure_response_id_for_client(),
+                        "object": "chat.completion.chunk",
+                        "created": self.state.created_at,
+                        "model": self.current_model(),
+                        "choices": [{
+                            "index": 0,
+                            "delta": Value::Object(delta_obj),
+                            "finish_reason": null
+                        }]
+                    }),
+                );
+            }
+            ApiFormat::OpenAiResponses => {
+                self.ensure_responses_created(out);
+                let response_id = self.ensure_response_id_for_client();
+                let output_index = self.ensure_tool_output_index(internal_index);
+                let item_id = self.ensure_tool_item_id(internal_index);
+                let call_id = non_empty_or_generated(
+                    &self.state.tool_calls[internal_index].call.id,
+                    "call",
+                );
+                let tool_name = self.state.tool_calls[internal_index].call.name.clone();
+                let item_started = self.state.tool_calls[internal_index].responses_item_started;
+                if !item_started && !tool_name.is_empty() {
+                    push_sse_event(
+                        out,
+                        "response.output_item.added",
+                        &json!({
+                            "type":"response.output_item.added",
+                            "response_id": response_id,
+                            "output_index": output_index,
+                            "item": {
+                                "id": item_id,
+                                "type": "function_call",
+                                "call_id": call_id,
+                                "name": tool_name,
+                                "arguments": "",
+                                "status": "in_progress"
+                            }
+                        }),
+                    );
+                    self.state.tool_calls[internal_index].responses_item_started = true;
+                }
+                if self.state.tool_calls[internal_index].responses_item_started && !delta.is_empty() {
+                    push_sse_event(
+                        out,
+                        "response.function_call_arguments.delta",
+                        &json!({
+                            "type":"response.function_call_arguments.delta",
+                            "response_id": response_id,
+                            "output_index": output_index,
+                            "item_id": item_id,
+                            "call_id": call_id,
+                            "delta": delta
+                        }),
+                    );
+                }
+            }
+            ApiFormat::GeminiGenerateContent => {}
+        }
+    }
+
+    fn emit_missing_text_delta(&mut self, out: &mut String, text: &str) {
+        if text.len() >= self.state.text.len() && text.starts_with(&self.state.text) {
+            let delta = &text[self.state.text.len()..];
+            self.emit_text_delta(out, delta);
+        }
+    }
+
+    fn emit_missing_tool_arguments(
+        &mut self,
+        out: &mut String,
+        internal_index: usize,
+        call_id: Option<&str>,
+        name: Option<&str>,
+        arguments: &str,
+    ) {
+        self.ensure_tool_slot(internal_index);
+        let existing = self.state.tool_calls[internal_index].call.arguments.clone();
+        let delta = if arguments.len() >= existing.len() && arguments.starts_with(&existing) {
+            &arguments[existing.len()..]
+        } else {
+            ""
+        };
+        self.emit_tool_call_delta(out, internal_index, call_id, name, delta);
+    }
+}
+
+impl StreamingResponseTransformer {
+    fn emit_finish_if_needed(&mut self) -> Vec<u8> {
+        if self.state.completed {
+            return Vec::new();
+        }
+
+        if self.state.finish_reason.is_none()
+            && self.upstream_api == ApiFormat::OpenAiChatCompletions
+        {
+            return Vec::new();
+        }
+
+        if self.state.text.is_empty() && self.state.tool_calls.is_empty() {
+            return Vec::new();
+        }
+
+        self.state.completed = true;
+        let response = self.current_generic_response();
+        let mut out = String::new();
+
+        match self.client_api {
+            ApiFormat::AnthropicMessages => {
+                self.ensure_anthropic_message_start(&mut out);
+                if self.state.anthropic_text_started && !self.state.anthropic_text_done {
+                    push_sse_event(
+                        &mut out,
+                        "content_block_stop",
+                        &json!({
+                            "type": "content_block_stop",
+                            "index": self.ensure_text_output_index()
+                        }),
+                    );
+                    self.state.anthropic_text_done = true;
+                }
+                for tool_index in 0..self.state.tool_calls.len() {
+                    let output_index = self.ensure_tool_output_index(tool_index);
+                    let tool = &mut self.state.tool_calls[tool_index];
+                    if tool.anthropic_started && !tool.anthropic_done {
+                        push_sse_event(
+                            &mut out,
+                            "content_block_stop",
+                            &json!({
+                                "type": "content_block_stop",
+                                "index": output_index
+                            }),
+                        );
+                        tool.anthropic_done = true;
+                    }
+                }
+                push_sse_event(
+                    &mut out,
+                    "message_delta",
+                    &json!({
+                        "type":"message_delta",
+                        "delta":{"stop_reason": anthropic_finish_reason(&response), "stop_sequence": null},
+                        "usage":{"output_tokens": response.usage.output_tokens}
+                    }),
+                );
+                push_sse_event(&mut out, "message_stop", &json!({"type":"message_stop"}));
+            }
+            ApiFormat::OpenAiChatCompletions => {
+                push_chat_stream_chunk(
+                    &mut out,
+                    &json!({
+                        "id": self.ensure_response_id_for_client(),
+                        "object": "chat.completion.chunk",
+                        "created": self.state.created_at,
+                        "model": self.current_model(),
+                        "choices": [{
+                            "index": 0,
+                            "delta": {},
+                            "finish_reason": chat_finish_reason(&response)
+                        }],
+                        "usage": {
+                            "prompt_tokens": response.usage.input_tokens,
+                            "completion_tokens": response.usage.output_tokens,
+                            "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+                        }
+                    }),
+                );
+                out.push_str("data: [DONE]\n\n");
+            }
+            ApiFormat::OpenAiResponses => {
+                self.ensure_responses_created(&mut out);
+                let response_id = self.ensure_response_id_for_client();
+                if self.state.text_item_started && !self.state.text_item_done {
+                    let output_index = self.ensure_text_output_index();
+                    let item_id = self.ensure_text_item_id();
+                    push_sse_event(
+                        &mut out,
+                        "response.output_text.done",
+                        &json!({
+                            "type":"response.output_text.done",
+                            "response_id": response_id,
+                            "output_index": output_index,
+                            "item_id": item_id,
+                            "content_index": 0,
+                            "text": self.state.text
+                        }),
+                    );
+                    push_sse_event(
+                        &mut out,
+                        "response.content_part.done",
+                        &json!({
+                            "type":"response.content_part.done",
+                            "response_id": response_id,
+                            "output_index": output_index,
+                            "item_id": item_id,
+                            "content_index": 0,
+                            "part":{"type":"output_text","text": self.state.text}
+                        }),
+                    );
+                    push_sse_event(
+                        &mut out,
+                        "response.output_item.done",
+                        &json!({
+                            "type":"response.output_item.done",
+                            "response_id": response_id,
+                            "output_index": output_index,
+                            "item": {
+                                "id": item_id,
+                                "type":"message",
+                                "role":"assistant",
+                                "status":"completed",
+                                "content":[{"type":"output_text","text": self.state.text}]
+                            }
+                        }),
+                    );
+                    self.state.text_item_done = true;
+                }
+
+                for tool_index in 0..self.state.tool_calls.len() {
+                    let output_index = self.ensure_tool_output_index(tool_index);
+                    let item_id = self.ensure_tool_item_id(tool_index);
+                    let tool = &mut self.state.tool_calls[tool_index];
+                    if !tool.responses_item_started && !tool.call.name.is_empty() {
+                        push_sse_event(
+                            &mut out,
+                            "response.output_item.added",
+                            &json!({
+                                "type":"response.output_item.added",
+                                "response_id": response_id,
+                                "output_index": output_index,
+                                "item": {
+                                    "id": item_id,
+                                    "type":"function_call",
+                                    "call_id": non_empty_or_generated(&tool.call.id, "call"),
+                                    "name": tool.call.name,
+                                    "arguments": "",
+                                    "status":"in_progress"
+                                }
+                            }),
+                        );
+                        tool.responses_item_started = true;
+                    }
+                    if tool.responses_item_started && !tool.responses_item_done {
+                        push_sse_event(
+                            &mut out,
+                            "response.function_call_arguments.done",
+                            &json!({
+                                "type":"response.function_call_arguments.done",
+                                "response_id": response_id,
+                                "output_index": output_index,
+                                "item_id": item_id,
+                                "call_id": non_empty_or_generated(&tool.call.id, "call"),
+                                "arguments": tool.call.arguments
+                            }),
+                        );
+                        push_sse_event(
+                            &mut out,
+                            "response.output_item.done",
+                            &json!({
+                                "type":"response.output_item.done",
+                                "response_id": response_id,
+                                "output_index": output_index,
+                                "item": {
+                                    "id": item_id,
+                                    "type":"function_call",
+                                    "call_id": non_empty_or_generated(&tool.call.id, "call"),
+                                    "name": tool.call.name,
+                                    "arguments": tool.call.arguments,
+                                    "status":"completed"
+                                }
+                            }),
+                        );
+                        tool.responses_item_done = true;
+                    }
+                }
+
+                let output_items = self.current_responses_output_items();
+                push_sse_event(
+                    &mut out,
+                    "response.completed",
+                    &json!({
+                        "type":"response.completed",
+                        "response": serialize_responses_response_payload(
+                            &response,
+                            &response_id,
+                            &self.current_model(),
+                            &output_items
+                        )
+                    }),
+                );
+            }
+            ApiFormat::GeminiGenerateContent => {}
+        }
+
+        out.into_bytes()
+    }
+
+    fn current_generic_response(&self) -> GenericResponse {
+        GenericResponse {
+            id: self.state.response_id.clone(),
+            model: self.state.model.clone(),
+            created_at: self.state.created_at,
+            text: self.state.text.clone(),
+            tool_calls: self
+                .state
+                .tool_calls
+                .iter()
+                .map(|tool| tool.call.clone())
+                .collect(),
+            usage: self.state.usage.clone(),
+            finish_reason: self.state.finish_reason.clone(),
+        }
+    }
+
+    fn current_responses_output_items(&self) -> Vec<ResponsesOutputItem> {
+        let mut items = Vec::new();
+        if let (Some(output_index), Some(item_id)) = (
+            self.state.text_output_index,
+            self.state.text_item_id.as_ref(),
+        ) {
+            items.push(ResponsesOutputItem::Text {
+                output_index,
+                item_id: item_id.clone(),
+                text: self.state.text.clone(),
+            });
+        }
+        for tool in &self.state.tool_calls {
+            let Some(output_index) = tool.output_index else {
+                continue;
+            };
+            let Some(item_id) = tool.item_id.as_ref() else {
+                continue;
+            };
+            items.push(ResponsesOutputItem::FunctionCall {
+                output_index,
+                item_id: item_id.clone(),
+                call_id: non_empty_or_generated(&tool.call.id, "call"),
+                name: tool.call.name.clone(),
+                arguments: tool.call.arguments.clone(),
+            });
+        }
+        items.sort_by_key(|item| item.output_index());
+        items
+    }
+}
+
+impl StreamingResponseTransformer {
+    fn ensure_responses_created(&mut self, out: &mut String) {
+        if self.state.responses_created {
+            return;
+        }
+        push_sse_event(
+            out,
+            "response.created",
+            &json!({
+                "type":"response.created",
+                "response":{
+                    "id": self.ensure_response_id_for_client(),
+                    "object":"response",
+                    "created_at": self.state.created_at,
+                    "model": self.current_model(),
+                    "status":"in_progress",
+                    "output":[]
+                }
+            }),
+        );
+        self.state.responses_created = true;
+    }
+
+    fn ensure_anthropic_message_start(&mut self, out: &mut String) {
+        if self.state.anthropic_message_started {
+            return;
+        }
+        push_sse_event(
+            out,
+            "message_start",
+            &json!({
+                "type": "message_start",
+                "message": {
+                    "id": self.ensure_response_id_for_client(),
+                    "type": "message",
+                    "role": "assistant",
+                    "model": self.current_model(),
+                    "content": [],
+                    "stop_reason": null,
+                    "stop_sequence": null,
+                    "usage": {
+                        "input_tokens": self.state.usage.input_tokens,
+                        "output_tokens": 0
+                    }
+                }
+            }),
+        );
+        self.state.anthropic_message_started = true;
+    }
+
+    fn ensure_response_id_for_client(&mut self) -> String {
+        if self.state.response_id.is_empty() {
+            let prefix = match self.client_api {
+                ApiFormat::AnthropicMessages => "msg",
+                ApiFormat::OpenAiChatCompletions => "chatcmpl",
+                ApiFormat::OpenAiResponses => "resp",
+                ApiFormat::GeminiGenerateContent => "ccg",
+            };
+            self.state.response_id = format!("{}_{}", prefix, Uuid::new_v4().simple());
+        }
+        self.state.response_id.clone()
+    }
+
+    fn current_model(&self) -> String {
+        self.state
+            .model
+            .clone()
+            .unwrap_or_else(|| "ccg-gateway".to_string())
+    }
+
+    fn ensure_text_output_index(&mut self) -> usize {
+        if let Some(output_index) = self.state.text_output_index {
+            return output_index;
+        }
+        let output_index = self.state.next_output_index;
+        self.state.next_output_index += 1;
+        self.state.text_output_index = Some(output_index);
+        output_index
+    }
+
+    fn ensure_text_item_id(&mut self) -> String {
+        if let Some(item_id) = &self.state.text_item_id {
+            return item_id.clone();
+        }
+        let item_id = format!("msg_{}", Uuid::new_v4().simple());
+        self.state.text_item_id = Some(item_id.clone());
+        item_id
+    }
+
+    fn ensure_tool_slot(&mut self, internal_index: usize) {
+        while self.state.tool_calls.len() <= internal_index {
+            self.state.tool_calls.push(StreamingToolCall::default());
+        }
+    }
+
+    fn ensure_tool_output_index(&mut self, internal_index: usize) -> usize {
+        self.ensure_tool_slot(internal_index);
+        if let Some(output_index) = self.state.tool_calls[internal_index].output_index {
+            return output_index;
+        }
+        let output_index = self.state.next_output_index;
+        self.state.next_output_index += 1;
+        self.state.tool_calls[internal_index].output_index = Some(output_index);
+        output_index
+    }
+
+    fn ensure_tool_item_id(&mut self, internal_index: usize) -> String {
+        self.ensure_tool_slot(internal_index);
+        if let Some(item_id) = &self.state.tool_calls[internal_index].item_id {
+            return item_id.clone();
+        }
+        let item_id = format!("fc_{}", Uuid::new_v4().simple());
+        self.state.tool_calls[internal_index].item_id = Some(item_id.clone());
+        item_id
+    }
+
+    fn ensure_responses_tool_call(
+        &mut self,
+        output_index: Option<usize>,
+        item_id: Option<&str>,
+    ) -> usize {
+        if let Some(item_id) = item_id {
+            if let Some(index) = self.state.responses_tool_by_item_id.get(item_id) {
+                return *index;
+            }
+        }
+        if let Some(output_index) = output_index {
+            if let Some(index) = self.state.responses_tool_by_output_index.get(&output_index) {
+                return *index;
+            }
+        }
+
+        let index = self.state.tool_calls.len();
+        self.state.tool_calls.push(StreamingToolCall::default());
+        if let Some(item_id) = item_id {
+            self.state
+                .responses_tool_by_item_id
+                .insert(item_id.to_string(), index);
+        }
+        if let Some(output_index) = output_index {
+            self.state
+                .responses_tool_by_output_index
+                .insert(output_index, index);
+        }
+        index
+    }
+}
+
+fn drain_complete_sse_frames(buffer: &mut Vec<u8>) -> Vec<Vec<u8>> {
+    let mut frames = Vec::new();
+    while let Some((frame_end, delimiter_len)) = find_sse_frame_boundary(buffer) {
+        let frame: Vec<u8> = buffer.drain(..frame_end + delimiter_len).collect();
+        frames.push(frame);
+    }
+    frames
+}
+
+fn find_sse_frame_boundary(buffer: &[u8]) -> Option<(usize, usize)> {
+    let mut i = 0usize;
+    while i + 1 < buffer.len() {
+        if buffer[i] == b'\n' && buffer[i + 1] == b'\n' {
+            return Some((i, 2));
+        }
+        if i + 3 < buffer.len()
+            && buffer[i] == b'\r'
+            && buffer[i + 1] == b'\n'
+            && buffer[i + 2] == b'\r'
+            && buffer[i + 3] == b'\n'
+        {
+            return Some((i, 4));
+        }
+        i += 1;
+    }
+    None
+}
+
+fn parse_sse_frame_data(frame: &[u8]) -> Option<String> {
+    let mut current = Vec::new();
+    for raw_line in String::from_utf8_lossy(frame).lines() {
+        let line = raw_line.trim_end_matches('\r');
+        if line.is_empty() || line.starts_with(':') {
+            continue;
+        }
+        if let Some(data) = line.strip_prefix("data:") {
+            current.push(data.trim_start().to_string());
+        }
+    }
+    if current.is_empty() {
+        None
+    } else {
+        Some(current.join("\n"))
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -196,9 +1429,16 @@ pub fn transform_request(
     body: &[u8],
     default_chat_max_tokens: i64,
 ) -> Result<TransformedRequest, String> {
+    if !source_api.is_completion_endpoint(path) {
+        return Ok(TransformedRequest {
+            path: path.to_string(),
+            body: body.to_vec(),
+        });
+    }
+
     if source_api == target_api {
         return Ok(TransformedRequest {
-            path: target_api.request_path(path),
+            path: path.to_string(),
             body: serialize_passthrough_request(target_api, body, default_chat_max_tokens)?,
         });
     }
@@ -2415,5 +3655,57 @@ mod tests {
         assert!(tools
             .iter()
             .all(|tool| tool["function"]["name"].as_str().unwrap_or("").len() > 0));
+    }
+
+    #[test]
+    fn preserves_non_completion_route_during_protocol_conversion() {
+        let source = json!({
+            "operation": "cancel"
+        });
+
+        let converted = transform_request(
+            ApiFormat::OpenAiResponses,
+            ApiFormat::OpenAiChatCompletions,
+            "/v1/responses/resp_123/cancel?force=true",
+            source.to_string().as_bytes(),
+            DEFAULT_GATEWAY_MAX_TOKENS,
+        )
+        .expect("non completion route should pass through");
+
+        assert_eq!(converted.path, "/v1/responses/resp_123/cancel?force=true");
+        assert_eq!(converted.body, source.to_string().as_bytes());
+    }
+
+    #[test]
+    fn streams_chat_conversion_without_waiting_for_completion() {
+        let mut transformer = StreamingResponseTransformer::new(
+            ApiFormat::OpenAiChatCompletions,
+            ApiFormat::OpenAiResponses,
+        );
+
+        let first = transformer
+            .push_chunk(
+                concat!(
+                    "data: {\"id\":\"chatcmpl_1\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"gpt-4.1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n",
+                )
+                .as_bytes(),
+            )
+            .expect("first delta should transform");
+        let first_text = String::from_utf8(first.concat()).expect("utf8");
+        assert!(first_text.contains("\"type\":\"response.output_text.delta\""));
+        assert!(!first_text.contains("\"type\":\"response.completed\""));
+
+        let second = transformer
+            .push_chunk(
+                concat!(
+                    "data: {\"id\":\"chatcmpl_1\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"gpt-4.1\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"total_tokens\":3}}\n\n",
+                    "data: [DONE]\n\n",
+                )
+                .as_bytes(),
+            )
+            .expect("finish delta should transform");
+        let second_text = String::from_utf8(second.concat()).expect("utf8");
+        assert!(second_text.contains("\"type\":\"response.output_text.done\""));
+        assert!(second_text.contains("\"type\":\"response.completed\""));
     }
 }
