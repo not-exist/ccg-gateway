@@ -1,3 +1,4 @@
+use super::models::DEFAULT_GATEWAY_MAX_TOKENS;
 use std::collections::HashMap;
 
 /// 列定义
@@ -74,7 +75,7 @@ impl DatabaseSchema {
     /// 获取当前主数据库 Schema
     pub fn current() -> Self {
         Self {
-            version: 20,
+            version: 22,
             tables: Self::define_main_tables(),
         }
     }
@@ -170,6 +171,12 @@ impl DatabaseSchema {
                         data_type: "INTEGER".to_string(),
                         nullable: false,
                         default_value: Some("0".to_string()),
+                    },
+                    ColumnDefinition {
+                        name: "api_format".to_string(),
+                        data_type: "TEXT".to_string(),
+                        nullable: true,
+                        default_value: None,
                     },
                     ColumnDefinition {
                         name: "created_at".to_string(),
@@ -290,6 +297,12 @@ impl DatabaseSchema {
                         data_type: "INTEGER".to_string(),
                         nullable: false,
                         default_value: Some("0".to_string()),
+                    },
+                    ColumnDefinition {
+                        name: "max_tokens".to_string(),
+                        data_type: "INTEGER".to_string(),
+                        nullable: false,
+                        default_value: Some(DEFAULT_GATEWAY_MAX_TOKENS.to_string()),
                     },
                     ColumnDefinition {
                         name: "updated_at".to_string(),

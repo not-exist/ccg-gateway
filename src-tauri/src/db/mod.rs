@@ -5,6 +5,7 @@ pub mod schema_inspector;
 pub mod schema_migrator;
 
 use crate::services::skill;
+use models::DEFAULT_GATEWAY_MAX_TOKENS;
 use schema_definition::DatabaseSchema;
 use schema_diff::SchemaDiff;
 use schema_inspector::SchemaInspector;
@@ -147,8 +148,9 @@ async fn update_version(pool: &SqlitePool, version: i64) -> Result<(), sqlx::Err
 async fn init_default_data(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     // gateway_settings
     sqlx::query(
-        "INSERT OR IGNORE INTO gateway_settings (id, debug_log, updated_at) VALUES (1, 0, strftime('%s', 'now'))"
+        "INSERT OR IGNORE INTO gateway_settings (id, debug_log, max_tokens, updated_at) VALUES (1, 0, ?, strftime('%s', 'now'))"
     )
+    .bind(DEFAULT_GATEWAY_MAX_TOKENS)
     .execute(pool)
     .await?;
 

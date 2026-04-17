@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use crate::db::models::ProviderModelMap;
 use crate::services::routing::ProviderWithMaps;
+use crate::services::transform::ApiFormat;
 
 pub struct CapturedHeaders {
     pub headers: Vec<(String, String)>,
@@ -472,25 +473,49 @@ pub fn filter_headers(headers: &HeaderMap) -> reqwest::header::HeaderMap {
 
 /// Set authentication header based on CLI type
 pub fn set_auth_header(headers: &mut reqwest::header::HeaderMap, api_key: &str, cli_type: CliType) {
-    match cli_type {
-        CliType::ClaudeCode => {
-            // Claude uses Authorization: Bearer
+    let api = match cli_type {
+        CliType::ClaudeCode => ApiFormat::AnthropicMessages,
+        CliType::Codex => ApiFormat::OpenAiResponses,
+        CliType::Gemini => ApiFormat::GeminiGenerateContent,
+    };
+    set_auth_header_for_api(headers, api_key, api);
+}
+
+pub fn set_auth_header_for_api(
+    headers: &mut reqwest::header::HeaderMap,
+    api_key: &str,
+    api_format: ApiFormat,
+) {
+    headers.remove(reqwest::header::AUTHORIZATION);
+    headers.remove("x-api-key");
+    headers.remove("x-goog-api-key");
+
+    match api_format {
+        ApiFormat::AnthropicMessages => {
+            if let Ok(value) =
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key))
+            {
+                headers.insert(reqwest::header::AUTHORIZATION, value);
+            }
+            if let Ok(value) = reqwest::header::HeaderValue::from_str(api_key) {
+                headers.insert("x-api-key", value);
+            }
+            if !headers.contains_key("anthropic-version") {
+                headers.insert("anthropic-version", "2023-06-01".parse().unwrap());
+            }
+        }
+        ApiFormat::OpenAiChatCompletions | ApiFormat::OpenAiResponses => {
+            headers.remove("anthropic-version");
+            headers.remove("anthropic-beta");
             if let Ok(value) =
                 reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key))
             {
                 headers.insert(reqwest::header::AUTHORIZATION, value);
             }
         }
-        CliType::Codex => {
-            // Codex uses Authorization: Bearer
-            if let Ok(value) =
-                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", api_key))
-            {
-                headers.insert(reqwest::header::AUTHORIZATION, value);
-            }
-        }
-        CliType::Gemini => {
-            // Gemini uses x-goog-api-key
+        ApiFormat::GeminiGenerateContent => {
+            headers.remove("anthropic-version");
+            headers.remove("anthropic-beta");
             if let Ok(value) = reqwest::header::HeaderValue::from_str(api_key) {
                 headers.insert("x-goog-api-key", value);
             }
@@ -525,19 +550,26 @@ pub fn apply_useragent_override(
 /// Build upstream URL from provider base URL and request path
 pub fn build_upstream_url(base_url: &str, path: &str, cli_type: CliType) -> String {
     let base = base_url.trim_end_matches('/');
+    let normalized_path = if base.ends_with("/v1") && path.starts_with("/v1/") {
+        path.trim_start_matches("/v1")
+    } else if base.ends_with("/v1beta") && path.starts_with("/v1beta/") {
+        path.trim_start_matches("/v1beta")
+    } else {
+        path
+    };
 
     match cli_type {
         CliType::ClaudeCode => {
             // Claude: base_url + path (path already includes /v1)
-            format!("{}{}", base, path)
+            format!("{}{}", base, normalized_path)
         }
         CliType::Codex => {
             // Codex: base_url + path
-            format!("{}{}", base, path)
+            format!("{}{}", base, normalized_path)
         }
         CliType::Gemini => {
             // Gemini: base_url + path
-            format!("{}{}", base, path)
+            format!("{}{}", base, normalized_path)
         }
     }
 }

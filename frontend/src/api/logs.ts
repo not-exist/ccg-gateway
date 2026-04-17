@@ -24,11 +24,11 @@ export interface SystemLogQuery {
 
 export const logsApi = {
   getSettings: async () => {
-    const data = await invoke<{ debug_log: number }>('get_gateway_settings')
-    return { data: { debug_log: !!data.debug_log } as GatewaySettings }
+    const data = await invoke<{ debug_log: number; max_tokens: number }>('get_gateway_settings')
+    return { data: { debug_log: !!data.debug_log, max_tokens: data.max_tokens } as GatewaySettings }
   },
   updateSettings: async (data: GatewaySettingsUpdate) => {
-    await invoke('update_gateway_settings', { debugLog: data.debug_log })
+    await invoke('update_gateway_settings', { input: data })
     return { data: null }
   },
 

@@ -65,12 +65,22 @@
               <svg width="20" height="20" class="header-icon"><use href="#icon-activity"/></svg>
               <span class="card-label">基础配置</span>
               <div style="flex: 1;"></div>
-              <button class="b-button" style="padding: 6px 14px;" @click="saveTimeouts">
+              <button class="b-button" style="padding: 6px 14px;" @click="saveBasicSettings">
                 <svg width="16" height="16" style="margin-right: 6px;"><use href="#icon-save"/></svg>
                 保存
               </button>
             </div>
             <div class="card-body">
+              <div class="input-item">
+                <label class="item-label">默认 max_tokens</label>
+                <div class="input-with-unit">
+                  <input type="number" v-model.number="gatewayForm.max_tokens" class="b-input" min="1">
+                  <span class="unit">tokens</span>
+                </div>
+                <div class="text-12 text-secondary" style="margin-top: 8px;">
+                  仅在中转到 Chat Completions 且请求未显式携带 <code>max_tokens</code> 时生效
+                </div>
+              </div>
               <div class="input-item">
                 <label class="item-label">流式首字节超时</label>
                 <div class="input-with-unit">
@@ -226,17 +236,22 @@ const timeoutForm = ref({
   stream_idle_timeout: 60,
   non_stream_timeout: 120
 })
+const gatewayForm = ref({
+  max_tokens: 256000
+})
 
 watch(() => settingsStore.settings, (settings) => {
   if (settings) {
     timeoutForm.value = { ...settings.timeouts }
+    gatewayForm.value = { max_tokens: settings.gateway.max_tokens }
   }
 }, { immediate: true })
 
-async function saveTimeouts() {
+async function saveBasicSettings() {
   try {
+    await settingsStore.updateGateway(gatewayForm.value)
     await settingsStore.updateTimeouts(timeoutForm.value)
-    notify('超时配置已保存')
+    notify('基础配置已保存')
   } catch (e: any) {
     notify(getErrorMessage(e, '保存失败'), 'error')
   }
