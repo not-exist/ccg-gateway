@@ -6,6 +6,7 @@ use axum::{
 use bytes::Bytes;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
+use serde_json::json;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::Instant;
@@ -345,6 +346,65 @@ fn maybe_decompress(body: &[u8], content_encoding: Option<&str>) -> Vec<u8> {
     body.to_vec()
 }
 
+#[derive(Clone, Debug)]
+struct StreamFailure {
+    status_code: StatusCode,
+    error_message: String,
+}
+
+impl StreamFailure {
+    fn new(status_code: StatusCode, error_message: String) -> Self {
+        Self {
+            status_code,
+            error_message,
+        }
+    }
+}
+
+fn build_stream_error_chunk(client_api: ApiFormat, message: &str) -> Bytes {
+    let payload = match client_api {
+        ApiFormat::AnthropicMessages => format!(
+            "event: error\ndata: {}\n\n",
+            json!({
+                "type": "error",
+                "error": {
+                    "type": "api_error",
+                    "message": message
+                }
+            })
+        ),
+        ApiFormat::OpenAiChatCompletions => format!(
+            "data: {}\n\n",
+            json!({
+                "error": {
+                    "message": message,
+                    "type": "server_error"
+                }
+            })
+        ),
+        ApiFormat::OpenAiResponses => format!(
+            "event: error\ndata: {}\n\n",
+            json!({
+                "type": "error",
+                "error": {
+                    "type": "server_error",
+                    "message": message
+                }
+            })
+        ),
+        ApiFormat::GeminiGenerateContent => format!(
+            "event: error\ndata: {}\n\n",
+            json!({
+                "error": {
+                    "message": message
+                }
+            })
+        ),
+    };
+
+    Bytes::from(payload)
+}
+
 async fn handle_streaming_request(
     request: reqwest::Request,
     client: &reqwest::Client,
@@ -454,8 +514,8 @@ async fn handle_streaming_request(
     let is_success = status.is_success();
 
     if source_api != target_api && is_success {
-        let mut builder =
-            Response::builder().status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
+        let mut builder = Response::builder()
+            .status(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK));
         builder = builder
             .header("content-type", source_api.content_type(true))
             .header("X-CCG-Provider", provider_name);
@@ -464,6 +524,8 @@ async fn handle_streaming_request(
         let collected_chunks_for_stream = collected_chunks.clone();
         let transformed_usage = Arc::new(Mutex::new(TokenUsage::default()));
         let transformed_usage_for_stream = transformed_usage.clone();
+        let stream_failure = Arc::new(Mutex::new(None::<StreamFailure>));
+        let stream_failure_for_stream = stream_failure.clone();
         let (stream_end_tx, mut stream_end_rx) = mpsc::channel::<()>(1);
 
         const MAX_COLLECT_SIZE: usize = 10 * 1024 * 1024;
@@ -473,7 +535,7 @@ async fn handle_streaming_request(
             let idle_timeout = timeouts.idle_timeout;
             let mut collected_bytes = 0usize;
             let mut transformer = StreamingResponseTransformer::new(target_api, source_api);
-            let mut transform_failed = false;
+            let mut stream_failed = false;
 
             loop {
                 match tokio::time::timeout(idle_timeout, byte_stream.next()).await {
@@ -495,24 +557,59 @@ async fn handle_streaming_request(
                             }
                             Err(e) => {
                                 tracing::error!(error = %e, "Failed to transform streaming response");
-                                transform_failed = true;
+                                let failure = StreamFailure::new(
+                                    StatusCode::BAD_GATEWAY,
+                                    format!("转换流式响应失败: {}", e),
+                                );
+                                let mut failure_slot = stream_failure_for_stream.lock().await;
+                                *failure_slot = Some(failure.clone());
+                                drop(failure_slot);
+                                yield Ok::<Bytes, std::io::Error>(build_stream_error_chunk(
+                                    source_api,
+                                    &failure.error_message,
+                                ));
+                                stream_failed = true;
                                 break;
                             }
                         }
                     }
                     Ok(Some(Err(e))) => {
                         tracing::error!(error = %e, "Transformed stream read failed");
+                        let failure = StreamFailure::new(
+                            StatusCode::BAD_GATEWAY,
+                            format!("读取上游流式响应失败: {}", e),
+                        );
+                        let mut failure_slot = stream_failure_for_stream.lock().await;
+                        *failure_slot = Some(failure.clone());
+                        drop(failure_slot);
+                        yield Ok::<Bytes, std::io::Error>(build_stream_error_chunk(
+                            source_api,
+                            &failure.error_message,
+                        ));
+                        stream_failed = true;
                         break;
                     }
                     Ok(None) => break,
                     Err(_) => {
                         tracing::warn!("Transformed stream idle timeout");
+                        let failure = StreamFailure::new(
+                            StatusCode::GATEWAY_TIMEOUT,
+                            "流式响应空闲超时".to_string(),
+                        );
+                        let mut failure_slot = stream_failure_for_stream.lock().await;
+                        *failure_slot = Some(failure.clone());
+                        drop(failure_slot);
+                        yield Ok::<Bytes, std::io::Error>(build_stream_error_chunk(
+                            source_api,
+                            &failure.error_message,
+                        ));
+                        stream_failed = true;
                         break;
                     }
                 }
             }
 
-            if !transform_failed {
+            if !stream_failed {
                 match transformer.finish() {
                     Ok(outputs) => {
                         for output in outputs {
@@ -523,6 +620,17 @@ async fn handle_streaming_request(
                     }
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to finalize transformed stream");
+                        let failure = StreamFailure::new(
+                            StatusCode::BAD_GATEWAY,
+                            format!("完成流式响应转换失败: {}", e),
+                        );
+                        let mut failure_slot = stream_failure_for_stream.lock().await;
+                        *failure_slot = Some(failure.clone());
+                        drop(failure_slot);
+                        yield Ok::<Bytes, std::io::Error>(build_stream_error_chunk(
+                            source_api,
+                            &failure.error_message,
+                        ));
                     }
                 }
             }
@@ -543,12 +651,18 @@ async fn handle_streaming_request(
         let log_resp_headers = resp_headers.clone();
         let log_source_model = source_model.map(|s| s.to_string());
         let log_target_model = target_model.map(|s| s.to_string());
+        let log_status = status;
+        let log_stream_failure = stream_failure.clone();
 
         tokio::spawn(async move {
             let _ = stream_end_rx.recv().await;
 
             let chunks = collected_chunks.lock().await.clone();
-            let full_body: Vec<u8> = chunks.iter().flat_map(|chunk| chunk.iter()).copied().collect();
+            let full_body: Vec<u8> = chunks
+                .iter()
+                .flat_map(|chunk| chunk.iter())
+                .copied()
+                .collect();
             let content_encoding = log_resp_headers
                 .get("content-encoding")
                 .and_then(|v| v.to_str().ok());
@@ -556,26 +670,45 @@ async fn handle_streaming_request(
             let mut final_log_info = log_info;
             final_log_info.provider_body = Some(truncate_body(&decompressed_body));
             let usage = transformed_usage.lock().await.clone();
+            let failure = log_stream_failure.lock().await.clone();
 
-            if let Ok(had_failures) =
-                provider_service::record_success(&log_state.db, log_provider_id).await
-            {
-                if had_failures {
-                    let _ = stats_service::record_system_log(
-                        &log_state.log_db,
-                        "provider_recovered",
-                        &format!("服务商 {} 已恢复正常", log_provider_name),
-                    )
-                    .await;
+            let final_status = if let Some(failure) = failure {
+                final_log_info.error_message = Some(failure.error_message.clone());
+                if let Ok((was_blacklisted, prov_name)) =
+                    provider_service::record_failure(&log_state.db, log_provider_id).await
+                {
+                    if was_blacklisted {
+                        let _ = stats_service::record_system_log(
+                            &log_state.log_db,
+                            "provider_blacklisted",
+                            &format!("服务商 {} 因连续失败已被加入黑名单", prov_name),
+                        )
+                        .await;
+                    }
                 }
-            }
+                failure.status_code.as_u16()
+            } else {
+                if let Ok(had_failures) =
+                    provider_service::record_success(&log_state.db, log_provider_id).await
+                {
+                    if had_failures {
+                        let _ = stats_service::record_system_log(
+                            &log_state.log_db,
+                            "provider_recovered",
+                            &format!("服务商 {} 已恢复正常", log_provider_name),
+                        )
+                        .await;
+                    }
+                }
+                log_status.as_u16()
+            };
 
             record_request_stats(
                 &log_state,
                 cli_type,
                 &log_provider_name,
                 log_model_id.as_deref(),
-                Some(status.as_u16()),
+                Some(final_status),
                 start_time.elapsed().as_millis() as i64,
                 usage.input_tokens,
                 usage.output_tokens,
@@ -965,10 +1098,43 @@ async fn handle_non_streaming_request(
             Ok(body) => body,
             Err(e) => {
                 tracing::error!(error = %e, "Failed to transform upstream response");
+                let error_message = format!("转换上游响应失败: {}", e);
+                log_info.error_message = Some(error_message.clone());
+
+                if let Ok((was_blacklisted, prov_name)) =
+                    provider_service::record_failure(&state.db, provider_id).await
+                {
+                    if was_blacklisted {
+                        let _ = stats_service::record_system_log(
+                            &state.log_db,
+                            "provider_blacklisted",
+                            &format!("服务商 {} 因连续失败已被加入黑名单", prov_name),
+                        )
+                        .await;
+                    }
+                }
+
+                record_request_stats(
+                    state,
+                    cli_type,
+                    provider_name,
+                    model_id,
+                    Some(StatusCode::BAD_GATEWAY.as_u16()),
+                    start_time.elapsed().as_millis() as i64,
+                    usage.input_tokens,
+                    usage.output_tokens,
+                    client_method,
+                    client_path,
+                    source_model,
+                    target_model,
+                    Some(log_info),
+                )
+                .await;
+
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_GATEWAY)
                     .header("content-type", "application/json")
-                    .body(Body::from(format!(r#"{{"error":"{}"}}"#, e)))
+                    .body(Body::from(format!(r#"{{"error":"{}"}}"#, error_message)))
                     .unwrap());
             }
         }
@@ -1108,4 +1274,30 @@ async fn record_request_stats(
         output_tokens,
     )
     .await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_chat_stream_error_chunk_as_data_frame() {
+        let chunk =
+            build_stream_error_chunk(ApiFormat::OpenAiChatCompletions, "stream conversion failed");
+        let text = String::from_utf8(chunk.to_vec()).expect("utf8");
+
+        assert!(text.starts_with("data: "));
+        assert!(text.contains("\"message\":\"stream conversion failed\""));
+        assert!(!text.contains("event: error"));
+    }
+
+    #[test]
+    fn builds_responses_stream_error_chunk_as_error_event() {
+        let chunk = build_stream_error_chunk(ApiFormat::OpenAiResponses, "idle timeout");
+        let text = String::from_utf8(chunk.to_vec()).expect("utf8");
+
+        assert!(text.starts_with("event: error"));
+        assert!(text.contains("\"type\":\"error\""));
+        assert!(text.contains("\"message\":\"idle timeout\""));
+    }
 }

@@ -33,7 +33,9 @@
 - 当 `Codex` 通过 `/responses` 消费 `OpenAI Chat Completions` 流式上游时，网关现在会补齐 `response.output_item.added/done`、`response.content_part.added/done`、`response.output_text.done` 与 `response.function_call_arguments.delta/done` 事件，而不是只发送简化的 `response.output_text.delta + response.completed`，以避免客户端因事件生命周期不完整而显示空回显。
 - `OpenAI Responses` 流式解析不再把 `output_index` 直接当作工具调用索引；当前实现会单独维护 `output_index/item_id -> tool_call` 映射，避免前面存在文本输出项时把工具调用解析成空槽位。
 - 跨协议流式响应不再等待上游完整结束后一次性转换；当前实现会边接收边解析 SSE 事件，并即时转发给目标协议客户端。
+- 如果跨协议流式响应在网关侧转换过程中失败，网关现在不会再静默截断并误记成功；它会向客户端补发错误 SSE 事件，同时把该次请求按失败写入请求日志与熔断统计。
 - 当跨协议非流式请求收到上游 `4xx/5xx` 错误时，网关不会再尝试把错误 JSON 当成成功响应结构转换，而是保留原始状态码、响应头与错误体直接返回给客户端。
+- 如果跨协议非流式成功响应在网关侧转换阶段失败，网关会先记录失败原因、响应体和失败计数，再向客户端返回 `502`，避免排障时出现“用户报错但后台无日志”的空洞。
 
 ## 工具转换限制
 
